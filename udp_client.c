@@ -43,7 +43,7 @@ int wain(void (*will_connect_server)(void),
 	printf("main 0 %lu\n", DEFAULT_OTHER_ADDR_LEN);
 
 	// The client
-	struct sockaddr *sa_me;
+	struct sockaddr_in *sa_me;
 	char me_internal_ip[256];
 	char me_internal_port[20];
 	char me_internal_family[20];
@@ -75,8 +75,8 @@ int wain(void (*will_connect_server)(void),
 	size_t sendto_len, recvf_len;
 
 	// Setup self
-	str_to_addr(&sa_me, NULL, "1313", AF_INET, SOCK_DGRAM, AI_PASSIVE);
-	addr_to_str(sa_me, me_internal_ip, me_internal_port, me_internal_family);
+	str_to_addr((struct sockaddr**)&sa_me, NULL, "1313", AF_INET, SOCK_DGRAM, AI_PASSIVE);
+	addr_to_str((struct sockaddr*)sa_me, me_internal_ip, me_internal_port, me_internal_family);
 	printf("Moi %s port%s %s\n", me_internal_ip, me_internal_port, me_internal_family);
 
 	// Setup server
@@ -94,7 +94,11 @@ int wain(void (*will_connect_server)(void),
 		printf("There was a problem creating the socket\n");
 	} else {
 		printf("The socket file descriptor is %d\n", sock_fd);
-	}
+    }
+    
+    int br = bind(sock_fd, (struct sockaddr*)sa_me, sizeof(*sa_me));
+    if ( br == -1 ) pfail("bind");
+    printf("bind succeeded %d\n", br);
 
 	sendto_len = sendto(sock_fd, self, sizeof(node), 0, sa_server, server_socklen);
 	if (sendto_len == -1) {
@@ -104,8 +108,6 @@ int wain(void (*will_connect_server)(void),
 	} else {
 		printf("sendto succeeded, %zu bytes sent\n", sendto_len);
 	}
-
-	bind(sock_fd, sa_me, sizeof(*sa_me));
 
 	while (running) {
 		recvf_len = recvfrom(sock_fd, &buf, sizeof(buf), 0, &sa_other, &other_socklen);
