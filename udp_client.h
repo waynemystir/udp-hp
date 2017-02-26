@@ -9,9 +9,13 @@
 #ifndef udp_client_h
 #define udp_client_h
 
-int wain(void (*will_connect_server)(void),
-		void (*looping_recv)(void),
-		void (*recd)(char *),
+int wain(void (*self_info)(char *),
+		void (*server_info)(char *),
+		void (*socket_created)(int sock_fd),
+		void (*socket_bound)(void),
+		void (*sendto_succeeded)(size_t bytes_sent),
+		void (*recd)(size_t bytes_recd, socklen_t addr_len, char *),
+		void (*coll_buf)(char *),
 		void (*new_client)(char *),
 		void (*confirmed_client)(void),
 		void (*new_peer)(char *),
