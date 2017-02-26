@@ -9,6 +9,8 @@
 #ifndef udp_client_h
 #define udp_client_h
 
+#include "network_utils.h"
+
 int wain(void (*self_info)(char *),
 		void (*server_info)(char *),
 		void (*socket_created)(int sock_fd),

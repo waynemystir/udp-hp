@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "udp_client.h"
-#include "network_utils.h"
 
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
