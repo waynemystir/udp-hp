@@ -36,11 +36,11 @@ void pfail(char *s) {
 }
 
 int main() {
-	printf("main -: 0 %zu %zu\n", sizeof(STATUS_TYPE), sizeof(struct node));
+	printf("main 0 %zu %zu\n", sizeof(STATUS_TYPE), sizeof(struct node));
 
 	int running = 1;
 	size_t recvf_len, sendto_len;
-	struct sockaddr_in si_me;
+	struct sockaddr_in *si_me;
 	struct sockaddr si_other;
 	socklen_t slen = sizeof(struct sockaddr);
 	int sock_fd;
@@ -50,24 +50,22 @@ int main() {
 
 	sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if ( sock_fd == -1 ) pfail("socket");
-	printf("main -: 1 -: %d\n", sock_fd);
+	printf("main 1 %d\n", sock_fd);
 
 	// si_me stores our local endpoint. Remember that this program
 	// has to be run in a network with UDP endpoint previously known
 	// and directly accessible by all clients. In simpler terms, the
 	// server cannot be behind a NAT.
-	memset((char *) &si_me, 0, sizeof(si_me));
-	si_me.sin_family = AF_INET;
-	si_me.sin_port = htons(PORT);
-	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-
-	int br = bind(sock_fd, (struct sockaddr*)(&si_me), sizeof(si_me));
-	if ( br == -1 ) pfail("bind");
+	str_to_addr((struct sockaddr**)&si_me, NULL, "9930", AF_INET, SOCK_DGRAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
-	addr_to_str( (struct sockaddr*)&si_me, me_ip_str, me_port, me_fam );
-	printf("main -: 2 -: %d -: %s\n", br, me_ip_str);
+	addr_to_str( (struct sockaddr*)si_me, me_ip_str, me_port, me_fam );
+	printf("main 2 %s %s %s %zu\n", me_ip_str, me_port, me_fam, sizeof(*si_me));
+
+	int br = bind(sock_fd, (struct sockaddr*)si_me, sizeof(*si_me));
+	if ( br == -1 ) pfail("bind");
+	printf("main 3 %d\n", br);
 
 	while (running) {
 		// printf("main -: 3\n");
