@@ -132,10 +132,14 @@ int wain(void (*self_info)(char *),
 	printf("main 0 %lu\n", DEFAULT_OTHER_ADDR_LEN);
 
 	// The client
-	struct sockaddr_in *sa_me;
+	struct sockaddr_in *sa_me_internal;
 	char me_internal_ip[256];
 	char me_internal_port[20];
 	char me_internal_family[20];
+	struct sockaddr_in *sa_me_external;
+	char me_external_ip[256];
+	char me_external_port[20];
+	char me_external_family[20];
 
 	// The server
 	struct sockaddr *sa_server;
@@ -165,8 +169,8 @@ int wain(void (*self_info)(char *),
 	char sprintf[256];
 
 	// Setup self
-	str_to_addr((struct sockaddr**)&sa_me, NULL, "1313", AF_INET, SOCK_DGRAM, AI_PASSIVE);
-	addr_to_str((struct sockaddr*)sa_me, me_internal_ip, me_internal_port, me_internal_family);
+	str_to_addr((struct sockaddr**)&sa_me_internal, NULL, "1313", AF_INET, SOCK_DGRAM, AI_PASSIVE);
+	addr_to_str((struct sockaddr*)sa_me_internal, me_internal_ip, me_internal_port, me_internal_family);
 	sprintf(sprintf, "Moi %s port%s %s", me_internal_ip, me_internal_port, me_internal_family);
 	if (self_info) self_info(sprintf);
 
@@ -186,7 +190,7 @@ int wain(void (*self_info)(char *),
 		printf("There was a problem creating the socket\n");
 	} else if (socket_created) socket_created(sock_fd);
 
-	int br = bind(sock_fd, (struct sockaddr*)sa_me, sizeof(*sa_me));
+	int br = bind(sock_fd, (struct sockaddr*)sa_me_internal, sizeof(*sa_me_internal));
 	if ( br == -1 ) pfail("bind");
 	if (socket_bound) socket_bound();
 
@@ -227,9 +231,16 @@ int wain(void (*self_info)(char *),
 			// The datagram came from the server.
 			switch (buf.status) {
 				case STATUS_NEW_NODE: {
-					sa_me = (struct sockaddr_in*)&buf_sa;
-					addr_to_str((struct sockaddr*)sa_me, me_internal_ip, me_internal_port, me_internal_family);
-					sprintf(sprintf, "Moi aussie %s port%s %s", me_internal_ip, me_internal_port, me_internal_family);
+					sa_me_external = malloc(sizeof(struct sockaddr_in));
+					memcpy(sa_me_external, buf_sa, sizeof(struct sockaddr_in));
+					addr_to_str((struct sockaddr*)sa_me_external,
+						me_external_ip,
+						me_external_port,
+						me_external_family);
+					sprintf(sprintf, "Moi aussie %s port%s %s",
+						me_external_ip,
+						me_external_port,
+						me_external_family);
 					if (new_client) new_client(sprintf);
 					break;
 				}
