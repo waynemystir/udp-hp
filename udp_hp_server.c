@@ -28,6 +28,7 @@ struct node {
 	};
 	unsigned short port;
 	unsigned short family;
+	struct node *next;
 };
 
 void pfail(char *s) {
@@ -91,12 +92,14 @@ int main() {
 						struct sockaddr_in *sai4 = (struct sockaddr_in*)&si_other;
 						nodes[num_nodes].ip4 = sai4->sin_addr.s_addr;
 						nodes[num_nodes].port = sai4->sin_port;
+						nodes[num_nodes].next = NULL;
 						break;
 					}
 					case AF_INET6: {
 						struct sockaddr_in6 *sai6 = (struct sockaddr_in6*)&si_other;
 						memcpy(nodes[num_nodes].ip6, sai6->sin6_addr.s6_addr, 16);
 						nodes[num_nodes].port = sai6->sin6_port;
+						nodes[num_nodes].next = NULL;
 						break;
 					}
 					default:
