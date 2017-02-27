@@ -21,7 +21,93 @@ typedef struct node {
 	};
 	unsigned short port;
 	unsigned short family;
+	struct node *next;
 } node;
+
+struct node **peers = NULL;
+struct node *first_peer = NULL;
+struct node **last_peer = &first_peer;
+
+int nodes_equal(struct node *n1, struct node *n2) {
+	if (!n1 || !n2) return 0;
+	if (n1->family != n2->family) return 0;
+	if (n1->port != n2->port) return 0;
+
+	switch (n1->family) {
+		case AF_INET: return n1->ip4 == n2->ip4;
+		case AF_INET6: return n1->ip6 == n2->ip6;
+		default: return 0;
+	}
+}
+
+struct node *find_peer(struct node peer) {
+    if (!first_peer) return NULL;
+    
+    struct node *p = first_peer;
+    while (p) {
+        if (nodes_equal(p, &peer)) return p;
+        p = p->next;
+    }
+    return NULL;
+}
+
+struct node *register_peer(struct node new_peer) {
+	if (!first_peer) {
+		first_peer = malloc(sizeof(struct node));
+		memcpy(first_peer, &new_peer, sizeof(struct node));
+		peers = &first_peer;
+		return first_peer;
+	}
+
+	if (find_peer(new_peer)) return NULL;
+	struct node *old_last_peer = *last_peer;
+	struct node *new_last_peer = malloc(sizeof(struct node));
+	memcpy(new_last_peer, &new_peer, sizeof(struct node));
+	old_last_peer->next = new_last_peer;
+	last_peer = &new_last_peer;
+	return new_last_peer;
+}
+
+int peer_count() {
+	if (!first_peer) return 0;
+	int j = 0;
+	struct node *p = first_peer;
+	while (p) {
+		j++;
+		p = p->next;
+	}
+	return j;
+}
+
+int node_to_addr(struct sockaddr **addr, struct node n) {
+	if (!addr) return -1;
+
+	switch (n.family) {
+		case AF_INET: {
+			struct sockaddr_in *sai = malloc(sizeof(struct sockaddr_in));
+			sai->sin_addr.s_addr = n.ip4;
+			sai->sin_port = n.port;
+			sai->sin_family = AF_INET;
+			*addr = (struct sockaddr*)sai;
+			(*addr)->sa_family = AF_INET;
+			break;
+		}
+		case AF_INET6: {
+			struct sockaddr_in6 *sai = malloc(sizeof(struct sockaddr_in6));
+			memcpy(sai->sin6_addr.s6_addr, n.ip6, sizeof(unsigned char[16]));
+			sai->sin6_port = n.port;
+			sai->sin6_family = AF_INET;
+			*addr = (struct sockaddr*)&sai;
+			(*addr)->sa_family = AF_INET6;
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+
+	return 0;
+}
 
 void pfail(char *w) {
 	printf("pfail 0\n");
@@ -124,33 +210,90 @@ int wain(void (*self_info)(char *),
 		if (recd) recd(recvf_len, other_socklen, sprintf);
 		other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
-		struct sockaddr bufsa;
-		switch (buf.family) {
-			case AF_INET: {
-				if (coll_buf) coll_buf("Gathering buf data for IPv4\n");
-				struct sockaddr_in sai;
-				sai.sin_addr.s_addr = buf.ip4;
-				bufsa = *(struct sockaddr*)&sai;
-				bufsa.sa_family = AF_INET;
-				break;
-			}
-			case AF_INET6: {
-				if (coll_buf) coll_buf("Gathering buf data for IPv6\n");
-				struct sockaddr_in6 sai;
-				memcpy(sai.sin6_addr.s6_addr, buf.ip6, sizeof(unsigned char[16]));
-				bufsa = *(struct sockaddr*)&sai;
-				bufsa.sa_family = AF_INET6;
-				break;
-			}
-			default: {
-				break;
-			}
-		}
+		struct sockaddr *buf_sa;
+		node_to_addr(&buf_sa, buf);
 		char bp[20];
 		char bf[20];
-		addr_to_str(&bufsa, buf_ip, bp, bf);
-		size_t bufsz = sizeof(buf);
-		printf("buf %zu %d %s port%u %u\n", bufsz, buf.status, buf_ip, ntohs(buf.port), buf.family);
+		addr_to_str(buf_sa, buf_ip, bp, bf);
+		sprintf(sprintf, "coll_buf sz:%zu st:%d ip:%s p:%u f:%u",
+			sizeof(buf),
+			buf.status,
+			buf_ip,
+			ntohs(buf.port),
+			buf.family);
+		if (coll_buf) coll_buf(sprintf);
+
+		if (addr_equals(sa_server, &sa_other)) {
+			// The datagram came from the server.
+			switch (buf.status) {
+				case STATUS_NEW_NODE: {
+					sa_me = (struct sockaddr_in*)&buf_sa;
+					addr_to_str((struct sockaddr*)sa_me, me_internal_ip, me_internal_port, me_internal_family);
+					sprintf(sprintf, "Moi aussie %s port%s %s", me_internal_ip, me_internal_port, me_internal_family);
+					if (new_client) new_client(sprintf);
+					break;
+				}
+				case STATUS_CONFIRMED_NODE: {
+					if (confirmed_client) confirmed_client();
+					break;
+				}
+				case STATUS_NEW_PEER: {
+					// The server code is set to send us a datagram for each peer,
+					// in which the payload contains the peer's UDP endpoint data.
+					// We're receiving binary data here, sent using the server's
+					// byte ordering. We should make sure we agree on the
+					// endianness in any serious code.
+					// Now we just have to add the reported peer into our peer list
+					struct node *new_peer_added = register_peer(buf);
+					if (new_peer_added) {
+						sprintf(sprintf, "New peer %s p:%u added\nNow we have %d peers",
+							buf_ip,
+							ntohs(buf.port),
+							peer_count());
+					} else {
+						sprintf(sprintf, "New peer %s p:%u already exist\nNow we have %d peers",
+							buf_ip,
+							ntohs(buf.port),
+							peer_count());
+					}
+					if (new_peer) new_peer(sprintf);
+                    
+					// And here is where the actual hole punching happens. We are going to send
+					// a bunch of datagrams to each peer. Since we're using the same socket we
+					// previously used to send data to the server, our local endpoint is the same
+					// as before.
+					// If the NAT maps our local endpoint to the same public endpoint
+					// regardless of the remote endpoint, after the first datagram we send, we
+					// have an open session (the hole punch) between our local endpoint and the
+					// peer's public endpoint. The first datagram will probably not go through
+					// the peer's NAT, but since UDP is stateless, there is no way for our NAT
+					// to know that the datagram we sent got dropped by the peer's NAT (well,
+					// our NAT may get an ICMP Destination Unreachable, but most NATs are
+					// configured to simply discard them) but when the peer sends us a datagram,
+					// it will pass through the hole punch into our local endpoint.
+//					for (k = 0; k < 10; k++) {
+//						printf("punching hole %d\n", k);
+//						// Send 10 datagrams.
+//						for (i = 0; i < n; i++) {
+//							si_other.sin_addr.s_addr = peers[i].host;
+//							si_other.sin_port = peers[i].port;
+//							// Once again, the payload is irrelevant. Feel free to send your VoIP
+//							// data in here.
+//							if (sendto(s, &peers[i], sizeof(peers[i]), 0, (struct sockaddr*)(&si_other), slen)==-1)
+//								pfail("sendto()");
+//						}
+//					}
+					break;
+                    
+				}
+                    
+				default: {
+					if (unhandled_response_from_server) unhandled_response_from_server(buf.status);
+					break;
+				}
+			}
+		}
+        free(buf_sa);
 	}
 
 	return 0;
