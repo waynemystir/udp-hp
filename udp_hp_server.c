@@ -124,11 +124,28 @@ int main() {
 				nodes[n1].status = STATUS_NEW_PEER;
 
 				for (int w = 0; w < n1; w++) {
-					// si_other = nodes[w].addr;
-					if (sendto(sock_fd, &nodes[(n1)], sizeof(nodes[(n1)]), 0, (struct sockaddr*)(&si_other), slen)==-1)
+
+					struct sockaddr w_addr;
+					switch (nodes[w].family) {
+						case AF_INET: {
+							w_addr.sa_family = AF_INET;
+							((struct sockaddr_in*)&w_addr)->sin_family = AF_INET;
+							((struct sockaddr_in*)&w_addr)->sin_port = nodes[w].port;
+							((struct sockaddr_in*)&w_addr)->sin_addr.s_addr = nodes[w].ip4;
+							break;
+						}
+						case AF_INET6: {
+							w_addr.sa_family = AF_INET6;
+							((struct sockaddr_in6*)&w_addr)->sin6_family = AF_INET6;
+							((struct sockaddr_in6*)&w_addr)->sin6_port = nodes[w].port;
+							memcpy(((struct sockaddr_in6*)&w_addr)->sin6_addr.s6_addr, nodes[w].ip6, 16);
+							break;
+						}
+						default: continue;
+					}
+					if (sendto(sock_fd, &nodes[(n1)], sizeof(nodes[(n1)]), 0, &w_addr, slen)==-1)
 						pfail("sendto");
 
-					// si_other = nodes[n1].addr;
 					if (sendto(sock_fd, &nodes[w], sizeof(nodes[w]), 0, (struct sockaddr*)(&si_other), slen)==-1)
 						pfail("sendto");
 				}
