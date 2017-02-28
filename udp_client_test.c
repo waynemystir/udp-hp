@@ -43,11 +43,11 @@ void new_client(char *w) {
 
 void confirmed_client() {
 	char *w = "Confirmed client\n";
-	printf("%s", w);
+	printf("%s\n", w);
 }
 
 void new_peer(char *w) {
-	printf("%s", w);
+	printf("%s\n", w);
 }
 
 void unhandled_response_from_server(int w) {

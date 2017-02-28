@@ -24,9 +24,15 @@ typedef struct node {
 	struct node *next;
 } node;
 
+// peers
+// TODO I think **peers is unnecessary?
 struct node **peers = NULL;
 struct node *first_peer = NULL;
 struct node **last_peer = &first_peer;
+int peer_count = 0;
+
+// various
+int sock_fd;
 
 int nodes_equal(struct node *n1, struct node *n2) {
 	if (!n1 || !n2) return 0;
@@ -41,14 +47,14 @@ int nodes_equal(struct node *n1, struct node *n2) {
 }
 
 struct node *find_peer(struct node peer) {
-    if (!first_peer) return NULL;
-    
-    struct node *p = first_peer;
-    while (p) {
-        if (nodes_equal(p, &peer)) return p;
-        p = p->next;
-    }
-    return NULL;
+	if (!first_peer) return NULL;
+
+	struct node *p = first_peer;
+	while (p) {
+		if (nodes_equal(p, &peer)) return p;
+		p = p->next;
+	}
+	return NULL;
 }
 
 struct node *register_peer(struct node new_peer) {
@@ -56,27 +62,40 @@ struct node *register_peer(struct node new_peer) {
 		first_peer = malloc(sizeof(struct node));
 		memcpy(first_peer, &new_peer, sizeof(struct node));
 		peers = &first_peer;
+		peer_count++;
 		return first_peer;
 	}
 
 	if (find_peer(new_peer)) return NULL;
+
 	struct node *old_last_peer = *last_peer;
 	struct node *new_last_peer = malloc(sizeof(struct node));
 	memcpy(new_last_peer, &new_peer, sizeof(struct node));
 	old_last_peer->next = new_last_peer;
 	last_peer = &new_last_peer;
+	peer_count++;
 	return new_last_peer;
 }
 
-int peer_count() {
-	if (!first_peer) return 0;
-	int j = 0;
+//int peer_count() {
+//	if (!first_peer) return 0;
+//	int j = 0;
+//	struct node *p = first_peer;
+//	while (p) {
+//		j++;
+//		p = p->next;
+//	}
+//	return j;
+//}
+
+void peers_perform(void (*perform)(struct node *n)) {
+	if (!first_peer || !perform) return;
+
 	struct node *p = first_peer;
 	while (p) {
-		j++;
+		perform(p);
 		p = p->next;
 	}
-	return j;
 }
 
 int node_to_addr(struct sockaddr **addr, struct node n) {
@@ -113,6 +132,43 @@ void pfail(char *w) {
 	printf("pfail 0\n");
 	perror(w);
 	exit(1);
+}
+
+void punch_hole_in_peer(struct node *peer) {
+	if (!peer) return;
+	// TODO set peer->status = STATUS_NEW_PEER?
+	// and then set back to previous status?
+	struct sockaddr peer_addr;
+	socklen_t peer_socklen = 0;
+	switch (peer->family) {
+		case AF_INET: {
+			peer_addr.sa_family = AF_INET;
+			((struct sockaddr_in *)&peer_addr)->sin_family = AF_INET;
+			((struct sockaddr_in *)&peer_addr)->sin_addr.s_addr = peer->ip4;
+			((struct sockaddr_in *)&peer_addr)->sin_port = peer->port;
+			peer_socklen = sizeof(struct sockaddr_in);
+			break;
+		}
+		case AF_INET6: {
+			peer_addr.sa_family = AF_INET6;
+			((struct sockaddr_in6 *)&peer_addr)->sin6_family = AF_INET6;
+			memcpy(((struct sockaddr_in6 *)&peer_addr)->sin6_addr.s6_addr, peer->ip6, 16);
+			((struct sockaddr_in6 *)&peer_addr)->sin6_port = peer->port;
+			peer_socklen = sizeof(struct sockaddr_in6);
+			break;
+		}
+		default: {
+			printf("punch_hole_in_peer, peer->family not well defined\n");
+			return;
+		}
+	}
+	char pi[256];
+	char pp[20];
+	char pf[20];
+	addr_to_str(&peer_addr, pi, pp, pf);
+	printf("punch_hole_in_peer %s %s %s\n", pi, pp, pf);
+	if (sendto(sock_fd, peer, sizeof(*peer), 0, &peer_addr, peer_socklen) == -1)
+		pfail("punch_hole_in_peer sendto");
 }
 
 int wain(void (*self_info)(char *),
@@ -185,7 +241,7 @@ int wain(void (*self_info)(char *),
 		server_socklen);
 	if (server_info) server_info(sprintf);
 
-	int sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock_fd == -1) {
 		printf("There was a problem creating the socket\n");
 	} else if (socket_created) socket_created(sock_fd);
@@ -260,12 +316,12 @@ int wain(void (*self_info)(char *),
 						sprintf(sprintf, "New peer %s p:%u added\nNow we have %d peers",
 							buf_ip,
 							ntohs(buf.port),
-							peer_count());
+							peer_count);
 					} else {
 						sprintf(sprintf, "New peer %s p:%u already exist\nNow we have %d peers",
 							buf_ip,
 							ntohs(buf.port),
-							peer_count());
+							peer_count);
 					}
 					if (new_peer) new_peer(sprintf);
                     
@@ -282,27 +338,24 @@ int wain(void (*self_info)(char *),
 					// our NAT may get an ICMP Destination Unreachable, but most NATs are
 					// configured to simply discard them) but when the peer sends us a datagram,
 					// it will pass through the hole punch into our local endpoint.
-//					for (k = 0; k < 10; k++) {
-//						printf("punching hole %d\n", k);
-//						// Send 10 datagrams.
-//						for (i = 0; i < n; i++) {
-//							si_other.sin_addr.s_addr = peers[i].host;
-//							si_other.sin_port = peers[i].port;
-//							// Once again, the payload is irrelevant. Feel free to send your VoIP
-//							// data in here.
-//							if (sendto(s, &peers[i], sizeof(peers[i]), 0, (struct sockaddr*)(&si_other), slen)==-1)
-//								pfail("sendto()");
-//						}
-//					}
+					for (int j = 0; j < 10; j++) {
+						// Send 10 datagrams.
+						// printf("punching hole %d\n", j);
+						peers_perform(punch_hole_in_peer);
+					}
 					break;
                     
 				}
                     
 				default: {
-					if (unhandled_response_from_server) unhandled_response_from_server(buf.status);
+					if (unhandled_response_from_server)
+						unhandled_response_from_server(buf.status);
 					break;
 				}
 			}
+		} else {
+			// Then it is from a peer, probably
+			printf("FROM PEER: ip:%s port:%s fam:%s\n", other_ip, other_port, other_family);
 		}
         free(buf_sa);
 	}
