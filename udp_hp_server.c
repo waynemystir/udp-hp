@@ -28,6 +28,7 @@ struct node {
 	};
 	unsigned short port;
 	unsigned short family;
+	struct node *next;
 };
 
 void pfail(char *s) {
@@ -91,17 +92,21 @@ int main() {
 						struct sockaddr_in *sai4 = (struct sockaddr_in*)&si_other;
 						nodes[num_nodes].ip4 = sai4->sin_addr.s_addr;
 						nodes[num_nodes].port = sai4->sin_port;
+						nodes[num_nodes].next = NULL;
 						break;
 					}
 					case AF_INET6: {
 						struct sockaddr_in6 *sai6 = (struct sockaddr_in6*)&si_other;
 						memcpy(nodes[num_nodes].ip6, sai6->sin6_addr.s6_addr, 16);
 						nodes[num_nodes].port = sai6->sin6_port;
+						nodes[num_nodes].next = NULL;
 						break;
 					}
-					default:
+					default: {
 						printf("We received STATUS_INIT_NODE with invalid family %d\n",
 							si_other.sa_family);
+						continue;
+					}
 				}
 				nodes[num_nodes].family = si_other.sa_family;
 				int n1 = num_nodes++;
@@ -121,11 +126,28 @@ int main() {
 				nodes[n1].status = STATUS_NEW_PEER;
 
 				for (int w = 0; w < n1; w++) {
-					// si_other = nodes[w].addr;
-					if (sendto(sock_fd, &nodes[(n1)], sizeof(nodes[(n1)]), 0, (struct sockaddr*)(&si_other), slen)==-1)
+
+					struct sockaddr w_addr;
+					switch (nodes[w].family) {
+						case AF_INET: {
+							w_addr.sa_family = AF_INET;
+							((struct sockaddr_in*)&w_addr)->sin_family = AF_INET;
+							((struct sockaddr_in*)&w_addr)->sin_port = nodes[w].port;
+							((struct sockaddr_in*)&w_addr)->sin_addr.s_addr = nodes[w].ip4;
+							break;
+						}
+						case AF_INET6: {
+							w_addr.sa_family = AF_INET6;
+							((struct sockaddr_in6*)&w_addr)->sin6_family = AF_INET6;
+							((struct sockaddr_in6*)&w_addr)->sin6_port = nodes[w].port;
+							memcpy(((struct sockaddr_in6*)&w_addr)->sin6_addr.s6_addr, nodes[w].ip6, 16);
+							break;
+						}
+						default: continue;
+					}
+					if (sendto(sock_fd, &nodes[(n1)], sizeof(nodes[(n1)]), 0, &w_addr, slen)==-1)
 						pfail("sendto");
 
-					// si_other = nodes[n1].addr;
 					if (sendto(sock_fd, &nodes[w], sizeof(nodes[w]), 0, (struct sockaddr*)(&si_other), slen)==-1)
 						pfail("sendto");
 				}
