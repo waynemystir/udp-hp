@@ -102,9 +102,11 @@ int main() {
 						nodes[num_nodes].next = NULL;
 						break;
 					}
-					default:
+					default: {
 						printf("We received STATUS_INIT_NODE with invalid family %d\n",
 							si_other.sa_family);
+						continue;
+					}
 				}
 				nodes[num_nodes].family = si_other.sa_family;
 				int n1 = num_nodes++;
