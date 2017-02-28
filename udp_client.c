@@ -152,7 +152,8 @@ void punch_hole_in_peer(struct node *peer) {
 		case AF_INET6: {
 			peer_addr.sa_family = AF_INET6;
 			((struct sockaddr_in6 *)&peer_addr)->sin6_family = AF_INET6;
-			memcpy(((struct sockaddr_in6 *)&peer_addr)->sin6_addr.s6_addr, peer->ip6, 16);
+			memcpy(((struct sockaddr_in6 *)&peer_addr)->sin6_addr.s6_addr,
+				peer->ip6, sizeof(unsigned char[16]));
 			((struct sockaddr_in6 *)&peer_addr)->sin6_port = peer->port;
 			peer_socklen = sizeof(struct sockaddr_in6);
 			break;
