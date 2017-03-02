@@ -7,7 +7,7 @@ SOURCES=sign_in_hp_endpoint.c
 
 OBJECTS=$(SOURCES:.c=.o)
 
-EXECUTABLE=sign_in_hp_endpoint.o
+EXECUTABLE=server_sign_in
 
 DEPENDENCIES=../common
 
