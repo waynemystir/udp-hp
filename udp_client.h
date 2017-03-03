@@ -22,8 +22,14 @@ int wain(void (*self_info)(char *),
 		void (*confirmed_client)(void),
 		void (*new_peer)(char *),
 		void (*unhandled_response_from_server)(int),
+		void (*chat_socket_created)(int),
+		void (*chat_socket_bound)(void),
+		void (*chat_sendto_succeeded)(size_t),
+		void (*chat_recd)(size_t, socklen_t, char *),
 		void (*whilew)(int),
 		void (*end_while)(void));
+
+void ping_all_peers();
 
 int send_message_to_peer(char *);
 
