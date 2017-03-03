@@ -8,29 +8,12 @@
 #include <netdb.h>
 #include <pthread.h>
 
+#include "node.h"
 #include "network_utils.h"
  
 #define BUFLEN 512
 #define NPACK 10
 #define PORT 9930
-
-typedef enum STATUS_TYPE {
-    STATUS_INIT_NODE = 0,
-    STATUS_NEW_NODE = 1,
-    STATUS_CONFIRMED_NODE = 2,
-    STATUS_NEW_PEER = 3 // A peer is any node other than self
-} STATUS_TYPE;
-
-struct node {
-	STATUS_TYPE status;
-	union {
-		unsigned long ip4;
-		unsigned char ip6[16];
-	};
-	unsigned short port;
-	unsigned short family;
-	struct node *next;
-};
 
 int sign_in_running = 1;
 pthread_t sign_in_thread;

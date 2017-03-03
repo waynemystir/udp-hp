@@ -1,0 +1,4 @@
+*.o
+server_sign_in
+*.a
+common/network
