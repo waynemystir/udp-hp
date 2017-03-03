@@ -27,10 +27,12 @@ typedef struct node {
 // and make separate node_internal that includes next. Then add
 // function to switch between node and node_internal and voila.
 
+typedef struct LinkedList LinkedList;
+
 int nodes_equal(struct node *n1, struct node *n2);
 
-struct node *find_peer(struct node peer);
+struct node *find_node(LinkedList *list, struct node *node);
 
-struct node *register_peer(struct node new_peer);
+struct node *register_node(LinkedList *list, struct node *new_node);
 
-void peers_perform(void (*perform)(struct node *n));
+void nodes_perform(LinkedList *list, void (*perform)(struct node *node));

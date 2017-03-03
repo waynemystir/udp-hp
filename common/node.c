@@ -5,9 +5,11 @@
 
 #include "node.h"
 
-struct node *first_peer = NULL;
-struct node **last_peer = &first_peer;
-int peer_count = 0;
+struct LinkedList {
+	struct node *first_node;
+	struct node **last_node;
+	int node_count;
+};
 
 int nodes_equal(struct node *n1, struct node *n2) {
 	if (!n1 || !n2) return 0;
@@ -21,40 +23,49 @@ int nodes_equal(struct node *n1, struct node *n2) {
 	}
 }
 
-struct node *find_peer(struct node peer) {
-	if (!first_peer) return NULL;
+struct node *find_node(LinkedList *list, struct node *node) {
+	if (!list && !list->first_node) return NULL;
 
-	struct node *p = first_peer;
+	struct node *p = list->first_node;
 	while (p) {
-		if (nodes_equal(p, &peer)) return p;
+		if (nodes_equal(p, node)) return p;
 		p = p->next;
 	}
 	return NULL;
 }
 
-struct node *register_peer(struct node new_peer) {
-	if (!first_peer) {
-		first_peer = malloc(sizeof(struct node));
-		memcpy(first_peer, &new_peer, sizeof(struct node));
-		peer_count++;
-		return first_peer;
+struct node *register_node(LinkedList *list, struct node *new_node) {
+	if (!list) {
+		printf("register_node: given list is NULL, returning NULL\n");
+		return NULL;
 	}
 
-	if (find_peer(new_peer)) return NULL;
+	if (!list->first_node) {
+		list->first_node = malloc(sizeof(struct node));
+		memcpy(list->first_node, new_node, sizeof(struct node));
+		list->last_node = &list->first_node;
+		list->node_count++;
+		return list->first_node;
+	}
 
-	struct node *old_last_peer = *last_peer;
-	struct node *new_last_peer = malloc(sizeof(struct node));
-	memcpy(new_last_peer, &new_peer, sizeof(struct node));
-	old_last_peer->next = new_last_peer;
-	last_peer = &new_last_peer;
-	peer_count++;
-	return new_last_peer;
+	if (find_node(list, new_node)) {
+		printf("register_node: node already in list, returning NULL\n");
+		return NULL;
+	}
+
+	struct node *old_last_node = *list->last_node;
+	struct node *new_last_node = malloc(sizeof(struct node));
+	memcpy(new_last_node, new_node, sizeof(struct node));
+	old_last_node->next = new_last_node;
+	list->last_node = &new_last_node;
+	list->node_count++;
+	return new_last_node;
 }
 
-void peers_perform(void (*perform)(struct node *n)) {
-	if (!first_peer || !perform) return;
+void nodes_perform(LinkedList *list, void (*perform)(struct node *n)) {
+	if (!list && !list->first_node) return;
 
-	struct node *p = first_peer;
+	struct node *p = list->first_node;
 	while (p) {
 		perform(p);
 		p = p->next;
