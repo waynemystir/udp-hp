@@ -5,12 +5,6 @@
 
 #include "node.h"
 
-struct LinkedList {
-	struct node *first_node;
-	struct node **last_node;
-	int node_count;
-};
-
 int nodes_equal(struct node *n1, struct node *n2) {
 	if (!n1 || !n2) return 0;
 	if (n1->family != n2->family) return 0;

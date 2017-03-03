@@ -27,7 +27,11 @@ typedef struct node {
 // and make separate node_internal that includes next. Then add
 // function to switch between node and node_internal and voila.
 
-typedef struct LinkedList LinkedList;
+typedef struct LinkedList {
+	struct node *first_node;
+	struct node **last_node;
+	int node_count;
+} LinkedList;
 
 int nodes_equal(struct node *n1, struct node *n2);
 

@@ -4,29 +4,14 @@
 #include <pthread.h>
 
 #include "udp_client.h"
+#include "node.h"
 
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
-typedef enum STATUS_TYPE {
-    STATUS_INIT_NODE = 0,
-    STATUS_NEW_NODE = 1,
-    STATUS_CONFIRMED_NODE = 2,
-    STATUS_NEW_PEER = 3 // A peer is any client other than self
-} STATUS_TYPE;
-
-typedef struct node {
-	STATUS_TYPE status;
-	union {
-		unsigned long ip4;
-		unsigned char ip6[16];
-	};
-	unsigned short port;
-	unsigned short family;
-	struct node *next;
-} node;
-
 void init_chat_with_peer(struct node *peer);
 void chat_hp(void *w);
+
+struct LinkedList *peers;
 
 // The client
 struct sockaddr_in *sa_me_internal;
@@ -45,13 +30,6 @@ char server_internal_port[20];
 char server_internal_family[20];
 socklen_t server_socklen = 0;
 
-// peers
-// TODO I think **peers is unnecessary?
-struct node **peers = NULL;
-struct node *first_peer = NULL;
-struct node **last_peer = &first_peer;
-int peer_count = 0;
-
 // various
 int sock_fd;
 int chat_sock_fd;
@@ -61,70 +39,6 @@ int chat_sock_fd;
 // void (*chat_socket_bound)(void) = NULL;
 // void (*chat_sendto_succeeded)(size_t) = NULL;
 // void (*chat_recd)(size_t, socklen_t, char *) = NULL;
-
-int nodes_equal(struct node *n1, struct node *n2) {
-	if (!n1 || !n2) return 0;
-	if (n1->family != n2->family) return 0;
-	if (n1->port != n2->port) return 0;
-
-	switch (n1->family) {
-		case AF_INET: return n1->ip4 == n2->ip4;
-		case AF_INET6: return n1->ip6 == n2->ip6;
-		default: return 0;
-	}
-}
-
-struct node *find_peer(struct node peer) {
-	if (!first_peer) return NULL;
-
-	struct node *p = first_peer;
-	while (p) {
-		if (nodes_equal(p, &peer)) return p;
-		p = p->next;
-	}
-	return NULL;
-}
-
-struct node *register_peer(struct node new_peer) {
-	if (!first_peer) {
-		first_peer = malloc(sizeof(struct node));
-		memcpy(first_peer, &new_peer, sizeof(struct node));
-		peers = &first_peer;
-		peer_count++;
-		return first_peer;
-	}
-
-	if (find_peer(new_peer)) return NULL;
-
-	struct node *old_last_peer = *last_peer;
-	struct node *new_last_peer = malloc(sizeof(struct node));
-	memcpy(new_last_peer, &new_peer, sizeof(struct node));
-	old_last_peer->next = new_last_peer;
-	last_peer = &new_last_peer;
-	peer_count++;
-	return new_last_peer;
-}
-
-//int peer_count() {
-//	if (!first_peer) return 0;
-//	int j = 0;
-//	struct node *p = first_peer;
-//	while (p) {
-//		j++;
-//		p = p->next;
-//	}
-//	return j;
-//}
-
-void peers_perform(void (*perform)(struct node *n)) {
-	if (!first_peer || !perform) return;
-
-	struct node *p = first_peer;
-	while (p) {
-		perform(p);
-		p = p->next;
-	}
-}
 
 int node_to_addr(struct sockaddr **addr, struct node n) {
 	if (!addr) return -1;
@@ -201,7 +115,7 @@ void punch_hole_in_peer(struct node *peer) {
 }
 
 void ping_all_peers() {
-	peers_perform(punch_hole_in_peer);
+	nodes_perform(peers, punch_hole_in_peer);
 }
 
 int wain(void (*self_info)(char *),
@@ -277,6 +191,8 @@ int wain(void (*self_info)(char *),
 		pfail(w);
 	} else if (sendto_succeeded) sendto_succeeded(sendto_len);
 
+	peers = malloc(sizeof(struct LinkedList));
+
 	while (running) {
 		recvf_len = recvfrom(sock_fd, &buf, sizeof(buf), 0, &sa_other, &other_socklen);
 		if (recvf_len == -1) {
@@ -331,17 +247,17 @@ int wain(void (*self_info)(char *),
 					// byte ordering. We should make sure we agree on the
 					// endianness in any serious code.
 					// Now we just have to add the reported peer into our peer list
-					struct node *new_peer_added = register_peer(buf);
+					struct node *new_peer_added = register_node(peers, &buf);
 					if (new_peer_added) {
 						sprintf(sprintf, "New peer %s p:%u added\nNow we have %d peers",
 							buf_ip,
 							ntohs(buf.port),
-							peer_count);
+							peers->node_count);
 					} else {
 						sprintf(sprintf, "New peer %s p:%u already exist\nNow we have %d peers",
 							buf_ip,
 							ntohs(buf.port),
-							peer_count);
+							peers->node_count);
 					}
 					if (new_peer) new_peer(sprintf);
                     
