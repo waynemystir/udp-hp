@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "udp_client.h"
 
@@ -24,6 +25,26 @@ typedef struct node {
 	struct node *next;
 } node;
 
+void init_chat_with_peer(struct node *peer);
+void chat_hp(void *w);
+
+// The client
+struct sockaddr_in *sa_me_internal;
+char me_internal_ip[256];
+char me_internal_port[20];
+char me_internal_family[20];
+struct sockaddr_in *sa_me_external;
+char me_external_ip[256];
+char me_external_port[20];
+char me_external_family[20];
+
+// The server
+struct sockaddr *sa_server;
+char server_internal_ip[256];
+char server_internal_port[20];
+char server_internal_family[20];
+socklen_t server_socklen = 0;
+
 // peers
 // TODO I think **peers is unnecessary?
 struct node **peers = NULL;
@@ -33,6 +54,13 @@ int peer_count = 0;
 
 // various
 int sock_fd;
+int chat_sock_fd;
+
+// function pointers
+// void (*chat_socket_created)(int) = NULL;
+// void (*chat_socket_bound)(void) = NULL;
+// void (*chat_sendto_succeeded)(size_t) = NULL;
+// void (*chat_recd)(size_t, socklen_t, char *) = NULL;
 
 int nodes_equal(struct node *n1, struct node *n2) {
 	if (!n1 || !n2) return 0;
@@ -152,7 +180,8 @@ void punch_hole_in_peer(struct node *peer) {
 		case AF_INET6: {
 			peer_addr.sa_family = AF_INET6;
 			((struct sockaddr_in6 *)&peer_addr)->sin6_family = AF_INET6;
-			memcpy(((struct sockaddr_in6 *)&peer_addr)->sin6_addr.s6_addr, peer->ip6, 16);
+			memcpy(((struct sockaddr_in6 *)&peer_addr)->sin6_addr.s6_addr,
+				peer->ip6, sizeof(unsigned char[16]));
 			((struct sockaddr_in6 *)&peer_addr)->sin6_port = peer->port;
 			peer_socklen = sizeof(struct sockaddr_in6);
 			break;
@@ -171,6 +200,10 @@ void punch_hole_in_peer(struct node *peer) {
 		pfail("punch_hole_in_peer sendto");
 }
 
+void ping_all_peers() {
+	peers_perform(punch_hole_in_peer);
+}
+
 int wain(void (*self_info)(char *),
 		void (*server_info)(char *),
 		void (*socket_created)(int),
@@ -182,27 +215,14 @@ int wain(void (*self_info)(char *),
 		void (*confirmed_client)(void),
 		void (*new_peer)(char *),
 		void (*unhandled_response_from_server)(int),
+		void (*chat_socket_created)(int),
+		void (*chat_socket_bound)(void),
+		void (*chat_sendto_succeeded)(size_t),
+		void (*chat_recd)(size_t, socklen_t, char *),
 		void (*whilew)(int),
 		void (*end_while)(void)) {
 
 	printf("main 0 %lu\n", DEFAULT_OTHER_ADDR_LEN);
-
-	// The client
-	struct sockaddr_in *sa_me_internal;
-	char me_internal_ip[256];
-	char me_internal_port[20];
-	char me_internal_family[20];
-	struct sockaddr_in *sa_me_external;
-	char me_external_ip[256];
-	char me_external_port[20];
-	char me_external_family[20];
-
-	// The server
-	struct sockaddr *sa_server;
-	char server_internal_ip[256];
-	char server_internal_port[20];
-	char server_internal_family[20];
-	socklen_t server_socklen = 0;
 
 	// Other (server or peer in recvfrom)
 	struct sockaddr sa_other;
@@ -341,8 +361,10 @@ int wain(void (*self_info)(char *),
 					for (int j = 0; j < 10; j++) {
 						// Send 10 datagrams.
 						// printf("punching hole %d\n", j);
-						peers_perform(punch_hole_in_peer);
+						// peers_perform(punch_hole_in_peer);
+						punch_hole_in_peer(new_peer_added);
 					}
+					// init_chat_with_peer(new_peer_added);
 					break;
                     
 				}
@@ -361,4 +383,38 @@ int wain(void (*self_info)(char *),
 	}
 
 	return 0;
+}
+
+void init_chat_with_peer(struct node *peer) {
+	pthread_t ct;
+	int rc = pthread_create(&ct, NULL, chat_hp, (void *) peer);
+	if (rc) {
+		printf("ERROR; return code from pthread_create() is %d\n", rc);
+		return;
+	}
+}
+
+void chat_hp(void *w) {
+	printf("chat_hp\n");
+
+	// int running = 1;
+
+	// chat_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	// if (chat_sock_fd == -1) {
+	// 	printf("There was a problem creating the socket\n");
+	// } else if (chat_socket_created) chat_socket_created(chat_sock_fd);
+
+	// int br = bind(chat_sock_fd, (struct sockaddr*)sa_me_internal, sizeof(*sa_me_internal));
+	// if ( br == -1 ) pfail("bind");
+	// if (chat_socket_bound) chat_socket_bound();
+
+//	size_t sendto_len = sendto(chat_sock_fd, self, sizeof(node), 0, sa_server, server_socklen);
+//	if (sendto_len == -1) {
+//		char w[256];
+//		sprintf(w, "sendto failed with %zu", sendto_len);
+//		pfail(w);
+//	} else if (chat_sendto_succeeded) chat_sendto_succeeded(sendto_len);
+//
+//	while (running) {
+//	}
 }
