@@ -18,9 +18,9 @@ int nodes_equal(struct node *n1, struct node *n2) {
 }
 
 struct node *find_node(LinkedList *list, struct node *node) {
-	if (!list && !list->first_node) return NULL;
+	if (!list || !list->head) return NULL;
 
-	struct node *p = list->first_node;
+	struct node *p = list->head;
 	while (p) {
 		if (nodes_equal(p, node)) return p;
 		p = p->next;
@@ -28,40 +28,58 @@ struct node *find_node(LinkedList *list, struct node *node) {
 	return NULL;
 }
 
-struct node *register_node(LinkedList *list, struct node *new_node) {
+void copy_and_add_tail(LinkedList *list, node_t *node_to_copy, node_t **new_tail) {
 	if (!list) {
-		printf("register_node: given list is NULL, returning NULL\n");
-		return NULL;
+		printf("copy_and_add_tail: given list is NULL, returning NULL\n");
+		return;
 	}
 
-	if (!list->first_node) {
-		list->first_node = malloc(sizeof(struct node));
-		memcpy(list->first_node, new_node, sizeof(struct node));
-		list->last_node = &list->first_node;
-		list->node_count++;
-		return list->first_node;
+	if (!new_tail) {
+		printf("copy_and_add_tail: given new_tail parameter is NULL\n");
+		return;
 	}
 
-	if (find_node(list, new_node)) {
-		printf("register_node: node already in list, returning NULL\n");
-		return NULL;
-	}
+	node_t *nn;
 
-	struct node *old_last_node = *list->last_node;
-	struct node *new_last_node = malloc(sizeof(struct node));
-	memcpy(new_last_node, new_node, sizeof(struct node));
-	old_last_node->next = new_last_node;
-	list->last_node = &new_last_node;
-	list->node_count++;
-	return new_last_node;
+	nn = malloc(sizeof(node_t));
+	*new_tail = nn;
+	memset(nn, '\0', sizeof(node_t));
+	memcpy(nn, node_to_copy, sizeof(node_t));
+	nn->next = NULL;
+
+	if (!list->head) {
+		list->head = nn;
+		list->tail = nn;
+	} else {
+		list->tail->next = nn;
+		list->tail = nn;
+	}
 }
 
-void nodes_perform(LinkedList *list, void (*perform)(struct node *n)) {
-	if (!list && !list->first_node) return;
+void get_new_tail(LinkedList *list, node_t **new_tail) {
+	if (!new_tail) return;
+	node_t ntc;
+	memset(&ntc, '\0', sizeof(node_t));
+	copy_and_add_tail(list, &ntc, new_tail);
+}
 
-	struct node *p = list->first_node;
+void nodes_perform(LinkedList *list, void (*perform)(node_t *n)) {
+	if (!list || !list->head) return;
+
+	node_t *p = list->head;
 	while (p) {
 		perform(p);
 		p = p->next;
 	}
+}
+
+void free_list(LinkedList *list) {
+	if (!list || !list->head) return;
+	node_t *tmp;
+	while ((tmp = list->head) != NULL) {
+		list->head = list->head->next;
+		free(tmp);
+	}
+
+	free(list);
 }
