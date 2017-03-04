@@ -17,10 +17,44 @@
 
 int sign_in_running = 1;
 pthread_t sign_in_thread;
+int sock_fd;
+struct sockaddr si_other;
+socklen_t slen = sizeof(struct sockaddr);
+LinkedList *nodes;
 
 void pfail(char *s) {
 	perror(s);
 	exit(1);
+}
+
+void notify_peers_of_new_peer(node_t *existing_peer) {
+	// We don't want to notify the new peer (i.e. nodes->tail) of itself
+	if (!existing_peer || !existing_peer->next) return;
+
+	struct sockaddr w_addr;
+	switch (existing_peer->family) {
+		case AF_INET: {
+			w_addr.sa_family = AF_INET;
+			((struct sockaddr_in*)&w_addr)->sin_family = AF_INET;
+			((struct sockaddr_in*)&w_addr)->sin_port = existing_peer->port;
+			((struct sockaddr_in*)&w_addr)->sin_addr.s_addr = existing_peer->ip4;
+			break;
+		}
+		case AF_INET6: {
+			w_addr.sa_family = AF_INET6;
+			((struct sockaddr_in6*)&w_addr)->sin6_family = AF_INET6;
+			((struct sockaddr_in6*)&w_addr)->sin6_port = existing_peer->port;
+			memcpy(((struct sockaddr_in6*)&w_addr)->sin6_addr.s6_addr, existing_peer->ip6, 16);
+			break;
+		}
+		default: return;
+	}
+
+	if (sendto(sock_fd, nodes->tail, sizeof(node_t), 0, &w_addr, slen)==-1)
+		pfail("sendto");
+
+	if (sendto(sock_fd, existing_peer, sizeof(node_t), 0, (struct sockaddr*)(&si_other), slen)==-1)
+		pfail("sendto");
 }
 
 void *sign_in_endpoint(void *msg) {
@@ -28,12 +62,11 @@ void *sign_in_endpoint(void *msg) {
 
 	size_t recvf_len, sendto_len;
 	struct sockaddr_in *si_me;
-	struct sockaddr si_other;
-	socklen_t slen = sizeof(struct sockaddr);
-	int sock_fd;
 	struct node buf;
-	struct node nodes[10]; // 10 clients. Notice that we're not doing any bound checking.
-	int num_nodes = 0;
+	nodes = malloc(sizeof(LinkedList));
+	memset(nodes, '\0', sizeof(LinkedList));
+	// struct node nodes[10]; // 10 clients. Notice that we're not doing any bound checking.
+	// int num_nodes = 0;
 
 	sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if ( sock_fd == -1 ) pfail("socket");
@@ -72,20 +105,20 @@ void *sign_in_endpoint(void *msg) {
 		switch(buf.status) {
 			case STATUS_INIT_NODE: {
 				printf("New node %s %d\n", ip_str, port);
-				nodes[num_nodes].status = STATUS_NEW_NODE;
+				node_t *new_tail;
+				get_new_tail(nodes, &new_tail);
+				new_tail->status = STATUS_NEW_NODE;
 				switch (si_other.sa_family) {
 					case AF_INET: {
 						struct sockaddr_in *sai4 = (struct sockaddr_in*)&si_other;
-						nodes[num_nodes].ip4 = sai4->sin_addr.s_addr;
-						nodes[num_nodes].port = sai4->sin_port;
-						nodes[num_nodes].next = NULL;
+						new_tail->ip4 = sai4->sin_addr.s_addr;
+						new_tail->port = sai4->sin_port;
 						break;
 					}
 					case AF_INET6: {
 						struct sockaddr_in6 *sai6 = (struct sockaddr_in6*)&si_other;
-						memcpy(nodes[num_nodes].ip6, sai6->sin6_addr.s6_addr, 16);
-						nodes[num_nodes].port = sai6->sin6_port;
-						nodes[num_nodes].next = NULL;
+						memcpy(new_tail->ip6, sai6->sin6_addr.s6_addr, 16);
+						new_tail->port = sai6->sin6_port;
 						break;
 					}
 					default: {
@@ -94,49 +127,23 @@ void *sign_in_endpoint(void *msg) {
 						continue;
 					}
 				}
-				nodes[num_nodes].family = si_other.sa_family;
-				int n1 = num_nodes++;
-				sendto_len = sendto(sock_fd, &nodes[n1], sizeof(nodes[n1]), 0, (struct sockaddr*)(&si_other), slen);
+				new_tail->family = si_other.sa_family;
+				sendto_len = sendto(sock_fd, new_tail, sizeof(node_t), 0, (struct sockaddr*)(&si_other), slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
-				printf("Sendto %zu %d\n", sendto_len, nodes[n1].family);
+				printf("Sendto %zu %d\n", sendto_len, new_tail->family);
 				// TODO do we really need STATUS_CONFIRMED_NODE?
 				// if so, then we need to code node to send confirmation
 				// and add a case here to set STATUS_CONFIRMED_NODE
 				// for now, we'll just set it here
-				nodes[n1].status = STATUS_CONFIRMED_NODE;
+				new_tail->status = STATUS_CONFIRMED_NODE;
 				// Now we set the status to new peer so that when the
 				// peers recv the sendto's below, they know they are
 				// getting a new peer
-				nodes[n1].status = STATUS_NEW_PEER;
+				new_tail->status = STATUS_NEW_PEER;
 
-				for (int w = 0; w < n1; w++) {
-
-					struct sockaddr w_addr;
-					switch (nodes[w].family) {
-						case AF_INET: {
-							w_addr.sa_family = AF_INET;
-							((struct sockaddr_in*)&w_addr)->sin_family = AF_INET;
-							((struct sockaddr_in*)&w_addr)->sin_port = nodes[w].port;
-							((struct sockaddr_in*)&w_addr)->sin_addr.s_addr = nodes[w].ip4;
-							break;
-						}
-						case AF_INET6: {
-							w_addr.sa_family = AF_INET6;
-							((struct sockaddr_in6*)&w_addr)->sin6_family = AF_INET6;
-							((struct sockaddr_in6*)&w_addr)->sin6_port = nodes[w].port;
-							memcpy(((struct sockaddr_in6*)&w_addr)->sin6_addr.s6_addr, nodes[w].ip6, 16);
-							break;
-						}
-						default: continue;
-					}
-					if (sendto(sock_fd, &nodes[(n1)], sizeof(nodes[(n1)]), 0, &w_addr, slen)==-1)
-						pfail("sendto");
-
-					if (sendto(sock_fd, &nodes[w], sizeof(nodes[w]), 0, (struct sockaddr*)(&si_other), slen)==-1)
-						pfail("sendto");
-				}
+				nodes_perform(nodes, notify_peers_of_new_peer);
 				break;
 			}
 			default: {
@@ -146,7 +153,7 @@ void *sign_in_endpoint(void *msg) {
 			}
 		}
 
-		printf("Now we have %d nodes\n", num_nodes);
+		printf("Now we have %d nodes\n", nodes->node_count);
 		// And we go back to listening. Notice that since UDP has no notion
         	// of connections, we can use the same socket to listen for data
         	// from different clients.
