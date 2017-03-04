@@ -146,11 +146,11 @@ int wain(void (*self_info)(char *),
 	socklen_t other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
 	// Self
-	node *self = malloc(sizeof(node));
+	node_t *self = malloc(sizeof(node_t));
 	self->status = STATUS_INIT_NODE;
 
 	// Buffer
-	node buf;
+	node_t buf;
 	char buf_ip[256];
 
 	// Various
@@ -184,14 +184,15 @@ int wain(void (*self_info)(char *),
 	if ( br == -1 ) pfail("bind");
 	if (socket_bound) socket_bound();
 
-	sendto_len = sendto(sock_fd, self, sizeof(node), 0, sa_server, server_socklen);
+	sendto_len = sendto(sock_fd, self, sizeof(node_t), 0, sa_server, server_socklen);
 	if (sendto_len == -1) {
 		char w[256];
 		sprintf(w, "sendto failed with %zu", sendto_len);
 		pfail(w);
 	} else if (sendto_succeeded) sendto_succeeded(sendto_len);
 
-	peers = malloc(sizeof(struct LinkedList));
+	peers = malloc(sizeof(LinkedList));
+    memset(peers, '\0', sizeof(LinkedList));
 
 	while (running) {
 		recvf_len = recvfrom(sock_fd, &buf, sizeof(buf), 0, &sa_other, &other_socklen);
@@ -247,7 +248,8 @@ int wain(void (*self_info)(char *),
 					// byte ordering. We should make sure we agree on the
 					// endianness in any serious code.
 					// Now we just have to add the reported peer into our peer list
-					struct node *new_peer_added = register_node(peers, &buf);
+					node_t *new_peer_added;
+					copy_and_add_tail(peers, &buf, &new_peer_added);
 					if (new_peer_added) {
 						sprintf(sprintf, "New peer %s p:%u added\nNow we have %d peers",
 							buf_ip,
