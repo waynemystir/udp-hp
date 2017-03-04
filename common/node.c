@@ -54,6 +54,8 @@ void copy_and_add_tail(LinkedList *list, node_t *node_to_copy, node_t **new_tail
 		list->tail->next = nn;
 		list->tail = nn;
 	}
+
+	list->node_count++;
 }
 
 void get_new_tail(LinkedList *list, node_t **new_tail) {
