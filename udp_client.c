@@ -17,6 +17,7 @@ void *chat_hp(void *w);
 struct LinkedList *peers;
 
 // The client
+node_t *self;
 struct sockaddr_in *sa_me_internal;
 char me_internal_ip[256];
 char me_internal_port[20];
@@ -25,7 +26,8 @@ struct sockaddr_in *sa_me_external;
 char me_external_ip[256];
 char me_external_port[20];
 char me_external_family[20];
-struct sockaddr_in *sa_me_chat;
+struct sockaddr *sa_me_chat;
+struct sockaddr *sa_me_chat_external;
 char me_chat_ip[256];
 char me_chat_port[20];
 char me_chat_family[20];
@@ -55,6 +57,7 @@ void (*socket_created_cb)(int) = NULL;
 void (*socket_bound_cb)(void) = NULL;
 void (*sendto_succeeded_cb)(size_t) = NULL;
 void (*recd_cb)(size_t, socklen_t, char *) = NULL;
+void (*coll_buf_cb)(char *) = NULL;
 
 int node_to_addr(struct sockaddr **addr, struct node n) {
 	if (!addr) return -1;
@@ -73,6 +76,38 @@ int node_to_addr(struct sockaddr **addr, struct node n) {
 			struct sockaddr_in6 *sai = malloc(sizeof(struct sockaddr_in6));
 			memcpy(sai->sin6_addr.s6_addr, n.ip6, sizeof(unsigned char[16]));
 			sai->sin6_port = n.port;
+			sai->sin6_family = AF_INET;
+			*addr = (struct sockaddr*)&sai;
+			(*addr)->sa_family = AF_INET6;
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+
+	return 0;
+}
+
+int chatbuf_to_addr(struct sockaddr **addr, unsigned short *port, chat_buf_t n) {
+	if (!addr) return -1;
+
+	switch (n.family) {
+		case AF_INET: {
+			struct sockaddr_in *sai = malloc(sizeof(struct sockaddr_in));
+			sai->sin_addr.s_addr = n.ip4;
+			sai->sin_port = n.port;
+			port = &n.port;
+			sai->sin_family = AF_INET;
+			*addr = (struct sockaddr*)sai;
+			(*addr)->sa_family = AF_INET;
+			break;
+		}
+		case AF_INET6: {
+			struct sockaddr_in6 *sai = malloc(sizeof(struct sockaddr_in6));
+			memcpy(sai->sin6_addr.s6_addr, n.ip6, sizeof(unsigned char[16]));
+			sai->sin6_port = n.port;
+			port = &n.port;
 			sai->sin6_family = AF_INET;
 			*addr = (struct sockaddr*)&sai;
 			(*addr)->sa_family = AF_INET6;
@@ -159,6 +194,7 @@ int wain(void (*self_info)(char *),
 	socket_bound_cb = socket_bound;
 	sendto_succeeded_cb = sendto_succeeded;
 	recd_cb = recd;
+	coll_buf_cb = coll_buf;
 
 	// Other (server or peer in recvfrom)
 	struct sockaddr sa_other;
@@ -168,7 +204,7 @@ int wain(void (*self_info)(char *),
 	socklen_t other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
 	// Self
-	node_t *self = malloc(sizeof(node_t));
+	self = malloc(sizeof(node_t));
 	self->status = STATUS_INIT_NODE;
 
 	// Buffer
@@ -235,7 +271,7 @@ int wain(void (*self_info)(char *),
 		if (recd) recd(recvf_len, other_socklen, sprintf);
 		other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
-		struct sockaddr *buf_sa;
+		struct sockaddr *buf_sa = NULL;
 		node_to_addr(&buf_sa, buf);
 		char bp[20];
 		char bf[20];
@@ -326,7 +362,7 @@ int wain(void (*self_info)(char *),
 			// Then it is from a peer, probably
 			printf("FROM PEER: ip:%s port:%s fam:%s\n", other_ip, other_port, other_family);
 		}
-        free(buf_sa);
+		free(buf_sa);
 	}
 
 	return 0;
@@ -339,6 +375,45 @@ void init_chat_hp() {
 		printf("ERROR in init_chat_hp; return code from pthread_create() is %d\n", rc);
 		return;
 	}
+}
+
+void notify_peer_of_chat_addr(node_t *peer) {
+	if (!peer) return;
+	// TODO set peer->status = STATUS_NEW_PEER?
+	// and then set back to previous status?
+	struct sockaddr peer_addr;
+	socklen_t peer_socklen = 0;
+	switch (peer->family) {
+		case AF_INET: {
+			peer_addr.sa_family = AF_INET;
+			((struct sockaddr_in *)&peer_addr)->sin_family = AF_INET;
+			((struct sockaddr_in *)&peer_addr)->sin_addr.s_addr = peer->ip4;
+			((struct sockaddr_in *)&peer_addr)->sin_port = peer->port;
+			peer_socklen = sizeof(struct sockaddr_in);
+			break;
+		}
+		case AF_INET6: {
+			peer_addr.sa_family = AF_INET6;
+			((struct sockaddr_in6 *)&peer_addr)->sin6_family = AF_INET6;
+			memcpy(((struct sockaddr_in6 *)&peer_addr)->sin6_addr.s6_addr,
+				peer->ip6, sizeof(unsigned char[16]));
+			((struct sockaddr_in6 *)&peer_addr)->sin6_port = peer->port;
+			peer_socklen = sizeof(struct sockaddr_in6);
+			break;
+		}
+		default: {
+			printf("notify_peer_of_chat_addr, peer->family not well defined\n");
+			return;
+		}
+	}
+	char pi[256];
+	char pp[20];
+	char pf[20];
+	addr_to_str(&peer_addr, pi, pp, pf);
+	printf("notify_peer_of_chat_addr %s %s %s\n", pi, pp, pf);
+	self->status = STATUS_CHAT_PORT;
+	if (sendto(sock_fd, self, sizeof(*self), 0, &peer_addr, peer_socklen) == -1)
+		pfail("notify_peer_of_chat_addr sendto");
 }
 
 void *chat_hp_server(void *w) {
@@ -404,6 +479,15 @@ void *chat_hp_server(void *w) {
 	addr_to_str(&sa_chat_other, chat_other_ip, chat_other_port, chat_other_family);
 	sprintf(sprintf, "%s port%s %s", chat_other_ip, chat_other_port, chat_other_family);
 	if (recd_cb) recd_cb(recvf_len, chat_other_socklen, sprintf);
+
+	unsigned short chat_port;
+	chatbuf_to_addr(&sa_me_chat_external, &chat_port, buf);
+	self->chat_port = chat_port;
+	addr_to_str(sa_me_chat_external, me_chat_ip, me_chat_port, me_chat_family);
+	sprintf(sprintf, "Chat moi aussi %s port%s %s", me_chat_ip, me_chat_port, me_chat_family);
+	if (coll_buf_cb) coll_buf_cb(sprintf);
+
+	nodes_perform(peers, notify_peer_of_chat_addr);
 
 	pthread_exit("chat_hp_server exiting normally");
 }
