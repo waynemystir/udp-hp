@@ -175,7 +175,7 @@ void *sign_in_endpoint(void *msg) {
 }
 
 int main() {
-	printf("main 0 %zu %zu\n", sizeof(STATUS_TYPE), sizeof(struct node));
+	printf("sign_in_hp_endpoint main 0 %zu %zu\n", sizeof(STATUS_TYPE), sizeof(struct node));
 	char *thread_exit_msg;
 	int pcr = pthread_create(&sign_in_thread, NULL, sign_in_endpoint, (void *)"sign_in_thread");
 	if (pcr) {

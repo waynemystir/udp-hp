@@ -1,6 +1,7 @@
 *.a
 *.o
 server_sign_in
+server_chat
 common/network
 .DS_Store
 uc
