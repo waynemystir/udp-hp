@@ -5,11 +5,14 @@
 
 #include "udp_client.h"
 #include "node.h"
+#include "common.h"
 
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
+void init_chat_hp();
 void init_chat_with_peer(struct node *peer);
-void chat_hp(void *w);
+void *chat_hp_server(void *w);
+void *chat_hp(void *w);
 
 struct LinkedList *peers;
 
@@ -22,6 +25,10 @@ struct sockaddr_in *sa_me_external;
 char me_external_ip[256];
 char me_external_port[20];
 char me_external_family[20];
+struct sockaddr_in *sa_me_chat;
+char me_chat_ip[256];
+char me_chat_port[20];
+char me_chat_family[20];
 
 // The server
 struct sockaddr *sa_server;
@@ -30,15 +37,24 @@ char server_internal_port[20];
 char server_internal_family[20];
 socklen_t server_socklen = 0;
 
-// various
+// The chat server
+struct sockaddr *sa_chat_server;
+char chat_server_internal_ip[256];
+char chat_server_internal_port[20];
+char chat_server_internal_family[20];
+socklen_t chat_server_socklen = 0;
+
+// The socket file descriptors
 int sock_fd;
 int chat_sock_fd;
 
 // function pointers
-// void (*chat_socket_created)(int) = NULL;
-// void (*chat_socket_bound)(void) = NULL;
-// void (*chat_sendto_succeeded)(size_t) = NULL;
-// void (*chat_recd)(size_t, socklen_t, char *) = NULL;
+void (*self_info_cb)(char *) = NULL;
+void (*server_info_cb)(char *) = NULL;
+void (*socket_created_cb)(int) = NULL;
+void (*socket_bound_cb)(void) = NULL;
+void (*sendto_succeeded_cb)(size_t) = NULL;
+void (*recd_cb)(size_t, socklen_t, char *) = NULL;
 
 int node_to_addr(struct sockaddr **addr, struct node n) {
 	if (!addr) return -1;
@@ -137,6 +153,12 @@ int wain(void (*self_info)(char *),
 		void (*end_while)(void)) {
 
 	printf("main 0 %lu\n", DEFAULT_OTHER_ADDR_LEN);
+	self_info_cb = self_info;
+	server_info_cb = server_info;
+	socket_created_cb = socket_created;
+	socket_bound_cb = socket_bound;
+	sendto_succeeded_cb = sendto_succeeded;
+	recd_cb = recd;
 
 	// Other (server or peer in recvfrom)
 	struct sockaddr sa_other;
@@ -159,10 +181,16 @@ int wain(void (*self_info)(char *),
 	char sprintf[256];
 
 	// Setup self
-	str_to_addr((struct sockaddr**)&sa_me_internal, NULL, "1313", AF_INET, SOCK_DGRAM, AI_PASSIVE);
-	addr_to_str((struct sockaddr*)sa_me_internal, me_internal_ip, me_internal_port, me_internal_family);
-	sprintf(sprintf, "Moi %s port%s %s", me_internal_ip, me_internal_port, me_internal_family);
-	if (self_info) self_info(sprintf);
+	// str_to_addr((struct sockaddr**)&sa_me_internal, NULL, "1313", AF_INET, SOCK_DGRAM, AI_PASSIVE);
+	// addr_to_str((struct sockaddr*)sa_me_internal, me_internal_ip, me_internal_port, me_internal_family);
+	// sprintf(sprintf, "Moi %s port%s %s", me_internal_ip, me_internal_port, me_internal_family);
+	// if (self_info) self_info(sprintf);
+	struct sockaddr_in si_me;
+	memset((char *) &si_me, 0, sizeof(si_me));
+	si_me.sin_family = AF_INET;
+	si_me.sin_port = htons(0);
+	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
+	sa_me_internal = (struct sockaddr*)&si_me;
 
 	// Setup server
 	str_to_addr(&sa_server, "142.105.56.124", "9930", AF_INET, SOCK_DGRAM, 0);
@@ -192,7 +220,7 @@ int wain(void (*self_info)(char *),
 	} else if (sendto_succeeded) sendto_succeeded(sendto_len);
 
 	peers = malloc(sizeof(LinkedList));
-    memset(peers, '\0', sizeof(LinkedList));
+    	memset(peers, '\0', sizeof(LinkedList));
 
 	while (running) {
 		recvf_len = recvfrom(sock_fd, &buf, sizeof(buf), 0, &sa_other, &other_socklen);
@@ -235,6 +263,7 @@ int wain(void (*self_info)(char *),
 						me_external_port,
 						me_external_family);
 					if (new_client) new_client(sprintf);
+					init_chat_hp();
 					break;
 				}
 				case STATUS_CONFIRMED_NODE: {
@@ -303,6 +332,82 @@ int wain(void (*self_info)(char *),
 	return 0;
 }
 
+void init_chat_hp() {
+	pthread_t chpt;
+	int rc = pthread_create(&chpt, NULL, chat_hp_server, (void*)"chat_hp_server_thread");
+	if (rc) {
+		printf("ERROR in init_chat_hp; return code from pthread_create() is %d\n", rc);
+		return;
+	}
+}
+
+void *chat_hp_server(void *w) {
+	printf("chat_hp_server %s\n", (char *)w);
+	char sprintf[256];
+
+	// Setup self
+	// str_to_addr((struct sockaddr**)&sa_me_chat, NULL, "12001", AF_INET, SOCK_DGRAM, AI_PASSIVE);
+	// addr_to_str((struct sockaddr*)sa_me_chat, me_chat_ip, me_chat_port, me_chat_family);
+	// sprintf(sprintf, "Chat moi %s port%s %s", me_chat_ip, me_chat_port, me_chat_family);
+	// if (self_info_cb) self_info_cb(sprintf);
+	struct sockaddr_in si_me;
+	memset((char *) &si_me, 0, sizeof(si_me));
+	si_me.sin_family = AF_INET;
+	si_me.sin_port = htons(0);
+	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
+	sa_me_chat = (struct sockaddr*)&si_me;
+
+	// Setup chat server
+	str_to_addr(&sa_chat_server, "142.105.56.124", "9931", AF_INET, SOCK_DGRAM, 0);
+	server_socklen = sa_chat_server->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+	addr_to_str(sa_chat_server, server_internal_ip, server_internal_port, server_internal_family);
+	sprintf(sprintf, "The chat server %s port%s %s %u",
+		server_internal_ip,
+		server_internal_port,
+		server_internal_family,
+		server_socklen);
+	if (server_info_cb) server_info_cb(sprintf);
+
+	// Setup sa_chat_other
+	struct sockaddr sa_chat_other;
+	char chat_other_ip[256];
+	char chat_other_port[20];
+	char chat_other_family[20];
+	socklen_t chat_other_socklen = DEFAULT_OTHER_ADDR_LEN;
+
+	chat_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (chat_sock_fd == -1) {
+		printf("There was a problem creating the socket\n");
+	} else if (socket_created_cb) socket_created_cb(chat_sock_fd);
+
+	int br = bind(chat_sock_fd, (struct sockaddr*)sa_me_chat, sizeof(*sa_me_chat));
+	if ( br == -1 ) pfail("bind");
+	if (socket_bound_cb) socket_bound_cb();
+
+	chat_buf_t buf;
+	memset(&buf, '\0', sizeof(buf));
+
+	size_t chat_sendto_len = sendto(chat_sock_fd, &buf, sizeof(node_t), 0, sa_chat_server, server_socklen);
+	if (chat_sendto_len == -1) {
+		char w[256];
+		sprintf(w, "sendto failed with %zu", chat_sendto_len);
+		pfail(w);
+	} else if (sendto_succeeded_cb) sendto_succeeded_cb(chat_sendto_len);
+
+	size_t recvf_len = recvfrom(chat_sock_fd, &buf, sizeof(buf), 0, &sa_chat_other, &chat_other_socklen);
+	if (recvf_len == -1) {
+		char w[256];
+		sprintf(w, "recvfrom failed with %zu", recvf_len);
+		pfail(w);
+	}
+
+	addr_to_str(&sa_chat_other, chat_other_ip, chat_other_port, chat_other_family);
+	sprintf(sprintf, "%s port%s %s", chat_other_ip, chat_other_port, chat_other_family);
+	if (recd_cb) recd_cb(recvf_len, chat_other_socklen, sprintf);
+
+	pthread_exit("chat_hp_server exiting normally");
+}
+
 void init_chat_with_peer(struct node *peer) {
 	pthread_t ct;
 	int rc = pthread_create(&ct, NULL, chat_hp, (void *) peer);
@@ -312,7 +417,7 @@ void init_chat_with_peer(struct node *peer) {
 	}
 }
 
-void chat_hp(void *w) {
+void *chat_hp(void *w) {
 	printf("chat_hp\n");
 
 	// int running = 1;
@@ -335,4 +440,6 @@ void chat_hp(void *w) {
 //
 //	while (running) {
 //	}
+
+	pthread_exit("chat_hp");
 }
