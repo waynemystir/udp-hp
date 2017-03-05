@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "udp_client.h"
 #include "node.h"
@@ -9,6 +10,7 @@
 
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
+void send_hole_punch(struct node *peer);
 void init_chat_hp();
 void init_chat_with_peer(struct node *peer);
 void *chat_hp_server(void *w);
@@ -58,6 +60,8 @@ void (*socket_bound_cb)(void) = NULL;
 void (*sendto_succeeded_cb)(size_t) = NULL;
 void (*recd_cb)(size_t, socklen_t, char *) = NULL;
 void (*coll_buf_cb)(char *) = NULL;
+void (*hole_punch_sent_cb)(char *, int) = NULL;
+void (*confirmed_peer_while_punching_cb)(void) = NULL;
 void (*from_peer_cb)(char *) = NULL;
 
 int node_to_addr(struct sockaddr **addr, struct node n) {
@@ -128,10 +132,36 @@ void pfail(char *w) {
 	exit(1);
 }
 
+void *hole_punch_thread(void *peer_to_hole_punch) {
+	node_t *peer = (node_t *)peer_to_hole_punch;
+	for (int j = 0; j < 1000; j++) {
+		// Send 1000 datagrams, or until the peer
+		// is confirmed, whichever occurs first.
+		if (peer->status >= STATUS_CONFIRMED_PEER) {
+			if (confirmed_peer_while_punching_cb)
+				confirmed_peer_while_punching_cb();
+			break;
+		}
+		send_hole_punch(peer);
+		usleep(10*1000); // 10 milliseconds
+	}
+	pthread_exit("hole_punch_thread exiting normally");
+}
+
 void punch_hole_in_peer(struct node *peer) {
+	pthread_t hpt;
+	int pt = pthread_create(&hpt, NULL, hole_punch_thread, peer);
+	if (pt) {
+		printf("ERROR in punch_hole_in_peer; return code from pthread_create() is %d\n", pt);
+		return;
+	}
+}
+
+void send_hole_punch(struct node *peer) {
 	if (!peer) return;
 	// TODO set peer->status = STATUS_NEW_PEER?
 	// and then set back to previous status?
+    	static int hpc = 0;
 	struct sockaddr peer_addr;
 	socklen_t peer_socklen = 0;
 	switch (peer->family) {
@@ -153,21 +183,23 @@ void punch_hole_in_peer(struct node *peer) {
 			break;
 		}
 		default: {
-			printf("punch_hole_in_peer, peer->family not well defined\n");
+			printf("send_hole_punch, peer->family not well defined\n");
 			return;
 		}
 	}
+	if (sendto(sock_fd, peer, sizeof(*peer), 0, &peer_addr, peer_socklen) == -1)
+		pfail("send_hole_punch sendto");
+	char spf[256];
 	char pi[256];
 	char pp[20];
 	char pf[20];
 	addr_to_str(&peer_addr, pi, pp, pf);
-	printf("punch_hole_in_peer %s %s %s\n", pi, pp, pf);
-	if (sendto(sock_fd, peer, sizeof(*peer), 0, &peer_addr, peer_socklen) == -1)
-		pfail("punch_hole_in_peer sendto");
+	sprintf(spf, "send_hole_punch %s %s %s\n", pi, pp, pf);
+	if (hole_punch_sent_cb) hole_punch_sent_cb(spf, ++hpc);
 }
 
 void ping_all_peers() {
-	nodes_perform(peers, punch_hole_in_peer);
+	nodes_perform(peers, send_hole_punch);
 }
 
 int wain(void (*self_info)(char *),
@@ -180,6 +212,8 @@ int wain(void (*self_info)(char *),
 		void (*new_client)(char *),
 		void (*confirmed_client)(void),
 		void (*new_peer)(char *),
+		void (*hole_punch_sent)(char *, int),
+		void (*confirmed_peer_while_punching)(void),
 		void (*from_peer)(char *),
 		void (*unhandled_response_from_server)(int),
 		void (*whilew)(int),
@@ -193,6 +227,8 @@ int wain(void (*self_info)(char *),
 	sendto_succeeded_cb = sendto_succeeded;
 	recd_cb = recd;
 	coll_buf_cb = coll_buf;
+	hole_punch_sent_cb = hole_punch_sent;
+	confirmed_peer_while_punching_cb = confirmed_peer_while_punching;
 	from_peer_cb = from_peer;
 
 	// Other (server or peer in recvfrom)
@@ -340,12 +376,7 @@ int wain(void (*self_info)(char *),
 					// our NAT may get an ICMP Destination Unreachable, but most NATs are
 					// configured to simply discard them) but when the peer sends us a datagram,
 					// it will pass through the hole punch into our local endpoint.
-					for (int j = 0; j < 100; j++) {
-						// Send 10 datagrams.
-						// printf("punching hole %d\n", j);
-						// peers_perform(punch_hole_in_peer);
-						punch_hole_in_peer(new_peer_added);
-					}
+					punch_hole_in_peer(new_peer_added);
 					// init_chat_with_peer(new_peer_added);
 					break;
                     
@@ -377,7 +408,7 @@ int wain(void (*self_info)(char *),
 				case STATUS_NEW_NODE:
 				case STATUS_CONFIRMED_NODE:
 				case STATUS_NEW_PEER: {
-					punch_hole_in_peer(existing_peer);
+					send_hole_punch(existing_peer);
 					existing_peer->status = STATUS_CONFIRMED_PEER;
 					strcpy(conf_stat, "UNCONFIRMED");
 					break;
