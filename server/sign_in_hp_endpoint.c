@@ -14,12 +14,15 @@
 #define BUFLEN 512
 #define NPACK 10
 #define PORT 9930
+#define NODE_SZ sizeof(node_t)
 
 int sign_in_running = 1;
 pthread_t sign_in_thread;
 int sock_fd;
 struct sockaddr si_other;
 socklen_t slen = sizeof(struct sockaddr);
+// TODO I should probably add separate socklen_t for recvfrom
+// since that function can apparently change this value
 LinkedList *nodes;
 
 void pfail(char *s) {
@@ -27,46 +30,49 @@ void pfail(char *s) {
 	exit(1);
 }
 
-void notify_peers_of_new_peer(node_t *existing_peer) {
-	// We don't want to notify the new peer (i.e. nodes->tail) of itself
+void notify_existing_peer_of_new_tail(node_t *existing_peer) {
+	// We don't want to notify the new peer (i.e. nodes->tail) of itself.
+	// That is to say, if existing_peer->next is NULL, then we are at the
+	// tail... so don't do this.
 	if (!existing_peer || !existing_peer->next) return;
 
-	struct sockaddr w_addr;
+	// Let's get the sockaddr of existing_peer
+	struct sockaddr ep_addr;
 	switch (existing_peer->family) {
 		case AF_INET: {
-			w_addr.sa_family = AF_INET;
-			((struct sockaddr_in*)&w_addr)->sin_family = AF_INET;
-			((struct sockaddr_in*)&w_addr)->sin_port = existing_peer->port;
-			((struct sockaddr_in*)&w_addr)->sin_addr.s_addr = existing_peer->ip4;
+			ep_addr.sa_family = AF_INET;
+			((struct sockaddr_in*)&ep_addr)->sin_family = AF_INET;
+			((struct sockaddr_in*)&ep_addr)->sin_port = existing_peer->port;
+			((struct sockaddr_in*)&ep_addr)->sin_addr.s_addr = existing_peer->ip4;
 			break;
 		}
 		case AF_INET6: {
-			w_addr.sa_family = AF_INET6;
-			((struct sockaddr_in6*)&w_addr)->sin6_family = AF_INET6;
-			((struct sockaddr_in6*)&w_addr)->sin6_port = existing_peer->port;
-			memcpy(((struct sockaddr_in6*)&w_addr)->sin6_addr.s6_addr, existing_peer->ip6, 16);
+			ep_addr.sa_family = AF_INET6;
+			((struct sockaddr_in6*)&ep_addr)->sin6_family = AF_INET6;
+			((struct sockaddr_in6*)&ep_addr)->sin6_port = existing_peer->port;
+			memcpy(((struct sockaddr_in6*)&ep_addr)->sin6_addr.s6_addr, existing_peer->ip6, 16);
 			break;
 		}
 		default: return;
 	}
 
-	if (sendto(sock_fd, nodes->tail, sizeof(node_t), 0, &w_addr, slen)==-1)
+	// And now we notify existing peer of new tail
+	if (sendto(sock_fd, nodes->tail, NODE_SZ, 0, &ep_addr, slen)==-1)
 		pfail("sendto");
 
-	if (sendto(sock_fd, existing_peer, sizeof(node_t), 0, (struct sockaddr*)(&si_other), slen)==-1)
+	// And notify new tail (i.e. si_other) of existing peer
+	if (sendto(sock_fd, existing_peer, NODE_SZ, 0, &si_other, slen)==-1)
 		pfail("sendto");
 }
 
 void *sign_in_endpoint(void *msg) {
-	printf("sign_in_endpoint 0 %s\n", (char *)msg);
+	printf("sign_in_endpoint 0 %s %zu %zu\n", (char *)msg, NODE_SZ, sizeof(struct node));
 
 	size_t recvf_len, sendto_len;
 	struct sockaddr_in *si_me;
 	struct node buf;
 	nodes = malloc(sizeof(LinkedList));
 	memset(nodes, '\0', sizeof(LinkedList));
-	// struct node nodes[10]; // 10 clients. Notice that we're not doing any bound checking.
-	// int num_nodes = 0;
 
 	sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if ( sock_fd == -1 ) pfail("socket");
@@ -105,6 +111,9 @@ void *sign_in_endpoint(void *msg) {
 		switch(buf.status) {
 			case STATUS_INIT_NODE: {
 				printf("New node %s %d\n", ip_str, port);
+				// TODO We must add a check here to see if this new node
+				// already exists in our linked list. If so, how to 
+				// handle that?
 				node_t *new_tail;
 				get_new_tail(nodes, &new_tail);
 				new_tail->status = STATUS_NEW_NODE;
@@ -128,7 +137,7 @@ void *sign_in_endpoint(void *msg) {
 					}
 				}
 				new_tail->family = si_other.sa_family;
-				sendto_len = sendto(sock_fd, new_tail, sizeof(node_t), 0, (struct sockaddr*)(&si_other), slen);
+				sendto_len = sendto(sock_fd, new_tail, NODE_SZ, 0, &si_other, slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
@@ -142,8 +151,9 @@ void *sign_in_endpoint(void *msg) {
 				// peers recv the sendto's below, they know they are
 				// getting a new peer
 				new_tail->status = STATUS_NEW_PEER;
-
-				nodes_perform(nodes, notify_peers_of_new_peer);
+				// And now we notify all peers of new peer as
+				// well as notify new peer of existing peers
+				nodes_perform(nodes, notify_existing_peer_of_new_tail);
 				break;
 			}
 			default: {
@@ -160,15 +170,16 @@ void *sign_in_endpoint(void *msg) {
 	}
 
 	close(sock_fd);
+	free_list(nodes);
 	pthread_exit("sign_in_thread exiting normally");
 }
 
 int main() {
-	printf("main 0 %zu %zu\n", sizeof(STATUS_TYPE), sizeof(struct node));
+	printf("sign_in_hp_endpoint main 0 %zu %zu\n", sizeof(STATUS_TYPE), sizeof(struct node));
 	char *thread_exit_msg;
 	int pcr = pthread_create(&sign_in_thread, NULL, sign_in_endpoint, (void *)"sign_in_thread");
 	if (pcr) {
-		printf("ERROR start sign_in_thread: %d\n", pcr);
+		printf("ERROR starting sign_in_thread: %d\n", pcr);
 		exit(-1);
 	} else {
 		pthread_join(sign_in_thread,(void**)&thread_exit_msg);
