@@ -10,7 +10,8 @@ typedef enum STATUS_TYPE {
     STATUS_NEW_NODE = 1,
     STATUS_CONFIRMED_NODE = 2,
     STATUS_NEW_PEER = 3, // A peer is any client other than self
-    STATUS_CHAT_PORT = 4,
+    STATUS_CONFIRMED_PEER = 4,
+    STATUS_CHAT_PORT = 5,
 } STATUS_TYPE;
 
 typedef struct node {
@@ -38,6 +39,10 @@ typedef struct LinkedList {
 int nodes_equal(struct node *n1, struct node *n2);
 
 struct node *find_node(LinkedList *list, struct node *node);
+
+int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr);
+
+struct node *find_node_from_sockaddr(LinkedList *list, struct sockaddr *addr);
 
 void copy_and_add_tail(LinkedList *list, node_t *node_to_copy, node_t **new_tail);
 

@@ -18,11 +18,11 @@ struct LinkedList *peers;
 
 // The client
 node_t *self;
-struct sockaddr_in *sa_me_internal;
+struct sockaddr *sa_me_internal;
 char me_internal_ip[256];
 char me_internal_port[20];
 char me_internal_family[20];
-struct sockaddr_in *sa_me_external;
+struct sockaddr *sa_me_external;
 char me_external_ip[256];
 char me_external_port[20];
 char me_external_family[20];
@@ -58,6 +58,7 @@ void (*socket_bound_cb)(void) = NULL;
 void (*sendto_succeeded_cb)(size_t) = NULL;
 void (*recd_cb)(size_t, socklen_t, char *) = NULL;
 void (*coll_buf_cb)(char *) = NULL;
+void (*from_peer_cb)(char *) = NULL;
 
 int node_to_addr(struct sockaddr **addr, struct node n) {
 	if (!addr) return -1;
@@ -179,11 +180,8 @@ int wain(void (*self_info)(char *),
 		void (*new_client)(char *),
 		void (*confirmed_client)(void),
 		void (*new_peer)(char *),
+		void (*from_peer)(char *),
 		void (*unhandled_response_from_server)(int),
-		void (*chat_socket_created)(int),
-		void (*chat_socket_bound)(void),
-		void (*chat_sendto_succeeded)(size_t),
-		void (*chat_recd)(size_t, socklen_t, char *),
 		void (*whilew)(int),
 		void (*end_while)(void)) {
 
@@ -195,6 +193,7 @@ int wain(void (*self_info)(char *),
 	sendto_succeeded_cb = sendto_succeeded;
 	recd_cb = recd;
 	coll_buf_cb = coll_buf;
+	from_peer_cb = from_peer;
 
 	// Other (server or peer in recvfrom)
 	struct sockaddr sa_other;
@@ -244,7 +243,7 @@ int wain(void (*self_info)(char *),
 		printf("There was a problem creating the socket\n");
 	} else if (socket_created) socket_created(sock_fd);
 
-	int br = bind(sock_fd, (struct sockaddr*)sa_me_internal, sizeof(*sa_me_internal));
+	int br = bind(sock_fd, sa_me_internal, sizeof(*sa_me_internal));
 	if ( br == -1 ) pfail("bind");
 	if (socket_bound) socket_bound();
 
@@ -288,8 +287,8 @@ int wain(void (*self_info)(char *),
 			// The datagram came from the server.
 			switch (buf.status) {
 				case STATUS_NEW_NODE: {
-					sa_me_external = malloc(sizeof(struct sockaddr_in));
-					memcpy(sa_me_external, buf_sa, sizeof(struct sockaddr_in));
+					sa_me_external = malloc(sizeof(struct sockaddr));
+					memcpy(sa_me_external, buf_sa, sizeof(struct sockaddr));
 					addr_to_str((struct sockaddr*)sa_me_external,
 						me_external_ip,
 						me_external_port,
@@ -299,7 +298,7 @@ int wain(void (*self_info)(char *),
 						me_external_port,
 						me_external_family);
 					if (new_client) new_client(sprintf);
-					init_chat_hp();
+					// init_chat_hp();
 					break;
 				}
 				case STATUS_CONFIRMED_NODE: {
@@ -341,7 +340,7 @@ int wain(void (*self_info)(char *),
 					// our NAT may get an ICMP Destination Unreachable, but most NATs are
 					// configured to simply discard them) but when the peer sends us a datagram,
 					// it will pass through the hole punch into our local endpoint.
-					for (int j = 0; j < 10; j++) {
+					for (int j = 0; j < 100; j++) {
 						// Send 10 datagrams.
 						// printf("punching hole %d\n", j);
 						// peers_perform(punch_hole_in_peer);
@@ -359,8 +358,56 @@ int wain(void (*self_info)(char *),
 				}
 			}
 		} else {
-			// Then it is from a peer, probably
-			printf("FROM PEER: ip:%s port:%s fam:%s\n", other_ip, other_port, other_family);
+			node_t *existing_peer = find_node_from_sockaddr(peers, &sa_other);
+			if (!existing_peer) {
+				/* TODO: This is an issue. Either a security issue (how
+				did an unknown peer get through the firewall) or my list
+				of peers is wrong. */
+				sprintf(sprintf, "FROM UNKNOWN peer: ip:%s port:%s fam:%s",
+					other_ip,
+					other_port,
+					other_family);
+				if (from_peer_cb) from_peer_cb(sprintf);
+				continue;
+			}
+
+			char conf_stat[12];
+			switch (existing_peer->status) {
+				case STATUS_INIT_NODE:
+				case STATUS_NEW_NODE:
+				case STATUS_CONFIRMED_NODE:
+				case STATUS_NEW_PEER: {
+					punch_hole_in_peer(existing_peer);
+					existing_peer->status = STATUS_CONFIRMED_PEER;
+					strcpy(conf_stat, "UNCONFIRMED");
+					break;
+				}
+				case STATUS_CONFIRMED_PEER:
+				case STATUS_CHAT_PORT: {
+					strcpy(conf_stat, "CONFIRMED");
+					break;
+				}
+			}
+
+			sprintf(sprintf, "from KNOWN AND %s peer: ip:%s port:%s fam:%s",
+				conf_stat,
+				other_ip,
+				other_port,
+				other_family);
+			if (from_peer_cb) from_peer_cb(sprintf);
+			// switch (buf.status) {
+			// 	case STATUS_CHAT_PORT: {
+			// 		sprintf(sprintf, "FROM Peer STATUS_CHAT_PORT %d", ntohs(buf.port));
+			// 		if (from_peer_cb) from_peer_cb(sprintf);
+			// 		break;
+			// 	}
+			// 	default: {
+			// 		sprintf(sprintf, "FROM Peer status %d", buf.status);
+			// 		if (from_peer_cb) from_peer_cb(sprintf);
+			// 		break;
+			// 	}
+			// }
+			// init_chat_hp();
 		}
 		free(buf_sa);
 	}
@@ -484,7 +531,7 @@ void *chat_hp_server(void *w) {
 	chatbuf_to_addr(&sa_me_chat_external, &chat_port, buf);
 	self->chat_port = chat_port;
 	addr_to_str(sa_me_chat_external, me_chat_ip, me_chat_port, me_chat_family);
-	sprintf(sprintf, "Chat moi aussi %s port%s %s", me_chat_ip, me_chat_port, me_chat_family);
+	sprintf(sprintf, "Chat moi aussi %s port%s %s pnc%d", me_chat_ip, me_chat_port, me_chat_family, peers->node_count);
 	if (coll_buf_cb) coll_buf_cb(sprintf);
 
 	nodes_perform(peers, notify_peer_of_chat_addr);
