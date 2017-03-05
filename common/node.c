@@ -28,6 +28,36 @@ struct node *find_node(LinkedList *list, struct node *node) {
 	return NULL;
 }
 
+int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr) {
+	if (!node || !addr) return 0;
+	if (node->family != addr->sa_family) return 0;
+
+	switch (addr->sa_family) {
+		case AF_INET: {
+			struct sockaddr_in *sa4 = (struct sockaddr_in *)addr;
+			return node->ip4 == sa4->sin_addr.s_addr &&
+				node->port == sa4->sin_port;
+		}
+		case AF_INET6: {
+			struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)addr;
+			return node->ip6 == sa6->sin6_addr.s6_addr &&
+				node->port == sa6->sin6_port;
+		}
+		default: return 0;
+	}
+}
+
+struct node *find_node_from_sockaddr(LinkedList *list, struct sockaddr *addr) {
+	if (!list || !list->head) return NULL;
+
+	struct node *p = list->head;
+	while (p) {
+		if (node_and_sockaddr_equal(p, addr)) return p;
+		p = p->next;
+	}
+	return NULL;
+}
+
 void copy_and_add_tail(LinkedList *list, node_t *node_to_copy, node_t **new_tail) {
 	if (!list) {
 		printf("copy_and_add_tail: given list is NULL, returning NULL\n");
