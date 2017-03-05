@@ -9,7 +9,8 @@ typedef enum STATUS_TYPE {
     STATUS_INIT_NODE = 0,
     STATUS_NEW_NODE = 1,
     STATUS_CONFIRMED_NODE = 2,
-    STATUS_NEW_PEER = 3 // A peer is any client other than self
+    STATUS_NEW_PEER = 3, // A peer is any client other than self
+    STATUS_CHAT_PORT = 4,
 } STATUS_TYPE;
 
 typedef struct node {
@@ -19,6 +20,7 @@ typedef struct node {
 		unsigned char ip6[16];
 	};
 	unsigned short port;
+	unsigned short chat_port;
 	unsigned short family;
 	struct node *next;
 } node_t;
