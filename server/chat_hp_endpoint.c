@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 #include <netdb.h>
 
@@ -60,6 +61,25 @@ void *chat_endpoint(void *msg) {
 		switch(buf.status) {
 			case CHAT_STATUS_INIT: {
 				buf.status = CHAT_STATUS_NEW_CHAT_HP;
+				buf.family = si_other.sa_family;
+				switch (si_other.sa_family) {
+					case AF_INET: {
+						buf.ip4 = ((struct sockaddr_in *)&si_other)->sin_addr.s_addr;
+						buf.port = ((struct sockaddr_in *)&si_other)->sin_port;
+						break;
+					}
+					case AF_INET6: {
+						memcpy(buf.ip6, ((struct sockaddr_in6 *)&si_other)->sin6_addr.s6_addr,
+							sizeof(unsigned char[16]));
+						buf.port = ((struct sockaddr_in6 *)&si_other)->sin6_port;
+						break;
+					}
+					default: {
+						printf("CHAT_STATUS_INIT si_other.sa_family is not good %d\n",
+							si_other.sa_family);
+						continue;
+					}
+				}
 				sendto_len = sendto(sock_fd, &buf, sizeof(buf), 0, &si_other, slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
