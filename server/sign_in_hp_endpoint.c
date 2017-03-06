@@ -156,6 +156,15 @@ void *sign_in_endpoint(void *msg) {
 				nodes_perform(nodes, notify_existing_peer_of_new_tail);
 				break;
 			}
+			case STATUS_STAY_IN_TOUCH: {
+				printf("Stay in touch from %s port%d %d %d\n", ip_str, port, family, STATUS_STAY_IN_TOUCH_RESPONSE);
+				buf.status = STATUS_STAY_IN_TOUCH_RESPONSE;
+				sendto_len = sendto(sock_fd, &buf, NODE_SZ, 0, &si_other, slen);
+				if (sendto_len == -1) {
+					pfail("sendto");
+				}
+				break;
+			}
 			default: {
 				char *buf_char = (char *) &buf;
 				printf("None of the above - buf.status -: %d -: %s\n", buf.status, buf_char);
