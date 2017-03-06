@@ -52,6 +52,9 @@ socklen_t chat_server_socklen = 0;
 int sock_fd;
 int chat_sock_fd;
 
+// Runnings
+int stay_in_touch_running = 1;
+
 // function pointers
 void (*self_info_cb)(char *) = NULL;
 void (*server_info_cb)(char *) = NULL;
@@ -59,6 +62,7 @@ void (*socket_created_cb)(int) = NULL;
 void (*socket_bound_cb)(void) = NULL;
 void (*sendto_succeeded_cb)(size_t) = NULL;
 void (*recd_cb)(size_t, socklen_t, char *) = NULL;
+void (*stay_touch_recd_cb)(void) = NULL;
 void (*coll_buf_cb)(char *) = NULL;
 void (*hole_punch_sent_cb)(char *, int) = NULL;
 void (*confirmed_peer_while_punching_cb)(void) = NULL;
@@ -202,6 +206,26 @@ void ping_all_peers() {
 	nodes_perform(peers, send_hole_punch);
 }
 
+void *stay_in_touch_with_server_thread(void *msg) {
+	stay_in_touch_running = 1;
+
+	while (stay_in_touch_running) {
+		if (sendto(sock_fd, self, sizeof(node_t), 0, sa_server, server_socklen) == -1)
+			pfail("stay_in_touch_with_server_thread sendto");
+		usleep(30*1000*1000); // 30 seconds
+	}
+	pthread_exit("stay_in_touch_with_server_thread exited normally");
+}
+
+void stay_in_touch_with_server() {
+	pthread_t sitt;
+	int pr = pthread_create(&sitt, NULL, stay_in_touch_with_server_thread, "");
+	if (pr) {
+		printf("ERROR in stay_in_touch_with_server; return code from pthread_create() is %d\n", pr);
+		return;
+	}
+}
+
 int wain(void (*self_info)(char *),
 		void (*server_info)(char *),
 		void (*socket_created)(int),
@@ -211,6 +235,7 @@ int wain(void (*self_info)(char *),
 		void (*coll_buf)(char *),
 		void (*new_client)(char *),
 		void (*confirmed_client)(void),
+		void (*stay_touch_recd)(void),
 		void (*new_peer)(char *),
 		void (*hole_punch_sent)(char *, int),
 		void (*confirmed_peer_while_punching)(void),
@@ -226,6 +251,7 @@ int wain(void (*self_info)(char *),
 	socket_bound_cb = socket_bound;
 	sendto_succeeded_cb = sendto_succeeded;
 	recd_cb = recd;
+	stay_touch_recd_cb = stay_touch_recd;
 	coll_buf_cb = coll_buf;
 	hole_punch_sent_cb = hole_punch_sent;
 	confirmed_peer_while_punching_cb = confirmed_peer_while_punching;
@@ -334,7 +360,12 @@ int wain(void (*self_info)(char *),
 						me_external_port,
 						me_external_family);
 					if (new_client) new_client(sprintf);
+					stay_in_touch_with_server();
 					// init_chat_hp();
+					break;
+				}
+				case STATUS_STAY_IN_TOUCH_RESPONSE: {
+					if (stay_touch_recd_cb) stay_touch_recd_cb();
 					break;
 				}
 				case STATUS_CONFIRMED_NODE: {
