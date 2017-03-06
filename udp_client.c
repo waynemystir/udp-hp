@@ -207,19 +207,23 @@ void ping_all_peers() {
 }
 
 void *stay_in_touch_with_server_thread(void *msg) {
-	stay_in_touch_running = 1;
+	 printf("stay_in_touch_with_server_thread %s\n", (char*)msg);
+	 stay_in_touch_running = 1;
+	 node_t w;
+	 w.status = STATUS_STAY_IN_TOUCH;
 
 	while (stay_in_touch_running) {
-		if (sendto(sock_fd, self, sizeof(node_t), 0, sa_server, server_socklen) == -1)
-			pfail("stay_in_touch_with_server_thread sendto");
-		usleep(30*1000*1000); // 30 seconds
+		if (sendto(sock_fd, &w, sizeof(node_t), 0, sa_server, server_socklen) == -1)
+		 	pfail("stay_in_touch_with_server_thread sendto");
+		sleep(30); // 30 seconds
 	}
 	pthread_exit("stay_in_touch_with_server_thread exited normally");
 }
 
 void stay_in_touch_with_server() {
 	pthread_t sitt;
-	int pr = pthread_create(&sitt, NULL, stay_in_touch_with_server_thread, "");
+	char *w = "stay_in_touch_with_server";
+	int pr = pthread_create(&sitt, NULL, stay_in_touch_with_server_thread, (void *)w);
 	if (pr) {
 		printf("ERROR in stay_in_touch_with_server; return code from pthread_create() is %d\n", pr);
 		return;
@@ -308,6 +312,9 @@ int wain(void (*self_info)(char *),
 	int br = bind(sock_fd, sa_me_internal, sizeof(*sa_me_internal));
 	if ( br == -1 ) pfail("bind");
 	if (socket_bound) socket_bound();
+	addr_to_str(sa_me_internal, me_internal_ip, me_internal_port, me_internal_family);
+	sprintf(sprintf, "Moi %s port%s %s", me_internal_ip, me_internal_port, me_internal_family);
+	if (self_info) self_info(sprintf);
 
 	sendto_len = sendto(sock_fd, self, sizeof(node_t), 0, sa_server, server_socklen);
 	if (sendto_len == -1) {
