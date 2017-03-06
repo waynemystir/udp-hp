@@ -8,10 +8,12 @@ March 2, 2017
 typedef enum STATUS_TYPE {
     STATUS_INIT_NODE = 0,
     STATUS_NEW_NODE = 1,
-    STATUS_CONFIRMED_NODE = 2,
-    STATUS_NEW_PEER = 3, // A peer is any client other than self
-    STATUS_CONFIRMED_PEER = 4,
-    STATUS_CHAT_PORT = 5,
+    STATUS_STAY_IN_TOUCH = 2,
+    STATUS_STAY_IN_TOUCH_RESPONSE = 3,
+    STATUS_CONFIRMED_NODE = 4,
+    STATUS_NEW_PEER = 5, // A peer is any client other than self
+    STATUS_CONFIRMED_PEER = 6,
+    STATUS_CHAT_PORT = 7,
 } STATUS_TYPE;
 
 typedef struct node {
