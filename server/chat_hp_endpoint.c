@@ -60,7 +60,8 @@ void *chat_endpoint(void *msg) {
 		// so that the next recvfrom isn't blocked by the below code
 		switch(buf.status) {
 			case CHAT_STATUS_INIT: {
-				buf.status = CHAT_STATUS_NEW_CHAT_HP;
+				printf("CHAT_STATUS_INIT from %s port%d %d\n", ip_str, port, family);
+				buf.status = CHAT_STATUS_NEW;
 				buf.family = si_other.sa_family;
 				switch (si_other.sa_family) {
 					case AF_INET: {
@@ -85,6 +86,15 @@ void *chat_endpoint(void *msg) {
 					pfail("sendto");
 				}
 				printf("Sendto %zu %d\n", sendto_len, buf.family);
+				break;
+			}
+			case CHAT_STATUS_STAY_IN_TOUCH: {
+				printf("CHAT_STATUS_STAY_IN_TOUCH from %s port%d %d\n", ip_str, port, family);
+				buf.status = CHAT_STATUS_STAY_IN_TOUCH_RESPONSE;
+				sendto_len = sendto(sock_fd, &buf, sizeof(buf), 0, &si_other, slen);
+				if (sendto_len == -1) {
+					pfail("sendto");
+				}
 				break;
 			}
 			default: {
