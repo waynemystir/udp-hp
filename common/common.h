@@ -1,9 +1,18 @@
+//
+//  common.h
+//  udp-hp
+//
+//  Created by WAYNE SMALL on 2/19/17.
+//  Copyright © 2017 Waynemystir. All rights reserved.
+//
 
+#ifndef common_h
+#define common_h
 
 typedef enum CHAT_STATUS {
 	CHAT_STATUS_INIT = 0,
-	CHAT_STATUS_NEW_CHAT_HP = 1,
-	CHAT_STATUS_MSG = 2,
+	CHAT_STATUS_STAY_IN_TOUCH = 1,
+	CHAT_STATUS_STAY_IN_TOUCH_RESPONSE = 2,
 } CHAT_STATUS;
 
 typedef struct chat_buf {
@@ -16,3 +25,5 @@ typedef struct chat_buf {
 	unsigned short family;
 
 } chat_buf_t;
+
+#endif /* common_h */

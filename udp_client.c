@@ -12,9 +12,7 @@
 
 void send_hole_punch(struct node *peer);
 void init_chat_hp();
-void init_chat_with_peer(struct node *peer);
 void *chat_hp_server(void *w);
-void *chat_hp(void *w);
 
 struct LinkedList *peers;
 
@@ -54,6 +52,7 @@ int chat_sock_fd;
 
 // Runnings
 int stay_in_touch_running = 1;
+int chat_server_conn_running = 1;
 
 // function pointers
 void (*self_info_cb)(char *) = NULL;
@@ -207,10 +206,10 @@ void ping_all_peers() {
 }
 
 void *stay_in_touch_with_server_thread(void *msg) {
-	 printf("stay_in_touch_with_server_thread %s\n", (char*)msg);
-	 stay_in_touch_running = 1;
-	 node_t w;
-	 w.status = STATUS_STAY_IN_TOUCH;
+	printf("stay_in_touch_with_server_thread %s\n", (char*)msg);
+	stay_in_touch_running = 1;
+	node_t w;
+	w.status = STATUS_STAY_IN_TOUCH;
 
 	while (stay_in_touch_running) {
 		if (sendto(sock_fd, &w, sizeof(node_t), 0, sa_server, server_socklen) == -1)
@@ -368,7 +367,7 @@ int wain(void (*self_info)(char *),
 						me_external_family);
 					if (new_client) new_client(sprintf);
 					stay_in_touch_with_server();
-					// init_chat_hp();
+					init_chat_hp();
 					break;
 				}
 				case STATUS_STAY_IN_TOUCH_RESPONSE: {
@@ -415,7 +414,6 @@ int wain(void (*self_info)(char *),
 					// configured to simply discard them) but when the peer sends us a datagram,
 					// it will pass through the hole punch into our local endpoint.
 					punch_hole_in_peer(new_peer_added);
-					// init_chat_with_peer(new_peer_added);
 					break;
                     
 				}
@@ -444,6 +442,8 @@ int wain(void (*self_info)(char *),
 			switch (existing_peer->status) {
 				case STATUS_INIT_NODE:
 				case STATUS_NEW_NODE:
+				case STATUS_STAY_IN_TOUCH:
+				case STATUS_STAY_IN_TOUCH_RESPONSE:
 				case STATUS_CONFIRMED_NODE:
 				case STATUS_NEW_PEER: {
 					send_hole_punch(existing_peer);
@@ -476,7 +476,6 @@ int wain(void (*self_info)(char *),
 			// 		break;
 			// 	}
 			// }
-			// init_chat_hp();
 		}
 		free(buf_sa);
 	}
@@ -491,45 +490,6 @@ void init_chat_hp() {
 		printf("ERROR in init_chat_hp; return code from pthread_create() is %d\n", rc);
 		return;
 	}
-}
-
-void notify_peer_of_chat_addr(node_t *peer) {
-	if (!peer) return;
-	// TODO set peer->status = STATUS_NEW_PEER?
-	// and then set back to previous status?
-	struct sockaddr peer_addr;
-	socklen_t peer_socklen = 0;
-	switch (peer->family) {
-		case AF_INET: {
-			peer_addr.sa_family = AF_INET;
-			((struct sockaddr_in *)&peer_addr)->sin_family = AF_INET;
-			((struct sockaddr_in *)&peer_addr)->sin_addr.s_addr = peer->ip4;
-			((struct sockaddr_in *)&peer_addr)->sin_port = peer->port;
-			peer_socklen = sizeof(struct sockaddr_in);
-			break;
-		}
-		case AF_INET6: {
-			peer_addr.sa_family = AF_INET6;
-			((struct sockaddr_in6 *)&peer_addr)->sin6_family = AF_INET6;
-			memcpy(((struct sockaddr_in6 *)&peer_addr)->sin6_addr.s6_addr,
-				peer->ip6, sizeof(unsigned char[16]));
-			((struct sockaddr_in6 *)&peer_addr)->sin6_port = peer->port;
-			peer_socklen = sizeof(struct sockaddr_in6);
-			break;
-		}
-		default: {
-			printf("notify_peer_of_chat_addr, peer->family not well defined\n");
-			return;
-		}
-	}
-	char pi[256];
-	char pp[20];
-	char pf[20];
-	addr_to_str(&peer_addr, pi, pp, pf);
-	printf("notify_peer_of_chat_addr %s %s %s\n", pi, pp, pf);
-	self->status = STATUS_CHAT_PORT;
-	if (sendto(sock_fd, self, sizeof(*self), 0, &peer_addr, peer_socklen) == -1)
-		pfail("notify_peer_of_chat_addr sendto");
 }
 
 void *chat_hp_server(void *w) {
@@ -585,61 +545,26 @@ void *chat_hp_server(void *w) {
 		pfail(w);
 	} else if (sendto_succeeded_cb) sendto_succeeded_cb(chat_sendto_len);
 
-	size_t recvf_len = recvfrom(chat_sock_fd, &buf, sizeof(buf), 0, &sa_chat_other, &chat_other_socklen);
-	if (recvf_len == -1) {
-		char w[256];
-		sprintf(w, "recvfrom failed with %zu", recvf_len);
-		pfail(w);
+	chat_server_conn_running = 1;
+	while (chat_server_conn_running) {
+
+		size_t recvf_len = recvfrom(chat_sock_fd, &buf, sizeof(buf), 0, &sa_chat_other, &chat_other_socklen);
+		if (recvf_len == -1) {
+			char w[256];
+			sprintf(w, "recvfrom failed with %zu", recvf_len);
+			pfail(w);
+		}
+
+		addr_to_str(&sa_chat_other, chat_other_ip, chat_other_port, chat_other_family);
+		sprintf(sprintf, "%s port%s %s", chat_other_ip, chat_other_port, chat_other_family);
+		if (recd_cb) recd_cb(recvf_len, chat_other_socklen, sprintf);
+		chat_other_socklen = DEFAULT_OTHER_ADDR_LEN;
+
+		switch (buf.status) {
+			default: printf("*&*&*&*&*&*&*&*&* chat server\n");
+		}
+
 	}
-
-	addr_to_str(&sa_chat_other, chat_other_ip, chat_other_port, chat_other_family);
-	sprintf(sprintf, "%s port%s %s", chat_other_ip, chat_other_port, chat_other_family);
-	if (recd_cb) recd_cb(recvf_len, chat_other_socklen, sprintf);
-
-	unsigned short chat_port;
-	chatbuf_to_addr(&sa_me_chat_external, &chat_port, buf);
-	self->chat_port = chat_port;
-	addr_to_str(sa_me_chat_external, me_chat_ip, me_chat_port, me_chat_family);
-	sprintf(sprintf, "Chat moi aussi %s port%s %s pnc%d", me_chat_ip, me_chat_port, me_chat_family, peers->node_count);
-	if (coll_buf_cb) coll_buf_cb(sprintf);
-
-	nodes_perform(peers, notify_peer_of_chat_addr);
 
 	pthread_exit("chat_hp_server exiting normally");
-}
-
-void init_chat_with_peer(struct node *peer) {
-	pthread_t ct;
-	int rc = pthread_create(&ct, NULL, chat_hp, (void *) peer);
-	if (rc) {
-		printf("ERROR; return code from pthread_create() is %d\n", rc);
-		return;
-	}
-}
-
-void *chat_hp(void *w) {
-	printf("chat_hp\n");
-
-	// int running = 1;
-
-	// chat_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	// if (chat_sock_fd == -1) {
-	// 	printf("There was a problem creating the socket\n");
-	// } else if (chat_socket_created) chat_socket_created(chat_sock_fd);
-
-	// int br = bind(chat_sock_fd, (struct sockaddr*)sa_me_internal, sizeof(*sa_me_internal));
-	// if ( br == -1 ) pfail("bind");
-	// if (chat_socket_bound) chat_socket_bound();
-
-//	size_t sendto_len = sendto(chat_sock_fd, self, sizeof(node), 0, sa_server, server_socklen);
-//	if (sendto_len == -1) {
-//		char w[256];
-//		sprintf(w, "sendto failed with %zu", sendto_len);
-//		pfail(w);
-//	} else if (chat_sendto_succeeded) chat_sendto_succeeded(sendto_len);
-//
-//	while (running) {
-//	}
-
-	pthread_exit("chat_hp");
 }

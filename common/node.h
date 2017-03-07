@@ -1,9 +1,13 @@
-/********************************
+//
+//  node.h
+//  udp-hp
+//
+//  Created by WAYNE SMALL on 2/19/17.
+//  Copyright © 2017 Waynemystir. All rights reserved.
+//
 
-Created by Wayne Small
-March 2, 2017
-
-*********************************/
+#ifndef node_h
+#define node_h
 
 typedef enum STATUS_TYPE {
     STATUS_INIT_NODE = 0,
@@ -53,3 +57,5 @@ void get_new_tail(LinkedList *list, node_t **new_tail);
 void nodes_perform(LinkedList *list, void (*perform)(node_t *node));
 
 void free_list(LinkedList *list);
+
+#endif /* node_h */
