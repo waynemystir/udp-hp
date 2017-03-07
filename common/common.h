@@ -9,6 +9,13 @@
 #ifndef common_h
 #define common_h
 
+typedef enum SERVER_TYPE {
+	SERVER_SIGNIN,
+	SERVER_CHAT,
+} SERVER_TYPE;
+
+void str_from_server_type(SERVER_TYPE st, char str[15]);
+
 typedef enum CHAT_STATUS {
 	CHAT_STATUS_INIT = 0,
 	CHAT_STATUS_NEW = 1,

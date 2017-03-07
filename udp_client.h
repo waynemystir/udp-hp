@@ -9,6 +9,7 @@
 #ifndef udp_client_h
 #define udp_client_h
 
+#include "common.h"
 #include "network_utils.h"
 
 int wain(void (*self_info)(char *),
@@ -18,9 +19,9 @@ int wain(void (*self_info)(char *),
 		void (*sendto_succeeded)(size_t bytes_sent),
 		void (*recd)(size_t bytes_recd, socklen_t addr_len, char *),
 		void (*coll_buf)(char *),
-		void (*new_client)(char *),
+		void (*new_client)(SERVER_TYPE, char *),
 		void (*confirmed_client)(void),
-		void (*stay_touch_recd)(void),
+		void (*stay_touch_recd)(SERVER_TYPE),
 		void (*new_peer)(char *),
 		void (*hole_punch_sent)(char *, int),
 		void (*confirmed_peer_while_punching)(void),
