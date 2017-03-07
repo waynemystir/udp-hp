@@ -52,6 +52,7 @@ int chat_sock_fd;
 
 // Runnings
 int stay_in_touch_running = 1;
+int chat_stay_in_touch_running = 1;
 int chat_server_conn_running = 1;
 
 // function pointers
@@ -61,8 +62,9 @@ void (*socket_created_cb)(int) = NULL;
 void (*socket_bound_cb)(void) = NULL;
 void (*sendto_succeeded_cb)(size_t) = NULL;
 void (*recd_cb)(size_t, socklen_t, char *) = NULL;
-void (*stay_touch_recd_cb)(void) = NULL;
+void (*stay_touch_recd_cb)(SERVER_TYPE) = NULL;
 void (*coll_buf_cb)(char *) = NULL;
+void (*new_client_cb)(SERVER_TYPE, char *) = NULL;
 void (*hole_punch_sent_cb)(char *, int) = NULL;
 void (*confirmed_peer_while_punching_cb)(void) = NULL;
 void (*from_peer_cb)(char *) = NULL;
@@ -219,10 +221,36 @@ void *stay_in_touch_with_server_thread(void *msg) {
 	pthread_exit("stay_in_touch_with_server_thread exited normally");
 }
 
-void stay_in_touch_with_server() {
+void *stay_in_touch_with_chat_server_thread(void *msg) {
+	printf("stay_in_touch_with_chat_server_thread %s\n", (char*)msg);
+	chat_stay_in_touch_running = 1;
+	chat_buf_t w;
+	w.status = CHAT_STATUS_STAY_IN_TOUCH;
+
+	while (chat_stay_in_touch_running) {
+		if (sendto(chat_sock_fd, &w, sizeof(chat_buf_t), 0, sa_chat_server, chat_server_socklen) == -1)
+		 	pfail("stay_in_touch_with_chat_server_thread sendto");
+		sleep(30); // 30 seconds
+	}
+	pthread_exit("stay_in_touch_with_chat_server_thread exited normally");
+}
+
+void stay_in_touch_with_server(SERVER_TYPE st) {
 	pthread_t sitt;
 	char *w = "stay_in_touch_with_server";
-	int pr = pthread_create(&sitt, NULL, stay_in_touch_with_server_thread, (void *)w);
+	void *start_routine = NULL;
+	switch (st) {
+		case SERVER_SIGNIN: {
+			start_routine = stay_in_touch_with_server_thread;
+			break;
+		}
+		case SERVER_CHAT: {
+			start_routine = stay_in_touch_with_chat_server_thread;
+			break;
+		}
+		default: return;
+	}
+	int pr = pthread_create(&sitt, NULL, start_routine, (void *)w);
 	if (pr) {
 		printf("ERROR in stay_in_touch_with_server; return code from pthread_create() is %d\n", pr);
 		return;
@@ -236,9 +264,9 @@ int wain(void (*self_info)(char *),
 		void (*sendto_succeeded)(size_t),
 		void (*recd)(size_t, socklen_t, char *),
 		void (*coll_buf)(char *),
-		void (*new_client)(char *),
+		void (*new_client)(SERVER_TYPE, char *),
 		void (*confirmed_client)(void),
-		void (*stay_touch_recd)(void),
+		void (*stay_touch_recd)(SERVER_TYPE),
 		void (*new_peer)(char *),
 		void (*hole_punch_sent)(char *, int),
 		void (*confirmed_peer_while_punching)(void),
@@ -256,6 +284,7 @@ int wain(void (*self_info)(char *),
 	recd_cb = recd;
 	stay_touch_recd_cb = stay_touch_recd;
 	coll_buf_cb = coll_buf;
+	new_client_cb = new_client;
 	hole_punch_sent_cb = hole_punch_sent;
 	confirmed_peer_while_punching_cb = confirmed_peer_while_punching;
 	from_peer_cb = from_peer;
@@ -365,13 +394,13 @@ int wain(void (*self_info)(char *),
 						me_external_ip,
 						me_external_port,
 						me_external_family);
-					if (new_client) new_client(sprintf);
-					stay_in_touch_with_server();
+					if (new_client_cb) new_client_cb(SERVER_SIGNIN, sprintf);
+					stay_in_touch_with_server(SERVER_SIGNIN);
 					init_chat_hp();
 					break;
 				}
 				case STATUS_STAY_IN_TOUCH_RESPONSE: {
-					if (stay_touch_recd_cb) stay_touch_recd_cb();
+					if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_SIGNIN);
 					break;
 				}
 				case STATUS_CONFIRMED_NODE: {
@@ -538,7 +567,9 @@ void *chat_hp_server(void *w) {
 	chat_buf_t buf;
 	memset(&buf, '\0', sizeof(buf));
 
-	size_t chat_sendto_len = sendto(chat_sock_fd, &buf, sizeof(node_t), 0, sa_chat_server, server_socklen);
+	chat_server_socklen = sa_chat_server->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6)
+				: sizeof(struct sockaddr_in);
+	size_t chat_sendto_len = sendto(chat_sock_fd, &buf, sizeof(node_t), 0, sa_chat_server, chat_server_socklen);
 	if (chat_sendto_len == -1) {
 		char w[256];
 		sprintf(w, "sendto failed with %zu", chat_sendto_len);
@@ -561,6 +592,15 @@ void *chat_hp_server(void *w) {
 		chat_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
 		switch (buf.status) {
+			case CHAT_STATUS_NEW: {
+				if (new_client_cb) new_client_cb(SERVER_CHAT, sprintf);
+				stay_in_touch_with_server(SERVER_CHAT);
+				break;
+			}
+			case CHAT_STATUS_STAY_IN_TOUCH_RESPONSE: {
+				if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_CHAT);
+				break;
+			}
 			default: printf("*&*&*&*&*&*&*&*&* chat server\n");
 		}
 
