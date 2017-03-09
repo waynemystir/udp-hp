@@ -66,6 +66,9 @@ void notify_existing_peer_of_new_tail(node_t *existing_peer) {
 	// And notify new tail (i.e. si_other) of existing peer
 	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, &si_other, slen)==-1)
 		pfail("sendto");
+
+	free(exip_node_buf);
+	free(tail_node_buf);
 }
 
 void *sign_in_endpoint(void *msg) {
