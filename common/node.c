@@ -199,7 +199,7 @@ int nodes_equal(node_t *n1, node_t *n2) {
 	}
 }
 
-struct node *find_node(LinkedList *list, node_t *node) {
+struct node *find_node(LinkedList_t *list, node_t *node) {
 	if (!list || !list->head) return NULL;
 
 	node_t *p = list->head;
@@ -229,7 +229,7 @@ int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr) {
 	}
 }
 
-struct node *find_node_from_sockaddr(LinkedList *list, struct sockaddr *addr) {
+struct node *find_node_from_sockaddr(LinkedList_t *list, struct sockaddr *addr) {
 	if (!list || !list->head) return NULL;
 
 	node_t *p = list->head;
@@ -312,7 +312,7 @@ void node_external_to_node_buf(node_t *node, node_buf_t **node_buf) {
 	}
 }
 
-void copy_and_add_tail(LinkedList *list, node_t *node_to_copy, node_t **new_tail) {
+void copy_and_add_tail(LinkedList_t *list, node_t *node_to_copy, node_t **new_tail) {
 	if (!list) {
 		printf("copy_and_add_tail: given list is NULL, returning NULL\n");
 		return;
@@ -342,14 +342,14 @@ void copy_and_add_tail(LinkedList *list, node_t *node_to_copy, node_t **new_tail
 	list->node_count++;
 }
 
-void get_new_tail(LinkedList *list, node_t **new_tail) {
+void get_new_tail(LinkedList_t *list, node_t **new_tail) {
 	if (!new_tail) return;
 	node_t ntc;
 	memset(&ntc, '\0', SZ_NODE);
 	copy_and_add_tail(list, &ntc, new_tail);
 }
 
-void nodes_perform(LinkedList *list, void (*perform)(node_t *n)) {
+void nodes_perform(LinkedList_t *list, void (*perform)(node_t *n)) {
 	if (!list || !list->head) return;
 
 	node_t *p = list->head;
@@ -359,7 +359,7 @@ void nodes_perform(LinkedList *list, void (*perform)(node_t *n)) {
 	}
 }
 
-void free_list(LinkedList *list) {
+void free_list(LinkedList_t *list) {
 	if (!list || !list->head) return;
 	node_t *tmp;
 	while ((tmp = list->head) != NULL) {

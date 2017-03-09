@@ -19,10 +19,10 @@ int sign_in_running = 1;
 pthread_t sign_in_thread;
 int sock_fd;
 struct sockaddr si_other;
-socklen_t slen = sizeof(struct sockaddr);
+socklen_t slen = SZ_SOCKADDR;
 // TODO I should probably add separate socklen_t for recvfrom
 // since that function can apparently change this value
-LinkedList *nodes;
+LinkedList_t *nodes;
 
 void pfail(char *s) {
 	perror(s);
@@ -79,8 +79,8 @@ void *sign_in_endpoint(void *msg) {
 	size_t recvf_len, sendto_len;
 	struct sockaddr_in *si_me;
 	node_buf_t buf;
-	nodes = malloc(sizeof(LinkedList));
-	memset(nodes, '\0', sizeof(LinkedList));
+	nodes = malloc(SZ_LINK_LIST);
+	memset(nodes, '\0', SZ_LINK_LIST);
 
 	sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if ( sock_fd == -1 ) pfail("socket");
