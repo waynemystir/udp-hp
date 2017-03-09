@@ -86,6 +86,28 @@ void node_buf_to_node_min(node_buf_t *nb, node_min_t **nm) {
 	}
 }
 
+void node_min_to_node_buf(node_min_t *nm, node_buf_t **nb) {
+	if (!nm || !nb) return;
+
+	node_buf_t *new_node_buf = malloc(SZ_NODE_BF);
+	*nb = new_node_buf;
+	new_node_buf->status = nm->status;
+	new_node_buf->int_or_ext = nm->int_or_ext;
+	new_node_buf->port = nm->port;
+	new_node_buf->family = nm->family;
+	switch (new_node_buf->family) {
+		case AF_INET: {
+			new_node_buf->ip4 = nm->ip4;
+			break;
+		}
+		case AF_INET6: {
+			memcpy(new_node_buf->ip6, nm->ip6, 16);
+			break;
+		}
+		default: break;
+	}
+}
+
 void get_approp_node_bufs(node_t *n1, node_t *n2, node_buf_t **nb1, node_buf_t **nb2) {
 	if (!n1 || !n2 || !nb1 || !nb2) return;
 

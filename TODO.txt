@@ -1,0 +1,27 @@
+update udp_client_test.c
+self
+
+thread wain et al
+get internal hole punching working
+
+chat_port
+chat server
+POC chat functionality
+
+video_port
+video server
+POC video functionality
+
+database
+authentication
+contacts
+
+server host?
+
+security
+	network encryption
+	server firewalls
+	something else?
+
+test IPv6 somehow
+valgrind

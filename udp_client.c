@@ -143,24 +143,25 @@ void send_hole_punch(node_min_t *peer) {
 	// TODO set peer->status = STATUS_NEW_PEER?
 	// and then set back to previous status?
 	static int hpc = 0;
-	struct sockaddr peer_addr;
+	struct sockaddr *peer_addr;
 	socklen_t peer_socklen = 0;
 	switch (peer->family) {
 		case AF_INET: {
-			peer_addr.sa_family = AF_INET;
-			((struct sockaddr_in *)&peer_addr)->sin_family = AF_INET;
-			((struct sockaddr_in *)&peer_addr)->sin_addr.s_addr = peer->ip4;
-			((struct sockaddr_in *)&peer_addr)->sin_port = peer->port;
+			struct sockaddr_in sa4;
+			sa4.sin_family = AF_INET;
+			sa4.sin_addr.s_addr = peer->ip4;
+			sa4.sin_port = peer->port;
 			peer_socklen = SZ_SOCKADDR_IN;
+			peer_addr = (struct sockaddr*)&sa4;
 			break;
 		}
 		case AF_INET6: {
-			peer_addr.sa_family = AF_INET6;
-			((struct sockaddr_in6 *)&peer_addr)->sin6_family = AF_INET6;
-			memcpy(((struct sockaddr_in6 *)&peer_addr)->sin6_addr.s6_addr,
-				peer->ip6, sizeof(unsigned char[16]));
-			((struct sockaddr_in6 *)&peer_addr)->sin6_port = peer->port;
+			struct sockaddr_in6 sa6;
+			sa6.sin6_family = AF_INET6;
+			memcpy(sa6.sin6_addr.s6_addr, peer->ip6, sizeof(unsigned char[16]));
+			sa6.sin6_port = peer->port;
 			peer_socklen = SZ_SOCKADDR_IN6;
+			peer_addr = (struct sockaddr*)&sa6;
 			break;
 		}
 		default: {
@@ -168,15 +169,18 @@ void send_hole_punch(node_min_t *peer) {
 			return;
 		}
 	}
-	if (sendto(sock_fd, peer, SZ_NODE_MN, 0, &peer_addr, peer_socklen) == -1)
+	node_buf_t *peer_buf = NULL;
+	node_min_to_node_buf(peer, &peer_buf);
+	if (sendto(sock_fd, peer_buf, SZ_NODE_BF, 0, peer_addr, peer_socklen) == -1)
 		pfail("send_hole_punch sendto");
 	char spf[256];
 	char pi[INET6_ADDRSTRLEN];
 	char pp[20];
 	char pf[20];
-	addr_to_str(&peer_addr, pi, pp, pf);
+	addr_to_str(peer_addr, pi, pp, pf);
 	sprintf(spf, "send_hole_punch %s %s %s\n", pi, pp, pf);
 	if (hole_punch_sent_cb) hole_punch_sent_cb(spf, ++hpc);
+	free(peer_buf);
 }
 
 void ping_all_peers() {
@@ -186,11 +190,11 @@ void ping_all_peers() {
 void *stay_in_touch_with_server_thread(void *msg) {
 	printf("stay_in_touch_with_server_thread %s\n", (char*)msg);
 	stay_in_touch_running = 1;
-	node_min_t w;
+	node_buf_t w;
 	w.status = STATUS_STAY_IN_TOUCH;
 
 	while (stay_in_touch_running) {
-		if (sendto(sock_fd, &w, SZ_NODE_MN, 0, sa_server, server_socklen) == -1)
+		if (sendto(sock_fd, &w, SZ_NODE_BF, 0, sa_server, server_socklen) == -1)
 		 	pfail("stay_in_touch_with_server_thread sendto");
 		sleep(30); // 30 seconds
 	}
@@ -326,7 +330,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
 	self_internal->port = me_internal_port;
 
-	sendto_len = sendto(sock_fd, self_internal, SZ_NODE_MN, 0, sa_server, server_socklen);
+	sendto_len = sendto(sock_fd, self_internal, SZ_NODE_BF, 0, sa_server, server_socklen);
 	if (sendto_len == -1) {
 		char w[256];
 		sprintf(w, "sendto failed with %zu", sendto_len);
@@ -337,7 +341,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	memset(peers, '\0', SZ_LINK_LIST_MN);
 
 	while (running) {
-		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_MN, 0, &sa_other, &other_socklen);
+		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, &sa_other, &other_socklen);
 		if (recvf_len == -1) {
 			char w[256];
 			sprintf(w, "recvfrom failed with %zu", recvf_len);
