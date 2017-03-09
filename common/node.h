@@ -24,24 +24,24 @@ typedef struct node_buf {
 	STATUS_TYPE status;
 	unsigned short int_or_ext; // 0 is internal and 1 is external
 	union {
-		unsigned long ip4;
+		in_addr_t ip4;
 		unsigned char ip6[16];
 	};
-	unsigned short port;
-	unsigned short chat_port;
-	unsigned short family;
+	in_port_t port;
+	in_port_t chat_port;
+	sa_family_t family;
 } node_buf_t;
 
 typedef struct node_min {
 	STATUS_TYPE status;
 	unsigned short int_or_ext; // 0 is internal and 1 is external
 	union {
-		unsigned long ip4;
+		in_addr_t ip4;
 		unsigned char ip6[16];
 	};
-	unsigned short port;
-	unsigned short chat_port;
-	unsigned short family;
+	in_port_t port;
+	in_port_t chat_port;
+	sa_family_t family;
 	struct node_min *next;
 } node_min_t;
 
@@ -49,19 +49,19 @@ typedef struct node {
 	STATUS_TYPE status;
 	unsigned short int_or_ext; // 0 is internal and 1 is external
 	union {
-		unsigned long internal_ip4;
+		in_addr_t internal_ip4;
 		unsigned char internal_ip6[16];
 	};
-	unsigned short internal_port;
-	unsigned short internal_chat_port;
-	unsigned short internal_family;
+	in_port_t internal_port;
+	in_port_t internal_chat_port;
+	sa_family_t internal_family;
 	union {
-		unsigned long external_ip4;
+		in_addr_t external_ip4;
 		unsigned char external_ip6[16];
 	};
-	unsigned short external_port;
-	unsigned short external_chat_port;
-	unsigned short external_family;
+	in_port_t external_port;
+	in_port_t external_chat_port;
+	sa_family_t external_family;
 	struct node *next;
 } node_t;
 
@@ -75,7 +75,7 @@ typedef struct LinkedList {
 	node_t *head;
 	node_t *tail;
 	int node_count;
-} LinkedList;
+} LinkedList_t;
 
 extern const unsigned short INTERNAL_ADDR;
 extern const unsigned short EXTERNAL_ADDR;
@@ -84,7 +84,7 @@ extern const unsigned short EXTERNAL_ADDR;
 #define SZ_NODE_MN sizeof(node_min_t)
 #define SZ_NODE sizeof(node_t)
 #define SZ_LINK_LIST_MN sizeof(LinkedList_min_t)
-#define SZ_LINK_LIST sizeof(LinkedList)
+#define SZ_LINK_LIST sizeof(LinkedList_t)
 #define SZ_SOCKADDR sizeof(struct sockaddr)
 #define SZ_SOCKADDR_IN sizeof(struct sockaddr_in)
 #define SZ_SOCKADDR_IN6 sizeof(struct sockaddr_in6)
@@ -119,11 +119,11 @@ int same_nat(node_t *n1, node_t *n2);
 
 int nodes_equal(node_t *n1, node_t *n2);
 
-struct node *find_node(LinkedList *list, node_t *node);
+struct node *find_node(LinkedList_t *list, node_t *node);
 
 int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr);
 
-struct node *find_node_from_sockaddr(LinkedList *list, struct sockaddr *addr);
+struct node *find_node_from_sockaddr(LinkedList_t *list, struct sockaddr *addr);
 
 void node_to_internal_addr(node_t *node, struct sockaddr **addr);
 
@@ -131,12 +131,12 @@ void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf);
 
 void node_external_to_node_buf(node_t *node, node_buf_t **node_buf);
 
-void copy_and_add_tail(LinkedList *list, node_t *node_to_copy, node_t **new_tail);
+void copy_and_add_tail(LinkedList_t *list, node_t *node_to_copy, node_t **new_tail);
 
-void get_new_tail(LinkedList *list, node_t **new_tail);
+void get_new_tail(LinkedList_t *list, node_t **new_tail);
 
-void nodes_perform(LinkedList *list, void (*perform)(node_t *node));
+void nodes_perform(LinkedList_t *list, void (*perform)(node_t *node));
 
-void free_list(LinkedList *list);
+void free_list(LinkedList_t *list);
 
 #endif /* node_h */
