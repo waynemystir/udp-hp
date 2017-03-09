@@ -26,7 +26,7 @@ typedef enum CHAT_STATUS {
 typedef struct chat_buf {
 	CHAT_STATUS status;
 	union {
-		unsigned long ip4;
+		in_addr_t ip4;
 		unsigned char ip6[16];
 	};
 	unsigned short port;

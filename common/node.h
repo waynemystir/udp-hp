@@ -97,6 +97,8 @@ int node_buf_to_addr(node_buf_t *node_buf, struct sockaddr **addr);
 
 void node_buf_to_node_min(node_buf_t *nb, node_min_t **nm);
 
+void node_min_to_node_buf(node_min_t *nm, node_buf_t **nb);
+
 void get_approp_node_bufs(node_t *n1, node_t *n2, node_buf_t **nb1, node_buf_t **nb2);
 
 // LinkedList_min and node_min_t functions

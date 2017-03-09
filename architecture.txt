@@ -1,0 +1,23 @@
+node 1 sends internal ip/port to sign-in server on node init and records internal ip/port in self_internal
+sign-in server records external and internal ip/port of node 1
+sign-in server sends external ip/port to node 1
+node 1 records external ip/port in self_external
+
+node 2 sends internal ip/port to sign-in server on node init and records internal ip/port in self_internal
+sign-in server records external and internal ip/port of node 2
+sign-in server sends external ip/port to node 2
+node 2 records external ip/port in self_external
+
+sign-server hole punch notifies nodes 1 and 2 of each other
+as part of hole punch notification, sign-in server evaluates the external ip of nodes 1 and 2
+if the external ip's are equal, then the sign-in server sends the internal ip/port of nodes 1 and 2 to the other
+otherwise, the sign-in server sends the external ip/port of nodes 1 and 2 to the other
+
+nodes 1 and 2 record the other's ip/port/chat_port accordingly
+nodes 1 and 2 hole punch each other
+
+as this was going on, nodes 1 and 2 also pinged the chat server
+.
+.
+.
+so the hole punch between nodes 1 and 2 should be made to wait for the response from the chat server (i.e. until they each get their chat port)? or better yet: when chat port recd, detect whether hole punch with the other node has already occurred and confirmed. if so, redo hole punch with chat port included, if not populate chat port. each node then records chat port of the other... and the chat hole punch can then ensue
