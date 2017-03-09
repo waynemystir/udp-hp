@@ -77,6 +77,9 @@ typedef struct LinkedList {
 	int node_count;
 } LinkedList;
 
+extern const unsigned short INTERNAL_ADDR;
+extern const unsigned short EXTERNAL_ADDR;
+
 #define SZ_NODE_BF sizeof(node_buf_t)
 #define SZ_NODE_MN sizeof(node_min_t)
 #define SZ_NODE sizeof(node_t)
@@ -86,13 +89,17 @@ typedef struct LinkedList {
 #define SZ_SOCKADDR_IN sizeof(struct sockaddr_in)
 #define SZ_SOCKADDR_IN6 sizeof(struct sockaddr_in6)
 
-// LinkedList_min and node_min_t functions
+// node_buf_t functions
 
 void addr_to_node_buf(struct sockaddr *sa, node_buf_t **nb, STATUS_TYPE status, unsigned short int_or_ext);
 
 int node_buf_to_addr(node_buf_t *node_buf, struct sockaddr **addr);
 
 void node_buf_to_node_min(node_buf_t *nb, node_min_t **nm);
+
+void get_approp_node_bufs(node_t *n1, node_t *n2, node_buf_t **nb1, node_buf_t **nb2);
+
+// LinkedList_min and node_min_t functions
 
 int nodes_min_equal(node_min_t *n1, node_min_t *n2);
 
@@ -108,6 +115,8 @@ void nodes_min_perform(LinkedList_min_t *list, void (*perform)(node_min_t *node)
 
 // LinkedList and node_t functions
 
+int same_nat(node_t *n1, node_t *n2);
+
 int nodes_equal(node_t *n1, node_t *n2);
 
 struct node *find_node(LinkedList *list, node_t *node);
@@ -115,6 +124,12 @@ struct node *find_node(LinkedList *list, node_t *node);
 int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr);
 
 struct node *find_node_from_sockaddr(LinkedList *list, struct sockaddr *addr);
+
+void node_to_internal_addr(node_t *node, struct sockaddr **addr);
+
+void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf);
+
+void node_external_to_node_buf(node_t *node, node_buf_t **node_buf);
 
 void copy_and_add_tail(LinkedList *list, node_t *node_to_copy, node_t **new_tail);
 

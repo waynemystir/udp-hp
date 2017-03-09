@@ -5,6 +5,9 @@
 
 #include "node.h"
 
+const unsigned short INTERNAL_ADDR = 0;
+const unsigned short EXTERNAL_ADDR = 1;
+
 void addr_to_node_buf(struct sockaddr *sa, node_buf_t **nb, STATUS_TYPE status, unsigned short int_or_ext) {
 	if (!sa || !nb) return;
 
@@ -17,11 +20,13 @@ void addr_to_node_buf(struct sockaddr *sa, node_buf_t **nb, STATUS_TYPE status, 
 		case AF_INET: {
 			struct sockaddr_in *sa4 = (struct sockaddr_in *)sa;
 			new_node_buf->ip4 = sa4->sin_addr.s_addr;
+			new_node_buf->port = sa4->sin_port;
 			break;
 		}
 		case AF_INET6: {
 			struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)sa;
 			memcpy(new_node_buf->ip6, sa6->sin6_addr.s6_addr, sizeof(unsigned char[16]));
+			new_node_buf->port = sa6->sin6_port;
 			break;
 		}
 		default: break;
@@ -78,6 +83,18 @@ void node_buf_to_node_min(node_buf_t *nb, node_min_t **nm) {
 			break;
 		}
 		default: break;
+	}
+}
+
+void get_approp_node_bufs(node_t *n1, node_t *n2, node_buf_t **nb1, node_buf_t **nb2) {
+	if (!n1 || !n2 || !nb1 || !nb2) return;
+
+	if (same_nat(n1, n2)) {
+		node_internal_to_node_buf(n1, nb1);
+		node_internal_to_node_buf(n2, nb2);
+	} else {
+		node_external_to_node_buf(n1, nb1);
+		node_external_to_node_buf(n2, nb2);
 	}
 }
 
@@ -159,6 +176,17 @@ void nodes_min_perform(LinkedList_min_t *list, void (*perform)(node_min_t *node)
 	}
 }
 
+int same_nat(node_t *n1, node_t *n2) {
+	if (!n1 || !n2) return 0;
+	if (n1->external_family != n2->external_family) return 0;
+
+	switch (n1->external_family) {
+		case AF_INET: return n1->external_ip4 == n2->external_ip4;
+		case AF_INET6: return n1->external_ip6 == n2->external_ip6;
+		default: return 0;
+	}
+}
+
 int nodes_equal(node_t *n1, node_t *n2) {
 	if (!n1 || !n2) return 0;
 	if (n1->external_family != n2->external_family) return 0;
@@ -210,6 +238,78 @@ struct node *find_node_from_sockaddr(LinkedList *list, struct sockaddr *addr) {
 		p = p->next;
 	}
 	return NULL;
+}
+
+void node_to_internal_addr(node_t *node, struct sockaddr **addr) {
+	if (!node || !addr) return;
+
+	switch (node->internal_family) {
+		case AF_INET: {
+			struct sockaddr_in *sai = malloc(SZ_SOCKADDR_IN);
+			sai->sin_addr.s_addr = node->internal_ip4;
+			sai->sin_port = node->internal_port;
+			sai->sin_family = AF_INET;
+			*addr = (struct sockaddr*)sai;
+			(*addr)->sa_family = AF_INET;
+			break;
+		}
+		case AF_INET6: {
+			struct sockaddr_in6 *sai = malloc(SZ_SOCKADDR_IN6);
+			memcpy(sai->sin6_addr.s6_addr, node->internal_ip6, sizeof(unsigned char[16]));
+			sai->sin6_port = node->internal_port;
+			sai->sin6_family = AF_INET;
+			*addr = (struct sockaddr*)&sai;
+			(*addr)->sa_family = AF_INET6;
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+}
+
+void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf) {
+	if (!node || !node_buf) return;
+
+	node_buf_t *new_node_buf = malloc(SZ_NODE_BF);
+	*node_buf = new_node_buf;
+	new_node_buf->status = node->status;
+	new_node_buf->int_or_ext = INTERNAL_ADDR;
+	new_node_buf->family = node->internal_family;
+	new_node_buf->port = node->internal_port;
+	switch (node->internal_family) {
+		case AF_INET: {
+			new_node_buf->ip4 = node->internal_ip4;
+			break;
+		}
+		case AF_INET6: {
+			memcpy(new_node_buf->ip6, node->internal_ip6, sizeof(unsigned char[16]));
+			break;
+		}
+		default: break;
+	}
+}
+
+void node_external_to_node_buf(node_t *node, node_buf_t **node_buf) {
+	if (!node || !node_buf) return;
+
+	node_buf_t *new_node_buf = malloc(SZ_NODE_BF);
+	*node_buf = new_node_buf;
+	new_node_buf->status = node->status;
+	new_node_buf->int_or_ext = EXTERNAL_ADDR;
+	new_node_buf->family = node->external_family;
+	new_node_buf->port = node->external_port;
+	switch (node->external_family) {
+		case AF_INET: {
+			new_node_buf->ip4 = node->external_ip4;
+			break;
+		}
+		case AF_INET6: {
+			memcpy(new_node_buf->ip6, node->external_ip6, sizeof(unsigned char[16]));
+			break;
+		}
+		default: break;
+	}
 }
 
 void copy_and_add_tail(LinkedList *list, node_t *node_to_copy, node_t **new_tail) {
