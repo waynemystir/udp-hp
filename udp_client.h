@@ -12,7 +12,7 @@
 #include "common.h"
 #include "network_utils.h"
 
-int wain(void (*self_info)(char *),
+int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port, unsigned short family),
 		void (*server_info)(char *),
 		void (*socket_created)(int sock_fd),
 		void (*socket_bound)(void),

@@ -10,38 +10,44 @@
 
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
-void send_hole_punch(struct node *peer);
+void send_hole_punch(node_min_t *peer);
 void init_chat_hp();
 void *chat_hp_server(void *w);
 
-struct LinkedList *peers;
+LinkedList_min_t *peers;
 
-// The client
-node_t *self;
+// Self
+node_buf_t *self_internal;
+node_buf_t *self_external;
+struct sockaddr *sa_self_internal;
+size_t sz_sa_self_internal;
+char self_internal_ip[INET6_ADDRSTRLEN];
+
+// Me
 struct sockaddr *sa_me_internal;
-char me_internal_ip[256];
-char me_internal_port[20];
-char me_internal_family[20];
+char me_internal_ip[INET6_ADDRSTRLEN];
+unsigned short me_internal_port;
+unsigned short me_internal_family;
 struct sockaddr *sa_me_external;
-char me_external_ip[256];
+char me_external_ip[INET6_ADDRSTRLEN];
 char me_external_port[20];
 char me_external_family[20];
 struct sockaddr *sa_me_chat;
 struct sockaddr *sa_me_chat_external;
-char me_chat_ip[256];
+char me_chat_ip[INET6_ADDRSTRLEN];
 char me_chat_port[20];
 char me_chat_family[20];
 
 // The server
 struct sockaddr *sa_server;
-char server_internal_ip[256];
+char server_internal_ip[INET6_ADDRSTRLEN];
 char server_internal_port[20];
 char server_internal_family[20];
 socklen_t server_socklen = 0;
 
 // The chat server
 struct sockaddr *sa_chat_server;
-char chat_server_internal_ip[256];
+char chat_server_internal_ip[INET6_ADDRSTRLEN];
 char chat_server_internal_port[20];
 char chat_server_internal_family[20];
 socklen_t chat_server_socklen = 0;
@@ -56,7 +62,7 @@ int chat_stay_in_touch_running = 1;
 int chat_server_conn_running = 1;
 
 // function pointers
-void (*self_info_cb)(char *) = NULL;
+void (*self_info_cb)(char *, unsigned short, unsigned short, unsigned short) = NULL;
 void (*server_info_cb)(char *) = NULL;
 void (*socket_created_cb)(int) = NULL;
 void (*socket_bound_cb)(void) = NULL;
@@ -68,36 +74,6 @@ void (*new_client_cb)(SERVER_TYPE, char *) = NULL;
 void (*hole_punch_sent_cb)(char *, int) = NULL;
 void (*confirmed_peer_while_punching_cb)(void) = NULL;
 void (*from_peer_cb)(char *) = NULL;
-
-int node_to_addr(struct sockaddr **addr, struct node n) {
-	if (!addr) return -1;
-
-	switch (n.family) {
-		case AF_INET: {
-			struct sockaddr_in *sai = malloc(sizeof(struct sockaddr_in));
-			sai->sin_addr.s_addr = n.ip4;
-			sai->sin_port = n.port;
-			sai->sin_family = AF_INET;
-			*addr = (struct sockaddr*)sai;
-			(*addr)->sa_family = AF_INET;
-			break;
-		}
-		case AF_INET6: {
-			struct sockaddr_in6 *sai = malloc(sizeof(struct sockaddr_in6));
-			memcpy(sai->sin6_addr.s6_addr, n.ip6, sizeof(unsigned char[16]));
-			sai->sin6_port = n.port;
-			sai->sin6_family = AF_INET;
-			*addr = (struct sockaddr*)&sai;
-			(*addr)->sa_family = AF_INET6;
-			break;
-		}
-		default: {
-			break;
-		}
-	}
-
-	return 0;
-}
 
 int chatbuf_to_addr(struct sockaddr **addr, unsigned short *port, chat_buf_t n) {
 	if (!addr) return -1;
@@ -138,7 +114,7 @@ void pfail(char *w) {
 }
 
 void *hole_punch_thread(void *peer_to_hole_punch) {
-	node_t *peer = (node_t *)peer_to_hole_punch;
+	node_min_t *peer = (node_min_t *)peer_to_hole_punch;
 	for (int j = 0; j < 1000; j++) {
 		// Send 1000 datagrams, or until the peer
 		// is confirmed, whichever occurs first.
@@ -153,7 +129,7 @@ void *hole_punch_thread(void *peer_to_hole_punch) {
 	pthread_exit("hole_punch_thread exiting normally");
 }
 
-void punch_hole_in_peer(struct node *peer) {
+void punch_hole_in_peer(node_min_t *peer) {
 	pthread_t hpt;
 	int pt = pthread_create(&hpt, NULL, hole_punch_thread, peer);
 	if (pt) {
@@ -162,11 +138,11 @@ void punch_hole_in_peer(struct node *peer) {
 	}
 }
 
-void send_hole_punch(struct node *peer) {
+void send_hole_punch(node_min_t *peer) {
 	if (!peer) return;
 	// TODO set peer->status = STATUS_NEW_PEER?
 	// and then set back to previous status?
-    	static int hpc = 0;
+	static int hpc = 0;
 	struct sockaddr peer_addr;
 	socklen_t peer_socklen = 0;
 	switch (peer->family) {
@@ -175,7 +151,7 @@ void send_hole_punch(struct node *peer) {
 			((struct sockaddr_in *)&peer_addr)->sin_family = AF_INET;
 			((struct sockaddr_in *)&peer_addr)->sin_addr.s_addr = peer->ip4;
 			((struct sockaddr_in *)&peer_addr)->sin_port = peer->port;
-			peer_socklen = sizeof(struct sockaddr_in);
+			peer_socklen = SZ_SOCKADDR_IN;
 			break;
 		}
 		case AF_INET6: {
@@ -184,7 +160,7 @@ void send_hole_punch(struct node *peer) {
 			memcpy(((struct sockaddr_in6 *)&peer_addr)->sin6_addr.s6_addr,
 				peer->ip6, sizeof(unsigned char[16]));
 			((struct sockaddr_in6 *)&peer_addr)->sin6_port = peer->port;
-			peer_socklen = sizeof(struct sockaddr_in6);
+			peer_socklen = SZ_SOCKADDR_IN6;
 			break;
 		}
 		default: {
@@ -192,10 +168,10 @@ void send_hole_punch(struct node *peer) {
 			return;
 		}
 	}
-	if (sendto(sock_fd, peer, sizeof(*peer), 0, &peer_addr, peer_socklen) == -1)
+	if (sendto(sock_fd, peer, SZ_NODE_MN, 0, &peer_addr, peer_socklen) == -1)
 		pfail("send_hole_punch sendto");
 	char spf[256];
-	char pi[256];
+	char pi[INET6_ADDRSTRLEN];
 	char pp[20];
 	char pf[20];
 	addr_to_str(&peer_addr, pi, pp, pf);
@@ -204,17 +180,17 @@ void send_hole_punch(struct node *peer) {
 }
 
 void ping_all_peers() {
-	nodes_perform(peers, send_hole_punch);
+	nodes_min_perform(peers, send_hole_punch);
 }
 
 void *stay_in_touch_with_server_thread(void *msg) {
 	printf("stay_in_touch_with_server_thread %s\n", (char*)msg);
 	stay_in_touch_running = 1;
-	node_t w;
+	node_min_t w;
 	w.status = STATUS_STAY_IN_TOUCH;
 
 	while (stay_in_touch_running) {
-		if (sendto(sock_fd, &w, sizeof(node_t), 0, sa_server, server_socklen) == -1)
+		if (sendto(sock_fd, &w, SZ_NODE_MN, 0, sa_server, server_socklen) == -1)
 		 	pfail("stay_in_touch_with_server_thread sendto");
 		sleep(30); // 30 seconds
 	}
@@ -257,7 +233,7 @@ void stay_in_touch_with_server(SERVER_TYPE st) {
 	}
 }
 
-int wain(void (*self_info)(char *),
+int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned short),
 		void (*server_info)(char *),
 		void (*socket_created)(int),
 		void (*socket_bound)(void),
@@ -291,18 +267,18 @@ int wain(void (*self_info)(char *),
 
 	// Other (server or peer in recvfrom)
 	struct sockaddr sa_other;
-	char other_ip[256];
+	char other_ip[INET6_ADDRSTRLEN];
 	char other_port[20];
 	char other_family[20];
 	socklen_t other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
 	// Self
-	self = malloc(sizeof(node_t));
-	self->status = STATUS_INIT_NODE;
+	get_if_addr(&sa_self_internal, &sz_sa_self_internal, self_internal_ip);
+	addr_to_node_buf(sa_self_internal, &self_internal, STATUS_INIT_NODE, 0);
 
 	// Buffer
-	node_t buf;
-	char buf_ip[256];
+	node_buf_t buf;
+	char buf_ip[INET6_ADDRSTRLEN];
 
 	// Various
 	int running = 1;
@@ -323,7 +299,7 @@ int wain(void (*self_info)(char *),
 
 	// Setup server
 	str_to_addr(&sa_server, "142.105.56.124", "9930", AF_INET, SOCK_DGRAM, 0);
-	server_socklen = sa_server->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+	server_socklen = sa_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(sprintf, "The server %s port%s %s %u",
 		server_internal_ip,
@@ -340,22 +316,28 @@ int wain(void (*self_info)(char *),
 	int br = bind(sock_fd, sa_me_internal, sizeof(*sa_me_internal));
 	if ( br == -1 ) pfail("bind");
 	if (socket_bound) socket_bound();
-	addr_to_str(sa_me_internal, me_internal_ip, me_internal_port, me_internal_family);
-	sprintf(sprintf, "Moi %s port%s %s", me_internal_ip, me_internal_port, me_internal_family);
-	if (self_info) self_info(sprintf);
 
-	sendto_len = sendto(sock_fd, self, sizeof(node_t), 0, sa_server, server_socklen);
+	socklen_t gsn_len = sizeof(*sa_me_internal);
+	int gsn = getsockname(sock_fd, sa_me_internal, &gsn_len);
+	if (gsn == -1) pfail("getsockname");
+
+	addr_to_str_short(sa_me_internal, me_internal_ip, &me_internal_port, &me_internal_family);
+	sprintf(sprintf, "Moi %s %s", me_internal_ip, self_internal_ip);
+	if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
+	self_internal->port = me_internal_port;
+
+	sendto_len = sendto(sock_fd, self_internal, SZ_NODE_MN, 0, sa_server, server_socklen);
 	if (sendto_len == -1) {
 		char w[256];
 		sprintf(w, "sendto failed with %zu", sendto_len);
 		pfail(w);
 	} else if (sendto_succeeded) sendto_succeeded(sendto_len);
 
-	peers = malloc(sizeof(LinkedList));
-    	memset(peers, '\0', sizeof(LinkedList));
+	peers = malloc(SZ_LINK_LIST_MN);
+	memset(peers, '\0', SZ_LINK_LIST_MN);
 
 	while (running) {
-		recvf_len = recvfrom(sock_fd, &buf, sizeof(buf), 0, &sa_other, &other_socklen);
+		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_MN, 0, &sa_other, &other_socklen);
 		if (recvf_len == -1) {
 			char w[256];
 			sprintf(w, "recvfrom failed with %zu", recvf_len);
@@ -368,7 +350,7 @@ int wain(void (*self_info)(char *),
 		other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
 		struct sockaddr *buf_sa = NULL;
-		node_to_addr(&buf_sa, buf);
+		node_buf_to_addr(&buf, &buf_sa);
 		char bp[20];
 		char bf[20];
 		addr_to_str(buf_sa, buf_ip, bp, bf);
@@ -384,8 +366,10 @@ int wain(void (*self_info)(char *),
 			// The datagram came from the server.
 			switch (buf.status) {
 				case STATUS_NEW_NODE: {
-					sa_me_external = malloc(sizeof(struct sockaddr));
-					memcpy(sa_me_external, buf_sa, sizeof(struct sockaddr));
+					self_external = malloc(SZ_NODE_BF);
+					memcpy(self_external, &buf, SZ_NODE_BF);
+					sa_me_external = malloc(SZ_SOCKADDR);
+					memcpy(sa_me_external, buf_sa, SZ_SOCKADDR);
 					addr_to_str((struct sockaddr*)sa_me_external,
 						me_external_ip,
 						me_external_port,
@@ -414,8 +398,9 @@ int wain(void (*self_info)(char *),
 					// byte ordering. We should make sure we agree on the
 					// endianness in any serious code.
 					// Now we just have to add the reported peer into our peer list
-					node_t *new_peer_added;
-					copy_and_add_tail(peers, &buf, &new_peer_added);
+					node_min_t *new_peer_added;
+					node_buf_to_node_min(&buf, &new_peer_added);
+					add_node_min(peers, new_peer_added);
 					if (new_peer_added) {
 						sprintf(sprintf, "New peer %s p:%u added\nNow we have %d peers",
 							buf_ip,
@@ -454,7 +439,7 @@ int wain(void (*self_info)(char *),
 				}
 			}
 		} else {
-			node_t *existing_peer = find_node_from_sockaddr(peers, &sa_other);
+			node_min_t *existing_peer = find_node_min_from_sockaddr(peers, &sa_other);
 			if (!existing_peer) {
 				/* TODO: This is an issue. Either a security issue (how
 				did an unknown peer get through the firewall) or my list
@@ -531,7 +516,7 @@ void *chat_hp_server(void *w) {
 	// sprintf(sprintf, "Chat moi %s port%s %s", me_chat_ip, me_chat_port, me_chat_family);
 	// if (self_info_cb) self_info_cb(sprintf);
 	struct sockaddr_in si_me;
-	memset((char *) &si_me, 0, sizeof(si_me));
+	memset((char *) &si_me, 0, SZ_SOCKADDR_IN);
 	si_me.sin_family = AF_INET;
 	si_me.sin_port = htons(0);
 	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -539,7 +524,7 @@ void *chat_hp_server(void *w) {
 
 	// Setup chat server
 	str_to_addr(&sa_chat_server, "142.105.56.124", "9931", AF_INET, SOCK_DGRAM, 0);
-	server_socklen = sa_chat_server->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+	server_socklen = sa_chat_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_chat_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(sprintf, "The chat server %s port%s %s %u",
 		server_internal_ip,
@@ -550,7 +535,7 @@ void *chat_hp_server(void *w) {
 
 	// Setup sa_chat_other
 	struct sockaddr sa_chat_other;
-	char chat_other_ip[256];
+	char chat_other_ip[INET6_ADDRSTRLEN];
 	char chat_other_port[20];
 	char chat_other_family[20];
 	socklen_t chat_other_socklen = DEFAULT_OTHER_ADDR_LEN;
@@ -567,8 +552,8 @@ void *chat_hp_server(void *w) {
 	chat_buf_t buf;
 	memset(&buf, '\0', sizeof(buf));
 
-	chat_server_socklen = sa_chat_server->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6)
-				: sizeof(struct sockaddr_in);
+	chat_server_socklen = sa_chat_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6
+				: SZ_SOCKADDR_IN;
 	size_t chat_sendto_len = sendto(chat_sock_fd, &buf, sizeof(node_t), 0, sa_chat_server, chat_server_socklen);
 	if (chat_sendto_len == -1) {
 		char w[256];
