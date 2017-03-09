@@ -14,7 +14,6 @@
 #define BUFLEN 512
 #define NPACK 10
 #define PORT 9930
-#define NODE_SZ sizeof(node_t)
 
 int sign_in_running = 1;
 pthread_t sign_in_thread;
@@ -38,39 +37,45 @@ void notify_existing_peer_of_new_tail(node_t *existing_peer) {
 
 	// Let's get the sockaddr of existing_peer
 	struct sockaddr ep_addr;
-	switch (existing_peer->family) {
+	switch (existing_peer->external_family) {
 		case AF_INET: {
 			ep_addr.sa_family = AF_INET;
 			((struct sockaddr_in*)&ep_addr)->sin_family = AF_INET;
-			((struct sockaddr_in*)&ep_addr)->sin_port = existing_peer->port;
-			((struct sockaddr_in*)&ep_addr)->sin_addr.s_addr = existing_peer->ip4;
+			((struct sockaddr_in*)&ep_addr)->sin_port = existing_peer->external_port;
+			((struct sockaddr_in*)&ep_addr)->sin_addr.s_addr = existing_peer->external_ip4;
 			break;
 		}
 		case AF_INET6: {
 			ep_addr.sa_family = AF_INET6;
 			((struct sockaddr_in6*)&ep_addr)->sin6_family = AF_INET6;
-			((struct sockaddr_in6*)&ep_addr)->sin6_port = existing_peer->port;
-			memcpy(((struct sockaddr_in6*)&ep_addr)->sin6_addr.s6_addr, existing_peer->ip6, 16);
+			((struct sockaddr_in6*)&ep_addr)->sin6_port = existing_peer->external_port;
+			memcpy(((struct sockaddr_in6*)&ep_addr)->sin6_addr.s6_addr, existing_peer->external_ip6, 16);
 			break;
 		}
 		default: return;
 	}
 
+	node_buf_t *exip_node_buf;
+	node_buf_t *tail_node_buf;
+	get_approp_node_bufs(existing_peer, nodes->tail, &exip_node_buf, &tail_node_buf);
+
 	// And now we notify existing peer of new tail
-	if (sendto(sock_fd, nodes->tail, NODE_SZ, 0, &ep_addr, slen)==-1)
+	if (sendto(sock_fd, tail_node_buf, SZ_NODE_BF, 0, &ep_addr, slen)==-1)
 		pfail("sendto");
 
 	// And notify new tail (i.e. si_other) of existing peer
-	if (sendto(sock_fd, existing_peer, NODE_SZ, 0, &si_other, slen)==-1)
+	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, &si_other, slen)==-1)
 		pfail("sendto");
 }
 
 void *sign_in_endpoint(void *msg) {
-	printf("sign_in_endpoint 0 %s %zu %zu\n", (char *)msg, NODE_SZ, sizeof(struct node));
+	printf("sign_in_endpoint 0 %s %zu %zu %zu %zu\n", (char *)msg,
+		SZ_NODE, sizeof(node_t),
+		SZ_NODE_BF, sizeof(node_buf_t));
 
 	size_t recvf_len, sendto_len;
 	struct sockaddr_in *si_me;
-	struct node buf;
+	node_buf_t buf;
 	nodes = malloc(sizeof(LinkedList));
 	memset(nodes, '\0', sizeof(LinkedList));
 
@@ -95,7 +100,7 @@ void *sign_in_endpoint(void *msg) {
 
 	while (sign_in_running) {
 		// printf("main -: 3\n");
-		recvf_len = recvfrom(sock_fd, &buf, sizeof(buf), 0, &si_other, &slen);
+		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, &slen);
 		if ( recvf_len == -1) pfail("recvfrom");
 
 		char ip_str[INET6_ADDRSTRLEN];
@@ -120,14 +125,14 @@ void *sign_in_endpoint(void *msg) {
 				switch (si_other.sa_family) {
 					case AF_INET: {
 						struct sockaddr_in *sai4 = (struct sockaddr_in*)&si_other;
-						new_tail->ip4 = sai4->sin_addr.s_addr;
-						new_tail->port = sai4->sin_port;
+						new_tail->external_ip4 = sai4->sin_addr.s_addr;
+						new_tail->external_port = sai4->sin_port;
 						break;
 					}
 					case AF_INET6: {
 						struct sockaddr_in6 *sai6 = (struct sockaddr_in6*)&si_other;
-						memcpy(new_tail->ip6, sai6->sin6_addr.s6_addr, 16);
-						new_tail->port = sai6->sin6_port;
+						memcpy(new_tail->external_ip6, sai6->sin6_addr.s6_addr, 16);
+						new_tail->external_port = sai6->sin6_port;
 						break;
 					}
 					default: {
@@ -136,12 +141,14 @@ void *sign_in_endpoint(void *msg) {
 						continue;
 					}
 				}
-				new_tail->family = si_other.sa_family;
-				sendto_len = sendto(sock_fd, new_tail, NODE_SZ, 0, &si_other, slen);
+				new_tail->external_family = si_other.sa_family;
+				node_buf_t *new_tail_buf;
+				node_external_to_node_buf(new_tail, &new_tail_buf);
+				sendto_len = sendto(sock_fd, new_tail_buf, SZ_NODE_BF, 0, &si_other, slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
-				printf("Sendto %zu %d\n", sendto_len, new_tail->family);
+				printf("Sendto %zu %d\n", sendto_len, new_tail->external_family);
 				// TODO do we really need STATUS_CONFIRMED_NODE?
 				// if so, then we need to code node to send confirmation
 				// and add a case here to set STATUS_CONFIRMED_NODE
@@ -159,7 +166,7 @@ void *sign_in_endpoint(void *msg) {
 			case STATUS_STAY_IN_TOUCH: {
 				printf("Stay in touch from %s port%d %d %d\n", ip_str, port, family, STATUS_STAY_IN_TOUCH_RESPONSE);
 				buf.status = STATUS_STAY_IN_TOUCH_RESPONSE;
-				sendto_len = sendto(sock_fd, &buf, NODE_SZ, 0, &si_other, slen);
+				sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
