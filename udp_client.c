@@ -11,6 +11,8 @@
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
 void send_hole_punch(node_min_t *peer);
+void *chat_hole_punch_thread(void *peer_to_hole_punch);
+void send_chat_hole_punch(node_min_t *peer);
 void init_chat_hp();
 void *chat_hp_server(void *w);
 
@@ -72,40 +74,8 @@ void (*stay_touch_recd_cb)(SERVER_TYPE) = NULL;
 void (*coll_buf_cb)(char *) = NULL;
 void (*new_client_cb)(SERVER_TYPE, char *) = NULL;
 void (*hole_punch_sent_cb)(char *, int) = NULL;
-void (*confirmed_peer_while_punching_cb)(void) = NULL;
+void (*confirmed_peer_while_punching_cb)(SERVER_TYPE) = NULL;
 void (*from_peer_cb)(char *) = NULL;
-
-int chatbuf_to_addr(struct sockaddr **addr, unsigned short *port, chat_buf_t n) {
-	if (!addr) return -1;
-
-	switch (n.family) {
-		case AF_INET: {
-			struct sockaddr_in *sai = malloc(sizeof(struct sockaddr_in));
-			sai->sin_addr.s_addr = n.ip4;
-			sai->sin_port = n.port;
-			port = &n.port;
-			sai->sin_family = AF_INET;
-			*addr = (struct sockaddr*)sai;
-			(*addr)->sa_family = AF_INET;
-			break;
-		}
-		case AF_INET6: {
-			struct sockaddr_in6 *sai = malloc(sizeof(struct sockaddr_in6));
-			memcpy(sai->sin6_addr.s6_addr, n.ip6, sizeof(unsigned char[16]));
-			sai->sin6_port = n.port;
-			port = &n.port;
-			sai->sin6_family = AF_INET;
-			*addr = (struct sockaddr*)&sai;
-			(*addr)->sa_family = AF_INET6;
-			break;
-		}
-		default: {
-			break;
-		}
-	}
-
-	return 0;
-}
 
 void pfail(char *w) {
 	printf("pfail 0\n");
@@ -120,7 +90,7 @@ void *hole_punch_thread(void *peer_to_hole_punch) {
 		// is confirmed, whichever occurs first.
 		if (peer->status >= STATUS_CONFIRMED_PEER) {
 			if (confirmed_peer_while_punching_cb)
-				confirmed_peer_while_punching_cb();
+				confirmed_peer_while_punching_cb(SERVER_SIGNIN);
 			break;
 		}
 		send_hole_punch(peer);
@@ -129,9 +99,21 @@ void *hole_punch_thread(void *peer_to_hole_punch) {
 	pthread_exit("hole_punch_thread exiting normally");
 }
 
-void punch_hole_in_peer(node_min_t *peer) {
+void punch_hole_in_peer(SERVER_TYPE st, node_min_t *peer) {
 	pthread_t hpt;
-	int pt = pthread_create(&hpt, NULL, hole_punch_thread, peer);
+	void *start_routine = NULL;
+	switch (st) {
+		case SERVER_SIGNIN: {
+			start_routine = hole_punch_thread;
+			break;
+		}
+		case SERVER_CHAT: {
+			start_routine = chat_hole_punch_thread;
+			break;
+		}
+		default: return;
+	}
+	int pt = pthread_create(&hpt, NULL, start_routine, peer);
 	if (pt) {
 		printf("ERROR in punch_hole_in_peer; return code from pthread_create() is %d\n", pt);
 		return;
@@ -169,9 +151,7 @@ void send_hole_punch(node_min_t *peer) {
 			return;
 		}
 	}
-	node_buf_t *peer_buf = NULL;
-	node_min_to_node_buf(peer, &peer_buf);
-	if (sendto(sock_fd, peer_buf, SZ_NODE_BF, 0, peer_addr, peer_socklen) == -1)
+	if (sendto(sock_fd, self_external, SZ_NODE_BF, 0, peer_addr, peer_socklen) == -1)
 		pfail("send_hole_punch sendto");
 	char spf[256];
 	char pi[INET6_ADDRSTRLEN];
@@ -180,7 +160,6 @@ void send_hole_punch(node_min_t *peer) {
 	addr_to_str(peer_addr, pi, pp, pf);
 	sprintf(spf, "send_hole_punch %s %s %s\n", pi, pp, pf);
 	if (hole_punch_sent_cb) hole_punch_sent_cb(spf, ++hpc);
-	free(peer_buf);
 }
 
 void ping_all_peers() {
@@ -249,7 +228,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 		void (*stay_touch_recd)(SERVER_TYPE),
 		void (*new_peer)(char *),
 		void (*hole_punch_sent)(char *, int),
-		void (*confirmed_peer_while_punching)(void),
+		void (*confirmed_peer_while_punching)(SERVER_TYPE),
 		void (*from_peer)(char *),
 		void (*unhandled_response_from_server)(int),
 		void (*whilew)(int),
@@ -358,11 +337,12 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 		char bp[20];
 		char bf[20];
 		addr_to_str(buf_sa, buf_ip, bp, bf);
-		sprintf(sprintf, "coll_buf sz:%zu st:%d ip:%s p:%u f:%u",
+		sprintf(sprintf, "coll_buf sz:%zu st:%d ip:%s p:%u cp:%u f:%u",
 			sizeof(buf),
 			buf.status,
 			buf_ip,
 			ntohs(buf.port),
+			ntohs(buf.chat_port),
 			buf.family);
 		if (coll_buf) coll_buf(sprintf);
 
@@ -372,6 +352,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 				case STATUS_NEW_NODE: {
 					self_external = malloc(SZ_NODE_BF);
 					memcpy(self_external, &buf, SZ_NODE_BF);
+					self_external->chat_port = USHRT_MAX;
 					sa_me_external = malloc(SZ_SOCKADDR);
 					memcpy(sa_me_external, buf_sa, SZ_SOCKADDR);
 					addr_to_str((struct sockaddr*)sa_me_external,
@@ -431,7 +412,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 					// our NAT may get an ICMP Destination Unreachable, but most NATs are
 					// configured to simply discard them) but when the peer sends us a datagram,
 					// it will pass through the hole punch into our local endpoint.
-					punch_hole_in_peer(new_peer_added);
+					punch_hole_in_peer(SERVER_SIGNIN, new_peer_added);
 					break;
                     
 				}
@@ -456,7 +437,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 				continue;
 			}
 
-			char conf_stat[12];
+			char conf_stat[40];
 			switch (existing_peer->status) {
 				case STATUS_INIT_NODE:
 				case STATUS_NEW_NODE:
@@ -469,9 +450,28 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 					strcpy(conf_stat, "UNCONFIRMED");
 					break;
 				}
-				case STATUS_CONFIRMED_PEER:
-				case STATUS_CHAT_PORT: {
-					strcpy(conf_stat, "CONFIRMED");
+				case STATUS_CONFIRMED_PEER: {
+					unsigned short bcp = ntohs(buf.chat_port);
+					if (bcp != USHRT_MAX) {
+						existing_peer->chat_port = buf.chat_port;
+						sprintf(conf_stat, "CONF'D-CHAT-PORT {%d}", ntohs(existing_peer->chat_port));
+						punch_hole_in_peer(SERVER_CHAT, existing_peer);
+					} else {
+						strcpy(conf_stat, "CONFIRMED-no-chprt");
+						/* TODO This shouldn't happen very often. Both existing_peer
+							and self_external should get their chat_port very
+							quickly. We could wait to call 
+							punch_hole_in_peer(SERVER_SIGNIN, new_peer_added) until receipt of
+							chat_port? Or we could create some asynchronous
+							process that syncs up receipt of chat_port and hole
+							punch. I like the former. It would mean that this
+							'else' would never occur, theoretically.
+						*/ 
+					}
+					break;
+				}
+				default: {
+					sprintf(conf_stat, "Illogical state {%s}", status_to_str(existing_peer->status));
 					break;
 				}
 			}
@@ -555,6 +555,7 @@ void *chat_hp_server(void *w) {
 
 	chat_buf_t buf;
 	memset(&buf, '\0', sizeof(buf));
+	char buf_ip[INET6_ADDRSTRLEN];
 
 	chat_server_socklen = sa_chat_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6
 				: SZ_SOCKADDR_IN;
@@ -568,7 +569,7 @@ void *chat_hp_server(void *w) {
 	chat_server_conn_running = 1;
 	while (chat_server_conn_running) {
 
-		size_t recvf_len = recvfrom(chat_sock_fd, &buf, sizeof(buf), 0, &sa_chat_other, &chat_other_socklen);
+		size_t recvf_len = recvfrom(chat_sock_fd, &buf, SZ_CH_BF, 0, &sa_chat_other, &chat_other_socklen);
 		if (recvf_len == -1) {
 			char w[256];
 			sprintf(w, "recvfrom failed with %zu", recvf_len);
@@ -576,24 +577,122 @@ void *chat_hp_server(void *w) {
 		}
 
 		addr_to_str(&sa_chat_other, chat_other_ip, chat_other_port, chat_other_family);
-		sprintf(sprintf, "%s port%s %s", chat_other_ip, chat_other_port, chat_other_family);
+		sprintf(sprintf, "CHAT-RECV-FRM %s port%s %s", chat_other_ip, chat_other_port, chat_other_family);
 		if (recd_cb) recd_cb(recvf_len, chat_other_socklen, sprintf);
 		chat_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
-		switch (buf.status) {
-			case CHAT_STATUS_NEW: {
-				if (new_client_cb) new_client_cb(SERVER_CHAT, sprintf);
-				stay_in_touch_with_server(SERVER_CHAT);
-				break;
+		struct sockaddr *buf_sa = NULL;
+		chatbuf_to_addr(&buf, &buf_sa);
+		char bp[20];
+		char bf[20];
+		addr_to_str(buf_sa, buf_ip, bp, bf);
+		sprintf(sprintf, "coll_buf sz:%zu st:%d ip:%s cp:%u f:%u",
+			sizeof(buf),
+			buf.status,
+			buf_ip,
+			ntohs(buf.port),
+			buf.family);
+		if (coll_buf_cb) coll_buf_cb(sprintf);
+
+		if (addr_equals(sa_chat_server, &sa_chat_other)) {
+
+			switch (buf.status) {
+				case CHAT_STATUS_NEW: {
+					self_external->chat_port = buf.port;
+					// TODO make function ip4 and port to str
+					sprintf(sprintf, "Chat Moi aussie %s cport%s %s", chat_other_ip,
+						chat_other_port, chat_other_family);
+					if (new_client_cb) new_client_cb(SERVER_CHAT, sprintf);
+					stay_in_touch_with_server(SERVER_CHAT);
+					break;
+				}
+				case CHAT_STATUS_STAY_IN_TOUCH_RESPONSE: {
+					if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_CHAT);
+					break;
+				}
+				default: printf("&-&-&-&-&-&-&-&-&-&-&-& chat server\n");
 			}
-			case CHAT_STATUS_STAY_IN_TOUCH_RESPONSE: {
-				if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_CHAT);
-				break;
+		} else {
+			node_min_t *n = peers->head;
+			while (n) {
+				n->status = STATUS_CONFIRMED_CHAT_PEER;
+				n = n->next;
 			}
-			default: printf("*&*&*&*&*&*&*&*&* chat server\n");
+			char conf_stat[40];
+			strcpy(conf_stat, "some CHAT");
+			sprintf(sprintf, "@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-\nfrom %s peer: ip:%s chat_port:%s fam:%s",
+				conf_stat,
+				chat_other_ip,
+				chat_other_port,
+				chat_other_family);
+			if (from_peer_cb) from_peer_cb(sprintf);
 		}
 
 	}
 
 	pthread_exit("chat_hp_server exiting normally");
+}
+
+void *chat_hole_punch_thread(void *peer_to_hole_punch) {
+	node_min_t *peer = (node_min_t *)peer_to_hole_punch;
+	for (int j = 0; j < 100; j++) {
+		// Send 1000 datagrams, or until the peer
+		// is confirmed, whichever occurs first.
+		if (peer->status >= STATUS_CONFIRMED_CHAT_PEER) {
+			if (confirmed_peer_while_punching_cb)
+				confirmed_peer_while_punching_cb(SERVER_CHAT);
+			break;
+		}
+		send_chat_hole_punch(peer);
+		usleep(10*1000); // 10 milliseconds
+	}
+	pthread_exit("hole_punch_thread exiting normally");
+}
+
+void send_chat_hole_punch(node_min_t *peer) {
+	if (!peer) return;
+	// TODO set peer->status = STATUS_NEW_PEER?
+	// and then set back to previous status?
+	static int chpc = 0;
+	struct sockaddr *peer_addr;
+	socklen_t peer_socklen = 0;
+	switch (peer->family) {
+		case AF_INET: {
+			struct sockaddr_in sa4;
+			sa4.sin_family = AF_INET;
+			sa4.sin_addr.s_addr = peer->ip4;
+			sa4.sin_port = peer->chat_port;
+			peer_socklen = SZ_SOCKADDR_IN;
+			peer_addr = (struct sockaddr*)&sa4;
+			break;
+		}
+		case AF_INET6: {
+			struct sockaddr_in6 sa6;
+			sa6.sin6_family = AF_INET6;
+			memcpy(sa6.sin6_addr.s6_addr, peer->ip6, sizeof(unsigned char[16]));
+			sa6.sin6_port = peer->chat_port;
+			peer_socklen = SZ_SOCKADDR_IN6;
+			peer_addr = (struct sockaddr*)&sa6;
+			break;
+		}
+		default: {
+			printf("send_chat_hole_punch, peer->family not well defined\n");
+			return;
+		}
+	}
+	chat_buf_t wcb;
+	wcb.status = CHAT_STATUS_NEW;
+	wcb.family = self_external->family;
+	wcb.port = self_external->chat_port;
+	wcb.ip4 = self_external->ip4;
+    
+	if (sendto(chat_sock_fd, &wcb, SZ_CH_BF, 0, peer_addr, peer_socklen) == -1)
+		pfail("send_chat_hole_punch sendto");
+	char spf[256];
+	char pi[INET6_ADDRSTRLEN];
+	char pp[20];
+	char pf[20];
+	addr_to_str(peer_addr, pi, pp, pf);
+	sprintf(spf, "send_chat_hole_punchXXX %s %s %s\n", pi, pp, pf);
+	if (hole_punch_sent_cb) hole_punch_sent_cb(spf, ++chpc);
 }
