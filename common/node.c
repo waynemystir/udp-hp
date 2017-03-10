@@ -316,6 +316,7 @@ void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf) {
 	new_node_buf->int_or_ext = INTERNAL_ADDR;
 	new_node_buf->family = node->internal_family;
 	new_node_buf->port = node->internal_port;
+	new_node_buf->chat_port = node->internal_chat_port;
 	switch (node->internal_family) {
 		case AF_INET: {
 			new_node_buf->ip4 = node->internal_ip4;
@@ -338,6 +339,7 @@ void node_external_to_node_buf(node_t *node, node_buf_t **node_buf) {
 	new_node_buf->int_or_ext = EXTERNAL_ADDR;
 	new_node_buf->family = node->external_family;
 	new_node_buf->port = node->external_port;
+	new_node_buf->chat_port = node->external_chat_port;
 	switch (node->external_family) {
 		case AF_INET: {
 			new_node_buf->ip4 = node->external_ip4;
