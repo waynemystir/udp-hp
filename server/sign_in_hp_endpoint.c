@@ -70,6 +70,46 @@ void notify_existing_peer_of_new_tail(node_t *existing_peer) {
 	free(tail_node_buf);
 }
 
+void notify_existing_peer_of_new_chat_port(node_t *existing_peer, node_t *peer_with_new_port) {
+	if (!existing_peer || !peer_with_new_port) return;
+
+	// Let's get the sockaddr of existing_peer
+	struct sockaddr ep_addr;
+	switch (existing_peer->external_family) {
+		case AF_INET: {
+			ep_addr.sa_family = AF_INET;
+			((struct sockaddr_in*)&ep_addr)->sin_family = AF_INET;
+			((struct sockaddr_in*)&ep_addr)->sin_port = existing_peer->external_port;
+			((struct sockaddr_in*)&ep_addr)->sin_addr.s_addr = existing_peer->external_ip4;
+			break;
+		}
+		case AF_INET6: {
+			ep_addr.sa_family = AF_INET6;
+			((struct sockaddr_in6*)&ep_addr)->sin6_family = AF_INET6;
+			((struct sockaddr_in6*)&ep_addr)->sin6_port = existing_peer->external_port;
+			memcpy(((struct sockaddr_in6*)&ep_addr)->sin6_addr.s6_addr, existing_peer->external_ip6, 16);
+			break;
+		}
+		default: return;
+	}
+
+	node_buf_t *exip_node_buf, *pwnp_buf;
+	get_approp_node_bufs(existing_peer, peer_with_new_port, &exip_node_buf, &pwnp_buf);
+	exip_node_buf->status = STATUS_PROCEED_CHAT_HP;
+	pwnp_buf->status = STATUS_PROCEED_CHAT_HP;
+
+	// And now we notify existing peer of new tail
+	if (sendto(sock_fd, pwnp_buf, SZ_NODE_BF, 0, &ep_addr, slen)==-1)
+		pfail("sendto");
+
+	// And notify peer_with_new_port (i.e. si_other) of existing peer
+	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, &si_other, slen)==-1)
+		pfail("sendto");
+
+	free(exip_node_buf);
+	free(pwnp_buf);
+}
+
 void *sign_in_endpoint(void *msg) {
 	printf("sign_in_endpoint 0 %s %zu %zu %zu %zu\n", (char *)msg,
 		SZ_NODE, sizeof(node_t),
@@ -175,12 +215,15 @@ void *sign_in_endpoint(void *msg) {
 				break;
 			}
 			case STATUS_ACQUIRED_CHAT_PORT: {
-				node_t *n = find_node_from_sockaddr(nodes, &si_other);
-				buf.status = STATUS_PROCEED_CHAT_HP;
-				if (n) {
-					sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, slen);
-					if (sendto_len == -1) {
-						pfail("STATUS_ACQUIRED_CHAT_PORT:sendto");
+				node_t *peer_with_new_chat_port = find_node_from_sockaddr(nodes, &si_other);
+				if (peer_with_new_chat_port) {
+					peer_with_new_chat_port->external_chat_port = buf.chat_port;
+					// TODO how to handle internal_chat_port here?
+					// Just use buf.int_or_ext?
+					node_t *n = nodes->head;
+					while (n) {
+						notify_existing_peer_of_new_chat_port(n, peer_with_new_chat_port);
+						n = n->next;
 					}
 				}
 				break;
