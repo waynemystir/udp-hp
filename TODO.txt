@@ -1,6 +1,4 @@
-update udp_client_test.c
 self
-
 thread wain et al
 get internal hole punching working
 
@@ -15,6 +13,7 @@ POC video functionality
 database
 authentication
 contacts
+integrate / re-arch
 
 server host?
 

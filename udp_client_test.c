@@ -2,8 +2,10 @@
 
 #include "udp_client.h"
 
-void self_info(char *w) {
-	printf("%s\n", w);
+void self_info(char *w, unsigned short port, unsigned short chat_port, unsigned short family) {
+	char e[256];
+	sprintf(e, "self: %s p:%d cp:%d f:%d", w, port, chat_port, family);
+	printf("%s\n", e);
 }
 
 void server_info(char *w) {
@@ -37,8 +39,18 @@ void coll_buf(char *w) {
 	printf("%s\n", w);
 }
 
-void new_client(char *w) {
-	printf("%s\n", w);
+void new_client(SERVER_TYPE st, char *w) {
+    char st_str[15];
+    str_from_server_type(st, st_str);
+    printf("%s %s\n", st_str, w);
+}
+
+void stay_touch_recd(SERVER_TYPE st) {
+    char st_str[15];
+    str_from_server_type(st, st_str);
+    char w[256];
+    sprintf(w, "stay_touch_recd %s", st_str);
+    printf("%s\n", w);
 }
 
 void confirmed_client() {
@@ -48,6 +60,21 @@ void confirmed_client() {
 
 void new_peer(char *w) {
 	printf("%s\n", w);
+}
+
+void hole_punch_sent(char *w, int t) {
+	char wc [256];
+	sprintf(wc, "%s count %d", w, t);
+	printf("%s\n", wc);
+}
+
+void confirmed_peer_while_punching(void) {
+	char w[] = "*$*$*$*$*$*$*$*$*$*$*$*$* CPWP";
+	printf("%s\n", w);
+}
+
+void from_peer(char *w) {
+    printf("%s\n", w);
 }
 
 void unhandled_response_from_server(int w) {
@@ -78,7 +105,11 @@ int main() {
 		coll_buf,
 		new_client,
 		confirmed_client,
+		stay_touch_recd,
 		new_peer,
+		hole_punch_sent,
+		confirmed_peer_while_punching,
+		from_peer,
 		unhandled_response_from_server,
 		whilew,
 		end_while);
