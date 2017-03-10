@@ -55,8 +55,7 @@ void notify_existing_peer_of_new_tail(node_t *existing_peer) {
 		default: return;
 	}
 
-	node_buf_t *exip_node_buf;
-	node_buf_t *tail_node_buf;
+	node_buf_t *exip_node_buf, *tail_node_buf;
 	get_approp_node_bufs(existing_peer, nodes->tail, &exip_node_buf, &tail_node_buf);
 
 	// And now we notify existing peer of new tail
