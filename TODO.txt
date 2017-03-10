@@ -1,6 +1,6 @@
 self
-thread wain et al
 get internal hole punching working
+thread wain et al
 
 chat_port
 chat server
