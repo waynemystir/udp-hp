@@ -55,8 +55,7 @@ void notify_existing_peer_of_new_tail(node_t *existing_peer) {
 		default: return;
 	}
 
-	node_buf_t *exip_node_buf;
-	node_buf_t *tail_node_buf;
+	node_buf_t *exip_node_buf, *tail_node_buf;
 	get_approp_node_bufs(existing_peer, nodes->tail, &exip_node_buf, &tail_node_buf);
 
 	// And now we notify existing peer of new tail
@@ -172,6 +171,17 @@ void *sign_in_endpoint(void *msg) {
 				sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
+				}
+				break;
+			}
+			case STATUS_ACQUIRED_CHAT_PORT: {
+				node_t *n = find_node_from_sockaddr(nodes, &si_other);
+				buf.status = STATUS_PROCEED_CHAT_HP;
+				if (n) {
+					sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, slen);
+					if (sendto_len == -1) {
+						pfail("STATUS_ACQUIRED_CHAT_PORT:sendto");
+					}
 				}
 				break;
 			}
