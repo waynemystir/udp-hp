@@ -1,11 +1,24 @@
-
+2017-03-10
+*******************
+gcc -Wall -c common.c -o common.o
+gcc -Wall -c node.c -o nd.o
+gcc -Wall -c network_utils.c -o nu.o
+gcc -Wall -c -I../network -I./common udp_client.c -o uc
+gcc -Wall -I../network -I./common ../network/nu.o ./common/nd.o ./common/common.o uc udp_client_test.c -o utc
 
 2017-03-09
 *******************
 gcc -Wall -c -I/usr/include/sys/_types common.c -o common.o
+gcc -Wall -c node.c -o nd.o
 gcc -Wall -c network_utils.c -o nu.o
 gcc -Wall -c -I../network -I./common -I/usr/include/sys/_types udp_client.c -o uc
 gcc -Wall -I../network -I./common -I/usr/include/sys/_types ../network/nu.o ./common/nd.o ./common/common.o uc udp_client_test.c -o utc
+
+
+gcc -Wall -c -g -O0 -I/usr/include/sys/_types common.c -o common.o
+gcc -Wall -c -g -O0 network_utils.c -o nu.o
+gcc -Wall -c -g -O0 -I../network -I./common -I/usr/include/sys/_types udp_client.c -o uc
+gcc -Wall -g -O0 -I../network -I./common -I/usr/include/sys/_types ../network/nu.o ./common/nd.o ./common/common.o uc udp_client_test.c -o utc
 
 OLD
 *******************

@@ -9,16 +9,7 @@
 #ifndef common_h
 #define common_h
 
-#ifdef __APPLE__
-    #include "TargetConditionals.h"
-    #if TARGET_IPHONE_SIMULATOR
-         // iOS Simulator
-    #elif TARGET_OS_IPHONE
-        // iOS device
-    #elif TARGET_OS_MAC
-        #include <_in_addr_t.h>
-    #endif
-#endif
+#include <netdb.h>
 
 typedef enum SERVER_TYPE {
 	SERVER_SIGNIN,
