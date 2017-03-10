@@ -1,10 +1,7 @@
 self
 get internal hole punching working
 thread wain et al
-
-chat_port
-chat server
-POC chat functionality
+stay-in-touch with peers?
 
 video_port
 video server
@@ -22,5 +19,9 @@ security
 	server firewalls
 	something else?
 
+mvp app
+
 test IPv6 somehow
-valgrind
+valgrind (for client, try to install on OSX and use udp_client_test.c)
+create folder client-peer
+clean up buttons and extraneous functions

@@ -9,6 +9,8 @@
 #ifndef node_h
 #define node_h
 
+#include <limits.h>
+
 typedef enum STATUS_TYPE {
     STATUS_INIT_NODE = 0,
     STATUS_NEW_NODE = 1,
@@ -17,7 +19,8 @@ typedef enum STATUS_TYPE {
     STATUS_CONFIRMED_NODE = 4,
     STATUS_NEW_PEER = 5, // A peer is any client other than self
     STATUS_CONFIRMED_PEER = 6,
-    STATUS_CHAT_PORT = 7,
+    STATUS_ACQUIRED_CHAT_PORT = 7,
+    STATUS_CONFIRMED_CHAT_PEER = 8,
 } STATUS_TYPE;
 
 typedef struct node_buf {
@@ -88,6 +91,8 @@ extern const unsigned short EXTERNAL_ADDR;
 #define SZ_SOCKADDR sizeof(struct sockaddr)
 #define SZ_SOCKADDR_IN sizeof(struct sockaddr_in)
 #define SZ_SOCKADDR_IN6 sizeof(struct sockaddr_in6)
+
+char *status_to_str(STATUS_TYPE st);
 
 // node_buf_t functions
 
