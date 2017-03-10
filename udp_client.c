@@ -416,6 +416,10 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 					break;
                     
 				}
+				case STATUS_PROCEED_CHAT_HP: {
+//					punch_hole_in_peer(SERVER_CHAT, existing_peer);
+					break;
+				}
                     
 				default: {
 					if (unhandled_response_from_server)
@@ -455,7 +459,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 					if (bcp != USHRT_MAX) {
 						existing_peer->chat_port = buf.chat_port;
 						sprintf(conf_stat, "CONF'D-CHAT-PORT {%d}", ntohs(existing_peer->chat_port));
-						punch_hole_in_peer(SERVER_CHAT, existing_peer);
+						// punch_hole_in_peer(SERVER_CHAT, existing_peer);
 					} else {
 						strcpy(conf_stat, "CONFIRMED-no-chprt");
 						/* TODO This shouldn't happen very often. Both existing_peer
@@ -528,13 +532,13 @@ void *chat_hp_server(void *w) {
 
 	// Setup chat server
 	str_to_addr(&sa_chat_server, "142.105.56.124", "9931", AF_INET, SOCK_DGRAM, 0);
-	server_socklen = sa_chat_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
+	chat_server_socklen = sa_chat_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_chat_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(sprintf, "The chat server %s port%s %s %u",
 		server_internal_ip,
 		server_internal_port,
 		server_internal_family,
-		server_socklen);
+		chat_server_socklen);
 	if (server_info_cb) server_info_cb(sprintf);
 
 	// Setup sa_chat_other
@@ -557,8 +561,6 @@ void *chat_hp_server(void *w) {
 	memset(&buf, '\0', sizeof(buf));
 	char buf_ip[INET6_ADDRSTRLEN];
 
-	chat_server_socklen = sa_chat_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6
-				: SZ_SOCKADDR_IN;
 	size_t chat_sendto_len = sendto(chat_sock_fd, &buf, sizeof(node_t), 0, sa_chat_server, chat_server_socklen);
 	if (chat_sendto_len == -1) {
 		char w[256];
@@ -599,6 +601,13 @@ void *chat_hp_server(void *w) {
 			switch (buf.status) {
 				case CHAT_STATUS_NEW: {
 					self_external->chat_port = buf.port;
+					self_external->status = STATUS_ACQUIRED_CHAT_PORT;
+					size_t stl = sendto(sock_fd, self_external, SZ_NODE_BF, 0, sa_server, server_socklen);
+					if (stl == -1) {
+						char w[256];
+						sprintf(w, "sendto failed with %zu", stl);
+						pfail(w);
+					}
 					// TODO make function ip4 and port to str
 					sprintf(sprintf, "Chat Moi aussie %s cport%s %s", chat_other_ip,
 						chat_other_port, chat_other_family);
