@@ -8,6 +8,20 @@
 const unsigned short INTERNAL_ADDR = 0;
 const unsigned short EXTERNAL_ADDR = 1;
 
+char *status_to_str(STATUS_TYPE st) {
+	switch (st) {
+		case STATUS_INIT_NODE: return "STATUS_INIT_NODE";
+		case STATUS_NEW_NODE: return "STATUS_NEW_NODE";
+		case STATUS_STAY_IN_TOUCH: return "STATUS_STAY_IN_TOUCH";
+		case STATUS_STAY_IN_TOUCH_RESPONSE: return "STATUS_STAY_IN_TOUCH_RESPONSE";
+		case STATUS_CONFIRMED_NODE: return "STATUS_CONFIRMED_NODE";
+		case STATUS_NEW_PEER: return "STATUS_NEW_PEER";
+		case STATUS_CONFIRMED_PEER: return "STATUS_CONFIRMED_PEER";
+		case STATUS_ACQUIRED_CHAT_PORT: return "STATUS_ACQUIRED_CHAT_PORT";
+		case STATUS_CONFIRMED_CHAT_PEER: return "STATUS_CONFIRMED_CHAT_PEER";
+	}
+}
+
 void addr_to_node_buf(struct sockaddr *sa, node_buf_t **nb, STATUS_TYPE status, unsigned short int_or_ext) {
 	if (!sa || !nb) return;
 
@@ -72,6 +86,7 @@ void node_buf_to_node_min(node_buf_t *nb, node_min_t **nm) {
 	new_node_min->status = nb->status;
 	new_node_min->int_or_ext = nb->int_or_ext;
 	new_node_min->port = nb->port;
+	new_node_min->chat_port = USHRT_MAX;
 	new_node_min->family = nb->family;
 	switch (new_node_min->family) {
 		case AF_INET: {
