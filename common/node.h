@@ -20,7 +20,8 @@ typedef enum STATUS_TYPE {
     STATUS_NEW_PEER = 5, // A peer is any client other than self
     STATUS_CONFIRMED_PEER = 6,
     STATUS_ACQUIRED_CHAT_PORT = 7,
-    STATUS_CONFIRMED_CHAT_PEER = 8,
+    STATUS_PROCEED_CHAT_HP = 8,
+    STATUS_CONFIRMED_CHAT_PEER = 9,
 } STATUS_TYPE;
 
 typedef struct node_buf {
@@ -126,11 +127,11 @@ int same_nat(node_t *n1, node_t *n2);
 
 int nodes_equal(node_t *n1, node_t *n2);
 
-struct node *find_node(LinkedList_t *list, node_t *node);
+node_t *find_node(LinkedList_t *list, node_t *node);
 
 int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr);
 
-struct node *find_node_from_sockaddr(LinkedList_t *list, struct sockaddr *addr);
+node_t *find_node_from_sockaddr(LinkedList_t *list, struct sockaddr *addr);
 
 void node_to_internal_addr(node_t *node, struct sockaddr **addr);
 

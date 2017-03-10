@@ -174,6 +174,17 @@ void *sign_in_endpoint(void *msg) {
 				}
 				break;
 			}
+			case STATUS_ACQUIRED_CHAT_PORT: {
+				node_t *n = find_node_from_sockaddr(nodes, &si_other);
+				buf.status = STATUS_PROCEED_CHAT_HP;
+				if (n) {
+					sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, slen);
+					if (sendto_len == -1) {
+						pfail("STATUS_ACQUIRED_CHAT_PORT:sendto");
+					}
+				}
+				break;
+			}
 			default: {
 				char *buf_char = (char *) &buf;
 				printf("None of the above - buf.status -: %d -: %s\n", buf.status, buf_char);
