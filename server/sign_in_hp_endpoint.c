@@ -71,7 +71,7 @@ void notify_existing_peer_of_new_tail(node_t *existing_peer) {
 }
 
 void notify_existing_peer_of_new_chat_port(node_t *existing_peer, node_t *peer_with_new_port) {
-	if (!existing_peer || !peer_with_new_port || nodes_equal(existing_peer, peer_with_new_port)) return;
+	if (nodes_equal(existing_peer, peer_with_new_port)) return;
 
 	// Let's get the sockaddr of existing_peer
 	struct sockaddr ep_addr;
