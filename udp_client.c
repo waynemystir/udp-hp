@@ -417,7 +417,11 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
                     
 				}
 				case STATUS_PROCEED_CHAT_HP: {
-//					punch_hole_in_peer(SERVER_CHAT, existing_peer);
+					node_min_t *nm = find_node_min_from_node_buf(peers, &buf);
+					if (nm) {
+						nm->chat_port = buf.chat_port;
+						punch_hole_in_peer(SERVER_CHAT, nm);
+					}
 					break;
 				}
                     
@@ -629,7 +633,7 @@ void *chat_hp_server(void *w) {
 			}
 			char conf_stat[40];
 			strcpy(conf_stat, "some CHAT");
-			sprintf(sprintf, "@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-\nfrom %s peer: ip:%s chat_port:%s fam:%s",
+			sprintf(sprintf, "#-#-#-#-#-#-#-#-#-#-#-#-#-#-\nfrom %s peer: ip:%s chat_port:%s fam:%s",
 				conf_stat,
 				chat_other_ip,
 				chat_other_port,

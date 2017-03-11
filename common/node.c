@@ -160,6 +160,29 @@ node_min_t *find_node_min(LinkedList_min_t *list, node_min_t *node) {
 	return NULL;
 }
 
+int node_min_and_node_buf_equal(node_min_t *node_m, node_buf_t *node_b) {
+	if (!node_m || !node_b) return 0;
+	if (node_m->family != node_b->family) return 0;
+	if (node_m->port != node_b->port) return 0;
+
+	switch (node_m->family) {
+		case AF_INET: return node_m->ip4 == node_b->ip4;
+		case AF_INET6: return node_m->ip6 == node_m->ip6;
+		default: return 0;
+	}
+}
+
+node_min_t *find_node_min_from_node_buf(LinkedList_min_t *list, node_buf_t *node_b) {
+	if (!list || !node_b) return NULL;
+
+	node_min_t *p = list->head;
+	while (p) {
+		if (node_min_and_node_buf_equal(p, node_b)) return p;
+		p = p->next;
+	}
+	return NULL;
+}
+
 int node_min_and_sockaddr_equal(node_min_t *node, struct sockaddr *addr) {
 	if (!node || !addr) return 0;
 	if (node->family != addr->sa_family) return 0;
