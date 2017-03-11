@@ -1,7 +1,7 @@
+stay-in-touch with peers
 self
 get internal hole punching working
 thread wain et al
-stay-in-touch with peers?
 
 video_port
 video server

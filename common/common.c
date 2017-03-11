@@ -20,6 +20,18 @@ void str_from_server_type(SERVER_TYPE st, char str[15]) {
 	}
 }
 
+char *chat_status_to_str(CHAT_STATUS cs) {
+	switch (cs) {
+		case CHAT_STATUS_INIT: return "CHAT_STATUS_INIT";
+		case CHAT_STATUS_NEW: return "CHAT_STATUS_NEW";
+		case CHAT_STATUS_STAY_IN_TOUCH: return "CHAT_STATUS_STAY_IN_TOUCH";
+		case CHAT_STATUS_STAY_IN_TOUCH_RESPONSE: return "CHAT_STATUS_STAY_IN_TOUCH_RESPONSE";
+		case CHAT_STATUS_ATTEMPTING_HOLE_PUNCH: return "CHAT_STATUS_ATTEMPTING_HOLE_PUNCH";
+		case CHAT_STATUS_MSG: return "CHAT_STATUS_MSG";
+		default: return "CHAT_STATUS_UNKNOWN";
+	}
+}
+
 int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr) {
 	if (!cb || !addr) return -1;
 

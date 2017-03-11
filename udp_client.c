@@ -75,7 +75,7 @@ void (*coll_buf_cb)(char *) = NULL;
 void (*new_client_cb)(SERVER_TYPE, char *) = NULL;
 void (*hole_punch_sent_cb)(char *, int) = NULL;
 void (*confirmed_peer_while_punching_cb)(SERVER_TYPE) = NULL;
-void (*from_peer_cb)(char *) = NULL;
+void (*from_peer_cb)(SERVER_TYPE, char *) = NULL;
 
 void pfail(char *w) {
 	printf("pfail 0\n");
@@ -229,7 +229,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 		void (*new_peer)(char *),
 		void (*hole_punch_sent)(char *, int),
 		void (*confirmed_peer_while_punching)(SERVER_TYPE),
-		void (*from_peer)(char *),
+		void (*from_peer)(SERVER_TYPE, char *),
 		void (*unhandled_response_from_server)(int),
 		void (*whilew)(int),
 		void (*end_while)(void)) {
@@ -432,7 +432,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 				}
 			}
 		} else {
-			node_min_t *existing_peer = find_node_min_from_sockaddr(peers, &sa_other);
+			node_min_t *existing_peer = find_node_min_from_sockaddr(peers, &sa_other, SERVER_SIGNIN);
 			if (!existing_peer) {
 				/* TODO: This is an issue. Either a security issue (how
 				did an unknown peer get through the firewall) or my list
@@ -441,7 +441,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 					other_ip,
 					other_port,
 					other_family);
-				if (from_peer_cb) from_peer_cb(sprintf);
+				if (from_peer_cb) from_peer_cb(SERVER_SIGNIN, sprintf);
 				continue;
 			}
 
@@ -489,19 +489,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 				other_ip,
 				other_port,
 				other_family);
-			if (from_peer_cb) from_peer_cb(sprintf);
-			// switch (buf.status) {
-			// 	case STATUS_CHAT_PORT: {
-			// 		sprintf(sprintf, "FROM Peer STATUS_CHAT_PORT %d", ntohs(buf.port));
-			// 		if (from_peer_cb) from_peer_cb(sprintf);
-			// 		break;
-			// 	}
-			// 	default: {
-			// 		sprintf(sprintf, "FROM Peer status %d", buf.status);
-			// 		if (from_peer_cb) from_peer_cb(sprintf);
-			// 		break;
-			// 	}
-			// }
+			if (from_peer_cb) from_peer_cb(SERVER_SIGNIN, sprintf);
 		}
 		free(buf_sa);
 	}
@@ -626,19 +614,54 @@ void *chat_hp_server(void *w) {
 				default: printf("&-&-&-&-&-&-&-&-&-&-&-& chat server\n");
 			}
 		} else {
-			node_min_t *n = peers->head;
-			while (n) {
-				n->status = STATUS_CONFIRMED_CHAT_PEER;
-				n = n->next;
+			// TODO only set n->status = STATUS_CONFIRMED_CHAT_PEER
+			// for the recd peer
+			// node_min_t *n = peers->head;
+			// while (n) {
+			// 	n->status = STATUS_CONFIRMED_CHAT_PEER;
+			// 	n = n->next;
+			// }
+
+			node_min_t *existing_peer = find_node_min_from_sockaddr(peers, &sa_chat_other, SERVER_CHAT);
+			if (!existing_peer) {
+				/* TODO: This is an issue. Either a security issue (how
+				did an unknown peer get through the firewall) or my list
+				of peers is wrong. */
+				sprintf(sprintf, "CHAT FROM UNKNOWN peer: ip:%s port:%s fam:%s",
+					chat_other_ip,
+					chat_other_port,
+					chat_other_family);
+				if (from_peer_cb) from_peer_cb(SERVER_CHAT, sprintf);
+				continue;
 			}
+
 			char conf_stat[40];
-			strcpy(conf_stat, "some CHAT");
-			sprintf(sprintf, "#-#-#-#-#-#-#-#-#-#-#-#-#-#-\nfrom %s peer: ip:%s chat_port:%s fam:%s",
+			switch (buf.status) {
+				case CHAT_STATUS_INIT:
+				case CHAT_STATUS_NEW:
+				case CHAT_STATUS_STAY_IN_TOUCH:
+				case CHAT_STATUS_STAY_IN_TOUCH_RESPONSE: {
+					sprintf(conf_stat, "%s", chat_status_to_str(buf.status));
+					break;
+				}
+				case CHAT_STATUS_ATTEMPTING_HOLE_PUNCH: {
+					existing_peer->status = STATUS_CONFIRMED_CHAT_PEER;
+					sprintf(conf_stat, "%s", chat_status_to_str(buf.status));
+					break;
+				}
+				case CHAT_STATUS_MSG: {
+					sprintf(conf_stat, "%s", chat_status_to_str(buf.status));
+					break;
+				}
+
+			}
+
+			sprintf(sprintf, "#-#-#-#-#-#-#-#-\nfrom %s peer: ip:%s chat_port:%s fam:%s",
 				conf_stat,
 				chat_other_ip,
 				chat_other_port,
 				chat_other_family);
-			if (from_peer_cb) from_peer_cb(sprintf);
+			if (from_peer_cb) from_peer_cb(SERVER_CHAT, sprintf);
 		}
 
 	}
@@ -648,7 +671,7 @@ void *chat_hp_server(void *w) {
 
 void *chat_hole_punch_thread(void *peer_to_hole_punch) {
 	node_min_t *peer = (node_min_t *)peer_to_hole_punch;
-	for (int j = 0; j < 100; j++) {
+	for (int j = 0; j < 1000; j++) {
 		// Send 1000 datagrams, or until the peer
 		// is confirmed, whichever occurs first.
 		if (peer->status >= STATUS_CONFIRMED_CHAT_PEER) {
@@ -694,11 +717,11 @@ void send_chat_hole_punch(node_min_t *peer) {
 		}
 	}
 	chat_buf_t wcb;
-	wcb.status = CHAT_STATUS_NEW;
+	wcb.status = CHAT_STATUS_ATTEMPTING_HOLE_PUNCH;
 	wcb.family = self_external->family;
 	wcb.port = self_external->chat_port;
 	wcb.ip4 = self_external->ip4;
-    
+
 	if (sendto(chat_sock_fd, &wcb, SZ_CH_BF, 0, peer_addr, peer_socklen) == -1)
 		pfail("send_chat_hole_punch sendto");
 	char spf[256];

@@ -164,6 +164,10 @@ int node_min_and_node_buf_equal(node_min_t *node_m, node_buf_t *node_b) {
 	if (!node_m || !node_b) return 0;
 	if (node_m->family != node_b->family) return 0;
 	if (node_m->port != node_b->port) return 0;
+	// TODO I intentially didn't check chat_port here
+	// because this function is only called from 
+	// udp_client.case STATUS_PROCEED_CHAT_HP, where
+	// we are just now receiving the chat port
 
 	switch (node_m->family) {
 		case AF_INET: return node_m->ip4 == node_b->ip4;
@@ -183,31 +187,43 @@ node_min_t *find_node_min_from_node_buf(LinkedList_min_t *list, node_buf_t *node
 	return NULL;
 }
 
-int node_min_and_sockaddr_equal(node_min_t *node, struct sockaddr *addr) {
+int node_min_and_sockaddr_equal(node_min_t *node, struct sockaddr *addr, SERVER_TYPE st) {
 	if (!node || !addr) return 0;
 	if (node->family != addr->sa_family) return 0;
+	in_port_t aport;
+	switch (st) {
+		case SERVER_SIGNIN: {
+			aport = node->port;
+			break;
+		}
+		case SERVER_CHAT: {
+			aport = node->chat_port;
+			break;
+		}
+		default: return 0;
+	}
 
 	switch (addr->sa_family) {
 		case AF_INET: {
 			struct sockaddr_in *sa4 = (struct sockaddr_in *)addr;
 			return node->ip4 == sa4->sin_addr.s_addr &&
-				node->port == sa4->sin_port;
+				aport == sa4->sin_port;
 		}
 		case AF_INET6: {
 			struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)addr;
 			return node->ip6 == sa6->sin6_addr.s6_addr &&
-				node->port == sa6->sin6_port;
+				aport == sa6->sin6_port;
 		}
 		default: return 0;
 	}
 }
 
-node_min_t *find_node_min_from_sockaddr(LinkedList_min_t *list, struct sockaddr *addr) {
+node_min_t *find_node_min_from_sockaddr(LinkedList_min_t *list, struct sockaddr *addr, SERVER_TYPE st) {
 	if (!list || !addr) return NULL;
 
 	node_min_t *p = list->head;
 	while (p) {
-		if (node_min_and_sockaddr_equal(p, addr)) return p;
+		if (node_min_and_sockaddr_equal(p, addr, st)) return p;
 		p = p->next;
 	}
 	return NULL;

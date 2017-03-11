@@ -21,6 +21,8 @@ typedef enum CHAT_STATUS {
 	CHAT_STATUS_NEW = 1,
 	CHAT_STATUS_STAY_IN_TOUCH = 2,
 	CHAT_STATUS_STAY_IN_TOUCH_RESPONSE = 3,
+	CHAT_STATUS_ATTEMPTING_HOLE_PUNCH = 4,
+	CHAT_STATUS_MSG = 5,
 } CHAT_STATUS;
 
 typedef struct chat_buf {
@@ -35,6 +37,8 @@ typedef struct chat_buf {
 } chat_buf_t;
 
 void str_from_server_type(SERVER_TYPE st, char str[15]);
+
+char *chat_status_to_str(CHAT_STATUS cs);
 
 int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr);
 

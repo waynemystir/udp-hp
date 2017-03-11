@@ -25,7 +25,7 @@ int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port
 		void (*new_peer)(char *),
 		void (*hole_punch_sent)(char *, int),
 		void (*confirmed_peer_while_punching)(SERVER_TYPE),
-		void (*from_peer)(char *),
+		void (*from_peer)(SERVER_TYPE, char *),
 		void (*unhandled_response_from_server)(int),
 		void (*whilew)(int),
 		void (*end_while)(void));

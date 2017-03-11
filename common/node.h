@@ -11,6 +11,8 @@
 
 #include <limits.h>
 
+#include "common.h"
+
 typedef enum STATUS_TYPE {
     STATUS_INIT_NODE = 0,
     STATUS_NEW_NODE = 1,
@@ -117,9 +119,9 @@ int node_min_and_node_buf_equal(node_min_t *node_m, node_buf_t *node_b);
 
 node_min_t *find_node_min_from_node_buf(LinkedList_min_t *list, node_buf_t *node_b);
 
-int node_min_and_sockaddr_equal(node_min_t *node, struct sockaddr *addr);
+int node_min_and_sockaddr_equal(node_min_t *node, struct sockaddr *addr, SERVER_TYPE st);
 
-node_min_t *find_node_min_from_sockaddr(LinkedList_min_t *list, struct sockaddr *addr);
+node_min_t *find_node_min_from_sockaddr(LinkedList_min_t *list, struct sockaddr *addr, SERVER_TYPE st);
 
 void add_node_min(LinkedList_min_t *list, node_min_t *node);
 
