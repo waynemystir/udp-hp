@@ -10,6 +10,7 @@
 #define udp_client_h
 
 #include "common.h"
+#include "node.h"
 #include "network_utils.h"
 
 int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port, unsigned short family),
@@ -26,12 +27,15 @@ int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port
 		void (*hole_punch_sent)(char *, int),
 		void (*confirmed_peer_while_punching)(SERVER_TYPE),
 		void (*from_peer)(SERVER_TYPE, char *),
+		void (*chat_msg)(char *),
 		void (*unhandled_response_from_server)(int),
 		void (*whilew)(int),
 		void (*end_while)(void));
 
 void ping_all_peers();
 
-int send_message_to_peer(char *);
+void send_message_to_all_peers(char *);
+
+void send_message_to_peer(node_min_t *peer, char *msg);
 
 #endif /* udp_client_h */

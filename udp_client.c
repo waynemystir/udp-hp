@@ -76,6 +76,7 @@ void (*new_client_cb)(SERVER_TYPE, char *) = NULL;
 void (*hole_punch_sent_cb)(char *, int) = NULL;
 void (*confirmed_peer_while_punching_cb)(SERVER_TYPE) = NULL;
 void (*from_peer_cb)(SERVER_TYPE, char *) = NULL;
+void (*chat_msg_cb)(char *) = NULL;
 
 void pfail(char *w) {
 	printf("pfail 0\n");
@@ -230,6 +231,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 		void (*hole_punch_sent)(char *, int),
 		void (*confirmed_peer_while_punching)(SERVER_TYPE),
 		void (*from_peer)(SERVER_TYPE, char *),
+		void (*chat_msg)(char *),
 		void (*unhandled_response_from_server)(int),
 		void (*whilew)(int),
 		void (*end_while)(void)) {
@@ -247,6 +249,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	hole_punch_sent_cb = hole_punch_sent;
 	confirmed_peer_while_punching_cb = confirmed_peer_while_punching;
 	from_peer_cb = from_peer;
+	chat_msg_cb = chat_msg;
 
 	// Other (server or peer in recvfrom)
 	struct sockaddr sa_other;
@@ -650,6 +653,7 @@ void *chat_hp_server(void *w) {
 					break;
 				}
 				case CHAT_STATUS_MSG: {
+					if (chat_msg_cb) chat_msg_cb(buf.msg);
 					sprintf(conf_stat, "%s", chat_status_to_str(buf.status));
 					break;
 				}
@@ -731,4 +735,52 @@ void send_chat_hole_punch(node_min_t *peer) {
 	addr_to_str(peer_addr, pi, pp, pf);
 	sprintf(spf, "send_chat_hole_punchXXX %s %s %s\n", pi, pp, pf);
 	if (hole_punch_sent_cb) hole_punch_sent_cb(spf, ++chpc);
+}
+
+void send_message_to_all_peers(char *msg) {
+	if (!peers || !peers->head) return;
+	node_min_t *p = peers->head;
+	while (p) {
+		send_message_to_peer(p, msg);
+		p = p->next;
+	}
+}
+
+void send_message_to_peer(node_min_t *peer, char *msg) {
+	if (!peer) return;
+	struct sockaddr *peer_addr;
+	socklen_t peer_socklen = 0;
+	switch (peer->family) {
+		case AF_INET: {
+			struct sockaddr_in sa4;
+			sa4.sin_family = AF_INET;
+			sa4.sin_addr.s_addr = peer->ip4;
+			sa4.sin_port = peer->chat_port;
+			peer_socklen = SZ_SOCKADDR_IN;
+			peer_addr = (struct sockaddr*)&sa4;
+			break;
+		}
+		case AF_INET6: {
+			struct sockaddr_in6 sa6;
+			sa6.sin6_family = AF_INET6;
+			memcpy(sa6.sin6_addr.s6_addr, peer->ip6, sizeof(unsigned char[16]));
+			sa6.sin6_port = peer->chat_port;
+			peer_socklen = SZ_SOCKADDR_IN6;
+			peer_addr = (struct sockaddr*)&sa6;
+			break;
+		}
+		default: {
+			printf("send_message_to_peer, peer->family not well defined\n");
+			return;
+		}
+	}
+	chat_buf_t wcb;
+	wcb.status = CHAT_STATUS_MSG;
+	wcb.family = self_external->family;
+	wcb.port = self_external->chat_port;
+	wcb.ip4 = self_external->ip4;
+	strcpy(wcb.msg, msg);
+
+	if (sendto(chat_sock_fd, &wcb, SZ_CH_BF, 0, peer_addr, peer_socklen) == -1)
+		pfail("send_message_to_peer sendto");
 }
