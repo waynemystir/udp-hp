@@ -113,6 +113,10 @@ int nodes_min_equal(node_min_t *n1, node_min_t *n2);
 
 node_min_t *find_node_min(LinkedList_min_t *list, node_min_t *node);
 
+int node_min_and_node_buf_equal(node_min_t *node_m, node_buf_t *node_b);
+
+node_min_t *find_node_min_from_node_buf(LinkedList_min_t *list, node_buf_t *node_b);
+
 int node_min_and_sockaddr_equal(node_min_t *node, struct sockaddr *addr);
 
 node_min_t *find_node_min_from_sockaddr(LinkedList_min_t *list, struct sockaddr *addr);
