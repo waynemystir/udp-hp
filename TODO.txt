@@ -1,18 +1,26 @@
+
+in-memory structure (hashtable)
+	fast
+	scalable
+	thread-safe
+	how to track contacts? keep list of usernames and do lookup? or maybe a second hashtable (username, contact_un)?
+	key is the username? what is the value? if so, how to handle multiple IPs/devices? linked list?
+database
+authentication
+integrate / re-arch
+
+server host?
+
 stay-in-touch with peers
+
 self
 get internal hole punching working
+
 thread wain et al
 
 video_port
 video server
 POC video functionality
-
-database
-authentication
-contacts
-integrate / re-arch
-
-server host?
 
 security
 	network encryption
@@ -20,6 +28,8 @@ security
 	something else?
 
 mvp app
+
+APNs
 
 test IPv6 somehow
 valgrind (for client, try to install on OSX and use udp_client_test.c)

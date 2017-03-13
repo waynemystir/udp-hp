@@ -80,7 +80,7 @@ typedef struct LinkedList_min {
 typedef struct LinkedList {
 	node_t *head;
 	node_t *tail;
-	int node_count;
+	unsigned int node_count;
 } LinkedList_t;
 
 extern const unsigned short INTERNAL_ADDR;

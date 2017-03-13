@@ -3,7 +3,7 @@ CFLAGS=-c -Wall
 AR=ar
 ARFLAGS=rcs
 
-SOURCES=node.c
+SOURCES=node.c hashtable.c
 
 OBJECTS=$(SOURCES:.c=.o)
 
