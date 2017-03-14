@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "hashtable.h"
@@ -9,7 +10,7 @@ unsigned hash(char *s) {
 	return hashval % HASHSIZE;
 }
 
-hash_node_t *lookup(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]) {
+hash_node_t *lookup_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]) {
 	if (!hashtbl) return NULL;
 	hash_node_t *np;
 	for (np = (*hashtbl)[hash(username)]; np != NULL; np = np->next)
@@ -22,21 +23,59 @@ hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], L
 	if (!hashtbl) return NULL;
 	hash_node_t *np;
 	unsigned hashval;
-	if ((np = lookup(hashtbl, username)) == NULL) { /* not found */
+	if ((np = lookup_user(hashtbl, username)) == NULL) { /* not found */
 		np = malloc(SZ_HASH_NODE);
+		memset(np, '\0', SZ_HASH_NODE);
 		if (np == NULL) return NULL;
 		strcpy(np->username, username);
 		hashval = hash(username);
 		np->next = (*hashtbl)[hashval];
 		(*hashtbl)[hashval] = np;
+		contact_list_t *contacts = malloc(SZ_CONTACT_LIST);
+		memset(contacts, '\0', SZ_CONTACT_LIST);
+		np->contacts = contacts;
 	}
 
-	memcpy(np->ips, ips, SZ_LINK_LIST);
+	// TODO what should we do if lookup_user returns non-NULL?
 	return np;
+}
+
+void add_contact(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char contactname[MAX_CHARS_USERNAME]) {
+	printf("lets add contact %s to user %s\n", contactname, username);
+	if (!hashtbl) return;
+	hash_node_t *user = lookup_user(hashtbl, username);
+	if (!user) return;
+	hash_node_t *contact_hn = lookup_user(hashtbl, contactname);
+	if (!contact_hn) return;
+	if (strcmp(user->username, contact_hn->username) == 0) {
+		printf("Failed attempt to add contact %s to user %s\n", contact_hn->username, user->username);
+		return;
+	}
+	contact_t *new_contact = malloc(SZ_CONTACT);
+	memset(new_contact, '\0', SZ_CONTACT);
+	new_contact->hn = contact_hn;
+
+	if (!user->contacts->head) {
+		user->contacts->head = new_contact;
+		user->contacts->tail = new_contact;
+	} else {
+		user->contacts->tail->next = new_contact;
+		user->contacts->tail = new_contact;
+	}
 }
 
 hash_node_t *add_ip_to_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], node_t *ip) {
 	return NULL;
+}
+
+void freecontacts(contact_list_t *contacts) {
+	if (!contacts || !contacts->head) return;
+	contact_t *c;
+	while ((c = contacts->head) != NULL) {
+		contacts->head = contacts->head->next;
+		free(c);
+	}
+	free(contacts);
 }
 
 void freehashtable(hashtable_t *hashtbl) {
@@ -49,6 +88,7 @@ void freehashtable(hashtable_t *hashtbl) {
 		while ((tmp = htn) != NULL) {
 			htn = htn->next;
 			free_list(tmp->ips);
+			freecontacts(tmp->contacts);
 			free(tmp);
 		}
 	}

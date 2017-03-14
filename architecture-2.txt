@@ -8,13 +8,10 @@ hashtable-users
 	ht_node_t
 		key = username
 		value = linked list (node_t) of active IPs
+		contact_list_t
 		next
 
 The hashtable contains all users, active or not. The hashtable is loaded on server start-up with all users from the db.users table.
-
-For contacts, make a second hashtable-contacts that is loaded on server start-up from the db.contacts table. But instead of loading contact_username's into hashtable-contacts, load a pointer (ht_node_t) back to something in hashtable-users? The downside to this approach is that we are holding more pointers in memory. I think this is a very small downside. A pointer is 8 bytes. But if we have 100M users, with a 100 contacts each, that's 10B records -> 80B bytes -> 80M KB's -> 80K MB's -> 80GB's. With 1B users and 1K contacts each, that's 1T records -> 8T bytes -> 8B KB's -> 8M MB's -> 8K GB's. And how would this hashtable-contacts even be structured?
-
-Or should we just add a double char pointer to ht_node_t called contacts? The downside to this approach is a possibly long lookup, and this lookup will occur often (i.e. every time a user signs in from a new device).
 
 Rather than have a member on ht_node_t that indicates active/inactive, we simply check the value. If the value is NULL, then the user is inactive. Otherwise, the user is active.
 
