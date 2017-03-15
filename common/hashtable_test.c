@@ -28,15 +28,6 @@ void find_some_users() {
 }
 
 void add_some_contacts() {
-	add_contact(&hashtbl, "waynemystir", "waynemystir");
-	add_contact(&hashtbl, "waynemystir", "mike_schmidt");
-	add_contact(&hashtbl, "waynemystir", "pete_rose");
-	add_contact(&hashtbl, "waynemystir", "julius_erving");
-
-	add_contact(&hashtbl, "mike_schmidt", "waynemystir");
-	add_contact(&hashtbl, "mike_schmidt", "mike_schmidt");
-	add_contact(&hashtbl, "mike_schmidt", "pete_rose");
-	add_contact(&hashtbl, "mike_schmidt", "julius_erving");
 
 	add_contact(&hashtbl, "pete_rose", "waynemystir");
 	add_contact(&hashtbl, "pete_rose", "mike_schmidt");
@@ -44,9 +35,20 @@ void add_some_contacts() {
 	add_contact(&hashtbl, "pete_rose", "julius_erving");
 
 	add_contact(&hashtbl, "julius_erving", "waynemystir");
+	add_contact(&hashtbl, "julius_erving", "waynemystir");
 	add_contact(&hashtbl, "julius_erving", "pete_rose");
 	add_contact(&hashtbl, "julius_erving", "mike_schmidt");
 	add_contact(&hashtbl, "julius_erving", "julius_erving");
+
+	add_contact(&hashtbl, "mike_schmidt", "waynemystir");
+	add_contact(&hashtbl, "mike_schmidt", "mike_schmidt");
+	add_contact(&hashtbl, "mike_schmidt", "pete_rose");
+	add_contact(&hashtbl, "mike_schmidt", "julius_erving");
+	
+	add_contact(&hashtbl, "waynemystir", "waynemystir");
+	add_contact(&hashtbl, "waynemystir", "mike_schmidt");
+	add_contact(&hashtbl, "waynemystir", "pete_rose");
+	add_contact(&hashtbl, "waynemystir", "julius_erving");
 }
 
 void read_some_contacts() {
@@ -56,6 +58,14 @@ void read_some_contacts() {
 	c = waynes_contacts->head;
 	while (c) {
 		printf("waynes_contact:%s\n", c->hn->username);
+		c = c->next;
+	}
+
+	hash_node_t *julius = lookup_user(&hashtbl, "julius_erving");
+	contact_list_t *julius_contacts = julius->contacts;
+	c = julius_contacts->head;
+	while (c) {
+		printf("julius'_contact:%s\n", c->hn->username);
 		c = c->next;
 	}
 
@@ -74,18 +84,10 @@ void read_some_contacts() {
 		printf("petes_contact:%s\n", c->hn->username);
 		c = c->next;
 	}
-
-	hash_node_t *julius = lookup_user(&hashtbl, "julius_erving");
-	contact_list_t *julius_contacts = julius->contacts;
-	c = julius_contacts->head;
-	while (c) {
-		printf("julius'_contact:%s\n", c->hn->username);
-		c = c->next;
-	}
 }
 
 int main() {
-	printf("hashtable_test main 0\n");
+	printf("hashtable_test main 0 szhn:%lu szct:%lu\n", SZ_HASH_NODE, SZ_CONTACT);
 	load_hashtbl_from_db();
 	find_some_users();
 	add_some_contacts();

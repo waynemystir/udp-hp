@@ -25,10 +25,39 @@ void pfail(char *s) {
 
 void load_hashtbl_from_db() {
 	memset(&hashtbl, '\0', SZ_HASHTBL);
-	add_user(&hashtbl, "waynemystir", NULL);
-	add_user(&hashtbl, "mike_schmidt", NULL);
-	add_user(&hashtbl, "pete_rose", NULL);
-	add_user(&hashtbl, "julius_erving", NULL);
+	add_user(&hashtbl, "waynemystir");
+	add_user(&hashtbl, "julius_erving");
+	add_user(&hashtbl, "mike_schmidt");
+	add_user(&hashtbl, "pete_rose");
+
+	add_contact(&hashtbl, "pete_rose", "waynemystir");
+	add_contact(&hashtbl, "pete_rose", "mike_schmidt");
+	add_contact(&hashtbl, "pete_rose", "pete_rose");
+	add_contact(&hashtbl, "pete_rose", "julius_erving");
+
+	add_contact(&hashtbl, "julius_erving", "waynemystir");
+	add_contact(&hashtbl, "julius_erving", "waynemystir");
+	add_contact(&hashtbl, "julius_erving", "pete_rose");
+	add_contact(&hashtbl, "julius_erving", "mike_schmidt");
+	add_contact(&hashtbl, "julius_erving", "julius_erving");
+
+	add_contact(&hashtbl, "mike_schmidt", "waynemystir");
+	add_contact(&hashtbl, "mike_schmidt", "mike_schmidt");
+	add_contact(&hashtbl, "mike_schmidt", "pete_rose");
+	add_contact(&hashtbl, "mike_schmidt", "julius_erving");
+	
+	add_contact(&hashtbl, "waynemystir", "waynemystir");
+	add_contact(&hashtbl, "waynemystir", "mike_schmidt");
+	add_contact(&hashtbl, "waynemystir", "pete_rose");
+	add_contact(&hashtbl, "waynemystir", "julius_erving");
+}
+
+void notify_contacts_of_new_node(contact_t *contact, void *arg) {
+
+}
+
+void notify_contacts_of_new_chat_port(contact_t *contact, void *arg) {
+
 }
 
 void *main_server_endpoint(void *arg) {
@@ -36,7 +65,7 @@ void *main_server_endpoint(void *arg) {
 		SZ_NODE, sizeof(node_t),
 		SZ_NODE_BF, sizeof(node_buf_t));
 
-	size_t recvf_len/*, sendto_len*/;
+	size_t recvf_len, sendto_len;
 	struct sockaddr_in *si_me;
 	node_buf_t buf;
 	// nodes = malloc(SZ_LINK_LIST);
@@ -78,6 +107,81 @@ void *main_server_endpoint(void *arg) {
 		// TODO we should probably handle packets with a thread pool
 		// so that the next recvfrom isn't blocked by the below code
 		switch(buf.status) {
+			case STATUS_INIT_NODE: {
+				printf("New node %s %s %d\n", buf.id, ip_str, port);
+				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
+				// TODO We must add a check here to see if this new node
+				// already exists in our linked list. If so, how to 
+				// handle that?
+				node_t *new_tail;
+				// TODO Add a get_new_head
+				// If the user just signed in from this device
+				// It will probably get the most use
+				get_new_tail(hn->nodes, &new_tail);
+				new_tail->status = STATUS_NEW_NODE;
+				switch (si_other.sa_family) {
+					case AF_INET: {
+						struct sockaddr_in *sai4 = (struct sockaddr_in*)&si_other;
+						new_tail->external_ip4 = sai4->sin_addr.s_addr;
+						new_tail->external_port = sai4->sin_port;
+						break;
+					}
+					case AF_INET6: {
+						struct sockaddr_in6 *sai6 = (struct sockaddr_in6*)&si_other;
+						memcpy(new_tail->external_ip6, sai6->sin6_addr.s6_addr, 16);
+						new_tail->external_port = sai6->sin6_port;
+						break;
+					}
+					default: {
+						printf("We received STATUS_INIT_NODE with invalid family %d\n",
+							si_other.sa_family);
+						continue;
+					}
+				}
+				new_tail->external_family = si_other.sa_family;
+				node_buf_t *new_tail_buf;
+				node_external_to_node_buf(new_tail, &new_tail_buf);
+				sendto_len = sendto(sock_fd, new_tail_buf, SZ_NODE_BF, 0, &si_other, slen);
+				if (sendto_len == -1) {
+					pfail("sendto");
+				}
+				printf("Sendto %zu %d\n", sendto_len, new_tail->external_family);
+				// TODO do we really need STATUS_CONFIRMED_NODE?
+				// if so, then we need to code node to send confirmation
+				// and add a case here to set STATUS_CONFIRMED_NODE
+				// for now, we'll just set it here
+				new_tail->status = STATUS_CONFIRMED_NODE;
+				// Now we set the status to new peer so that when the
+				// peers recv the sendto's below, they know they are
+				// getting a new peer
+				new_tail->status = STATUS_NEW_PEER;
+				// And now we notify all peers of new peer as
+				// well as notify new peer of existing peers
+				contacts_perform(hn->contacts, notify_contacts_of_new_node, new_tail);
+				break;
+			}
+			case STATUS_STAY_IN_TOUCH: {
+				printf("Stay in touch from %s port%d %d %d\n", ip_str, port, family, STATUS_STAY_IN_TOUCH_RESPONSE);
+				buf.status = STATUS_STAY_IN_TOUCH_RESPONSE;
+				sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, slen);
+				if (sendto_len == -1) {
+					pfail("sendto");
+				}
+				break;
+			}
+			case STATUS_ACQUIRED_CHAT_PORT: {
+				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
+				node_t *peer_with_new_chat_port = find_node_from_sockaddr(hn->nodes, &si_other);
+				if (peer_with_new_chat_port) {
+					peer_with_new_chat_port->external_chat_port = buf.chat_port;
+					// TODO how to handle internal_chat_port here?
+					// Just use buf.int_or_ext?
+					contacts_perform(hn->contacts,
+						notify_contacts_of_new_chat_port,
+						peer_with_new_chat_port);
+				}
+				break;
+			}
 			default: {
 				char *buf_char = (char *) &buf;
 				printf("None of the above - buf.status -: %d -: %s\n", buf.status, buf_char);

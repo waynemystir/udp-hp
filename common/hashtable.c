@@ -10,6 +10,21 @@ unsigned hash(char *s) {
 	return hashval % HASHSIZE;
 }
 
+int hash_nodes_equal(hash_node_t *h1, hash_node_t *h2) {
+	if (!h1 || !h2) return 0;
+	return strcmp(h1->username, h2->username) == 0;
+}
+
+int hash_node_in_contacts_list(hash_node_t *hn, contact_list_t *cl) {
+	if (!hn || !cl) return 0;
+	contact_t *c = cl->head;
+	while (c) {
+		if (hash_nodes_equal(hn, c->hn)) return 1;
+		c = c->next;
+	}
+	return 0;
+}
+
 hash_node_t *lookup_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]) {
 	if (!hashtbl) return NULL;
 	hash_node_t *np;
@@ -19,7 +34,17 @@ hash_node_t *lookup_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]
 	return NULL; /* not found */
 }
 
-hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], LinkedList_t *ips) {
+void username_from_id(ID id, char username[MAX_CHARS_USERNAME]) {
+	strcpy(username, id);
+}
+
+hash_node_t *lookup_user_from_id(hashtable_t *hashtbl, ID id) {
+	char username[MAX_CHARS_USERNAME];
+	username_from_id(id, username);
+	return lookup_user(hashtbl, username);
+}
+
+hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]) {
 	if (!hashtbl) return NULL;
 	hash_node_t *np;
 	unsigned hashval;
@@ -51,6 +76,11 @@ void add_contact(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char c
 		printf("Failed attempt to add contact %s to user %s\n", contact_hn->username, user->username);
 		return;
 	}
+	if (hash_node_in_contacts_list(contact_hn, user->contacts)) {
+		printf("Not adding contact %s to contacts list. It already exists.\n", contact_hn->username);
+		return;
+	}
+
 	contact_t *new_contact = malloc(SZ_CONTACT);
 	memset(new_contact, '\0', SZ_CONTACT);
 	new_contact->hn = contact_hn;
@@ -61,6 +91,15 @@ void add_contact(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char c
 	} else {
 		user->contacts->tail->next = new_contact;
 		user->contacts->tail = new_contact;
+	}
+}
+
+void contacts_perform(contact_list_t *contacts, void (*perform)(contact_t *contact, void *arg), void *arg) {
+	if (!contacts || !perform) return;
+	contact_t *c = contacts->head;
+	while (c) {
+		perform(c, arg);
+		c = c->next;
 	}
 }
 
@@ -87,7 +126,7 @@ void freehashtable(hashtable_t *hashtbl) {
 		hash_node_t *tmp;
 		while ((tmp = htn) != NULL) {
 			htn = htn->next;
-			free_list(tmp->ips);
+			free_list(tmp->nodes);
 			freecontacts(tmp->contacts);
 			free(tmp);
 		}

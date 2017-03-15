@@ -29,7 +29,7 @@ typedef struct contact_list {
 
 typedef struct hash_node {
 	char username[MAX_CHARS_USERNAME];
-	LinkedList_t *ips;
+	LinkedList_t *nodes;
 	contact_list_t *contacts;
 	struct hash_node *next;
 } hash_node_t;
@@ -49,9 +49,11 @@ typedef hash_node_t *hashtable_t[HASHSIZE];
 
 unsigned hash(char *s);
 hash_node_t *lookup_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]);
-hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], LinkedList_t *ips);
+hash_node_t *lookup_user_from_id(hashtable_t *hashtbl, ID id);
+hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]);
 hash_node_t *add_ip_to_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], node_t *ip);
 void add_contact(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char contactname[MAX_CHARS_USERNAME]);
+void contacts_perform(contact_list_t *contacts, void (*perform)(contact_t *contact, void *arg), void *arg);
 void freehashtable(hashtable_t *hashtbl);
 
 #endif /* hashtable_h */
