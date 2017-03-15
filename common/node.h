@@ -154,7 +154,7 @@ void copy_and_add_tail(LinkedList_t *list, node_t *node_to_copy, node_t **new_ta
 
 void get_new_tail(LinkedList_t *list, node_t **new_tail);
 
-void nodes_perform(LinkedList_t *list, void (*perform)(node_t *node));
+void nodes_perform(LinkedList_t *list, void (*perform)(node_t *node, void *arg), void *arg);
 
 void free_list(LinkedList_t *list);
 

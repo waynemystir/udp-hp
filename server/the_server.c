@@ -52,12 +52,94 @@ void load_hashtbl_from_db() {
 	add_contact(&hashtbl, "waynemystir", "julius_erving");
 }
 
-void notify_contacts_of_new_node(contact_t *contact, void *arg) {
+void notify_existing_peer_of_new_node(node_t *existing_peer, void *arg) {
+	if (!existing_peer || !arg) return;
+	node_t *new_node = arg;
 
+	// Let's get the sockaddr of existing_peer
+	struct sockaddr ep_addr;
+	switch (existing_peer->external_family) {
+		case AF_INET: {
+			ep_addr.sa_family = AF_INET;
+			((struct sockaddr_in*)&ep_addr)->sin_family = AF_INET;
+			((struct sockaddr_in*)&ep_addr)->sin_port = existing_peer->external_port;
+			((struct sockaddr_in*)&ep_addr)->sin_addr.s_addr = existing_peer->external_ip4;
+			break;
+		}
+		case AF_INET6: {
+			ep_addr.sa_family = AF_INET6;
+			((struct sockaddr_in6*)&ep_addr)->sin6_family = AF_INET6;
+			((struct sockaddr_in6*)&ep_addr)->sin6_port = existing_peer->external_port;
+			memcpy(((struct sockaddr_in6*)&ep_addr)->sin6_addr.s6_addr, existing_peer->external_ip6, 16);
+			break;
+		}
+		default: return;
+	}
+
+	node_buf_t *exip_node_buf, *new_node_buf;
+	get_approp_node_bufs(existing_peer, new_node, &exip_node_buf, &new_node_buf);
+
+	// And now we notify existing peer of new tail
+	if (sendto(sock_fd, new_node_buf, SZ_NODE_BF, 0, &ep_addr, slen)==-1)
+		pfail("sendto");
+
+	// And notify new tail (i.e. si_other) of existing peer
+	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, &si_other, slen)==-1)
+		pfail("sendto");
+
+	free(exip_node_buf);
+	free(new_node_buf);
 }
 
-void notify_contacts_of_new_chat_port(contact_t *contact, void *arg) {
+void notify_existing_peer_of_new_chat_port(node_t *existing_peer, void *arg) {
+	node_t *peer_with_new_port = arg;
+	if (nodes_equal(existing_peer, peer_with_new_port)) return;
 
+	// Let's get the sockaddr of existing_peer
+	struct sockaddr ep_addr;
+	switch (existing_peer->external_family) {
+		case AF_INET: {
+			ep_addr.sa_family = AF_INET;
+			((struct sockaddr_in*)&ep_addr)->sin_family = AF_INET;
+			((struct sockaddr_in*)&ep_addr)->sin_port = existing_peer->external_port;
+			((struct sockaddr_in*)&ep_addr)->sin_addr.s_addr = existing_peer->external_ip4;
+			break;
+		}
+		case AF_INET6: {
+			ep_addr.sa_family = AF_INET6;
+			((struct sockaddr_in6*)&ep_addr)->sin6_family = AF_INET6;
+			((struct sockaddr_in6*)&ep_addr)->sin6_port = existing_peer->external_port;
+			memcpy(((struct sockaddr_in6*)&ep_addr)->sin6_addr.s6_addr, existing_peer->external_ip6, 16);
+			break;
+		}
+		default: return;
+	}
+
+	node_buf_t *exip_node_buf, *pwnp_buf;
+	get_approp_node_bufs(existing_peer, peer_with_new_port, &exip_node_buf, &pwnp_buf);
+	exip_node_buf->status = STATUS_PROCEED_CHAT_HP;
+	pwnp_buf->status = STATUS_PROCEED_CHAT_HP;
+
+	// And now we notify existing peer of new tail
+	if (sendto(sock_fd, pwnp_buf, SZ_NODE_BF, 0, &ep_addr, slen)==-1)
+		pfail("sendto");
+
+	// And notify peer_with_new_port (i.e. si_other) of existing peer
+	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, &si_other, slen)==-1)
+		pfail("sendto");
+
+	free(exip_node_buf);
+	free(pwnp_buf);
+}
+
+void notify_contact_of_new_node(contact_t *contact, void *arg) {
+	if (!arg || !contact || !contact->hn || !contact->hn->nodes) return;
+	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_node, arg);
+}
+
+void notify_contact_of_new_chat_port(contact_t *contact, void *arg) {
+	if (!arg || !contact || !contact->hn || !contact->hn->nodes) return;
+	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_chat_port, arg);
 }
 
 void *main_server_endpoint(void *arg) {
@@ -157,7 +239,7 @@ void *main_server_endpoint(void *arg) {
 				new_tail->status = STATUS_NEW_PEER;
 				// And now we notify all peers of new peer as
 				// well as notify new peer of existing peers
-				contacts_perform(hn->contacts, notify_contacts_of_new_node, new_tail);
+				contacts_perform(hn->contacts, notify_contact_of_new_node, new_tail);
 				break;
 			}
 			case STATUS_STAY_IN_TOUCH: {
@@ -177,7 +259,7 @@ void *main_server_endpoint(void *arg) {
 					// TODO how to handle internal_chat_port here?
 					// Just use buf.int_or_ext?
 					contacts_perform(hn->contacts,
-						notify_contacts_of_new_chat_port,
+						notify_contact_of_new_chat_port,
 						peer_with_new_chat_port);
 				}
 				break;
@@ -196,7 +278,7 @@ void *main_server_endpoint(void *arg) {
 	}
 
 	close(sock_fd);
-	// free_list(nodes);
+	freehashtable(&hashtbl);
 
 	pthread_exit("main_server_thread exited normally");
 }

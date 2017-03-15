@@ -29,11 +29,12 @@ void pfail(char *s) {
 	exit(1);
 }
 
-void notify_existing_peer_of_new_tail(node_t *existing_peer) {
+void notify_existing_peer_of_new_tail(node_t *existing_peer, void *arg) {
 	// We don't want to notify the new peer (i.e. nodes->tail) of itself.
 	// That is to say, if existing_peer->next is NULL, then we are at the
 	// tail... so don't do this.
-	if (!existing_peer || !existing_peer->next) return;
+	if (!arg || !existing_peer || !existing_peer->next) return;
+	node_t *new_tail = arg;
 
 	// Let's get the sockaddr of existing_peer
 	struct sockaddr ep_addr;
@@ -56,7 +57,7 @@ void notify_existing_peer_of_new_tail(node_t *existing_peer) {
 	}
 
 	node_buf_t *exip_node_buf, *tail_node_buf;
-	get_approp_node_bufs(existing_peer, nodes->tail, &exip_node_buf, &tail_node_buf);
+	get_approp_node_bufs(existing_peer, new_tail, &exip_node_buf, &tail_node_buf);
 
 	// And now we notify existing peer of new tail
 	if (sendto(sock_fd, tail_node_buf, SZ_NODE_BF, 0, &ep_addr, slen)==-1)
@@ -202,7 +203,7 @@ void *sign_in_endpoint(void *msg) {
 				new_tail->status = STATUS_NEW_PEER;
 				// And now we notify all peers of new peer as
 				// well as notify new peer of existing peers
-				nodes_perform(nodes, notify_existing_peer_of_new_tail);
+				nodes_perform(nodes, notify_existing_peer_of_new_tail, new_tail);
 				break;
 			}
 			case STATUS_STAY_IN_TOUCH: {

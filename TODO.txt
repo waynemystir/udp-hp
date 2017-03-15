@@ -1,13 +1,8 @@
 
-in-memory structure (hashtable)
-	fast
-	scalable
-	thread-safe
-	how to track contacts? keep list of usernames and do lookup? or maybe a second hashtable (username, contact_un)?
-	key is the username? what is the value? if so, how to handle multiple IPs/devices? linked list?
-database
+finish in-memory structure (hashtable)
 authentication
-integrate / re-arch
+thread the server
+database
 
 server host?
 

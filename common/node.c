@@ -429,12 +429,12 @@ void get_new_tail(LinkedList_t *list, node_t **new_tail) {
 	copy_and_add_tail(list, &ntc, new_tail);
 }
 
-void nodes_perform(LinkedList_t *list, void (*perform)(node_t *n)) {
+void nodes_perform(LinkedList_t *list, void (*perform)(node_t *n, void *arg), void *arg) {
 	if (!list || !list->head) return;
 
 	node_t *p = list->head;
 	while (p) {
-		perform(p);
+		perform(p, arg);
 		p = p->next;
 	}
 }
