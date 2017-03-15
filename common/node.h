@@ -13,6 +13,8 @@
 
 #include "common.h"
 
+#define ID_LEN 20
+
 typedef enum STATUS_TYPE {
     STATUS_INIT_NODE = 0,
     STATUS_NEW_NODE = 1,
@@ -26,8 +28,11 @@ typedef enum STATUS_TYPE {
     STATUS_CONFIRMED_CHAT_PEER = 9,
 } STATUS_TYPE;
 
+typedef char ID[ID_LEN];
+
 typedef struct node_buf {
 	STATUS_TYPE status;
+	ID id;
 	unsigned short int_or_ext; // 0 is internal and 1 is external
 	union {
 		in_addr_t ip4;
@@ -80,7 +85,7 @@ typedef struct LinkedList_min {
 typedef struct LinkedList {
 	node_t *head;
 	node_t *tail;
-	int node_count;
+	unsigned int node_count;
 } LinkedList_t;
 
 extern const unsigned short INTERNAL_ADDR;
@@ -149,7 +154,7 @@ void copy_and_add_tail(LinkedList_t *list, node_t *node_to_copy, node_t **new_ta
 
 void get_new_tail(LinkedList_t *list, node_t **new_tail);
 
-void nodes_perform(LinkedList_t *list, void (*perform)(node_t *node));
+void nodes_perform(LinkedList_t *list, void (*perform)(node_t *node, void *arg), void *arg);
 
 void free_list(LinkedList_t *list);
 

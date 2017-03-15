@@ -1,0 +1,26 @@
+postgres database - two tables
+	users (username, password)
+	contacts (username, contact_username)
+
+The server never interacts directly with the database. Instead it CRUDs with the hashtable.
+
+hashtable-users
+	ht_node_t
+		key = username
+		value = linked list (node_t) of active IPs
+		contact_list_t
+		next
+
+The hashtable contains all users, active or not. The hashtable is loaded on server start-up with all users from the db.users table.
+
+Rather than have a member on ht_node_t that indicates active/inactive, we simply check the value. If the value is NULL, then the user is inactive. Otherwise, the user is active.
+
+Insertion:
+	-New user: New ht_node_t => new active IP. Individual or batch update to db.user is fine since it is threaded and should not affect hashtable access.
+	-New active IP: This is a normal put except that, if the ht_node_t already exists, we don't overwrite the value. We insert/put to the value, i.e. put to the linked list of active IPs.
+	-New contact: We insert/put to the linked list in contact member.
+
+Deletion/Disconnnection:
+	-A peer can notify peers and server that it is disconnecting/closing, in which case we should delete the applicable node_t.
+	-But we cannot rely soley on the peer to tell us this. What if the peer just loses an internet connection or someting?
+	-We should delete the applicable node_t when the server doesn't receive a STATUS_STAY_IN_TOUCH message from that IP for a while. As the peers maintain a stay-in-touch status update as well, they can do the same thing.

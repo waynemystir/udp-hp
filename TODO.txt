@@ -1,18 +1,21 @@
+
+finish in-memory structure (hashtable)
+authentication
+thread the server
+database
+
+server host?
+
 stay-in-touch with peers
+
 self
 get internal hole punching working
+
 thread wain et al
 
 video_port
 video server
 POC video functionality
-
-database
-authentication
-contacts
-integrate / re-arch
-
-server host?
 
 security
 	network encryption
@@ -20,6 +23,8 @@ security
 	something else?
 
 mvp app
+
+APNs
 
 test IPv6 somehow
 valgrind (for client, try to install on OSX and use udp_client_test.c)
