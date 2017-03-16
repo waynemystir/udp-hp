@@ -10,7 +10,7 @@
 
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
-char username[] = "waynemystir";
+char username[] = "pete_rose";
 
 void send_hole_punch(node_t *peer);
 void *chat_hole_punch_thread(void *peer_to_hole_punch);
@@ -312,7 +312,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	if (gsn == -1) pfail("getsockname");
 
 	addr_to_str_short(sa_me_internal, me_internal_ip, &me_internal_port, &me_internal_family);
-	sprintf(sprintf, "Moi %s %s", me_internal_ip, self_internal_ip);
+	sprintf(sprintf, "Moi %s %s %s", username, me_internal_ip, self_internal_ip);
 	if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
 	self_internal->port = me_internal_port;
 
@@ -346,7 +346,8 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 		char bp[20];
 		char bf[20];
 		addr_to_str(buf_sa, buf_ip, bp, bf);
-		sprintf(sprintf, "coll_buf sz:%zu st:%d ip:%s p:%u cp:%u f:%u",
+		sprintf(sprintf, "coll_buf id:%s sz:%zu st:%d ip:%s p:%u cp:%u f:%u",
+			buf.id,
 			sizeof(buf),
 			buf.status,
 			buf_ip,
@@ -752,17 +753,17 @@ void send_chat_hole_punch(node_t *peer) {
 	if (hole_punch_sent_cb) hole_punch_sent_cb(spf, ++chpc);
 }
 
-void send_message_to_all_nodes_in_contact(contact_t *contact, void *msg) {
+void send_message_to_all_nodes_in_contact(contact_t *contact, void *msg, void *arg2_unused, void *arg3_unused) {
 	if (!contact || !contact->hn || !contact->hn->nodes) return;
-	nodes_perform(contact->hn->nodes, send_message_to_peer, msg);
+	nodes_perform(contact->hn->nodes, send_message_to_peer, msg, NULL, NULL);
 }
 
 void send_message_to_all_peers(char *msg) {
 	if (!self.contacts) return;
-	contacts_perform(self.contacts, send_message_to_all_nodes_in_contact, msg);
+	contacts_perform(self.contacts, send_message_to_all_nodes_in_contact, msg, NULL, NULL);
 }
 
-void send_message_to_peer(node_t *peer, void *msg) {
+void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3_unused) {
 	if (!peer) return;
 	struct sockaddr *peer_addr;
 	socklen_t peer_socklen = 0;
