@@ -11,6 +11,8 @@
 
 #include <netdb.h>
 
+#define MAX_CHARS_USERNAME 47
+
 typedef enum SERVER_TYPE {
 	SERVER_SIGNIN,
 	SERVER_CHAT,

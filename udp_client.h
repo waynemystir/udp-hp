@@ -36,6 +36,6 @@ void ping_all_peers();
 
 void send_message_to_all_peers(char *);
 
-void send_message_to_peer(node_min_t *peer, char *msg);
+void send_message_to_peer(node_t *peer, void *msg);
 
 #endif /* udp_client_h */

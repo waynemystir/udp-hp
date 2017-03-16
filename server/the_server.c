@@ -240,6 +240,7 @@ void *main_server_endpoint(void *arg) {
 				// And now we notify all peers of new peer as
 				// well as notify new peer of existing peers
 				contacts_perform(hn->contacts, notify_contact_of_new_node, new_tail);
+				// TODO notify new_node of itself i.e. the other nodes in hn->nodes
 				break;
 			}
 			case STATUS_STAY_IN_TOUCH: {

@@ -24,12 +24,17 @@ char *status_to_str(STATUS_TYPE st) {
 	}
 }
 
-void addr_to_node_buf(struct sockaddr *sa, node_buf_t **nb, STATUS_TYPE status, unsigned short int_or_ext) {
+void addr_to_node_buf(struct sockaddr *sa,
+			node_buf_t **nb,
+			STATUS_TYPE status,
+			unsigned short int_or_ext,
+			char id[MAX_CHARS_USERNAME]) {
 	if (!sa || !nb) return;
 
 	node_buf_t *new_node_buf = malloc(SZ_NODE_BF);
 	*nb = new_node_buf;
 	new_node_buf->status = status;
+	strcpy(new_node_buf->id, id);
 	new_node_buf->int_or_ext = int_or_ext;
 	new_node_buf->family = sa->sa_family;
 	switch (new_node_buf->family) {
@@ -266,6 +271,7 @@ int same_nat(node_t *n1, node_t *n2) {
 }
 
 int nodes_equal(node_t *n1, node_t *n2) {
+	// TODO use int_or_ext to handle internal side
 	if (!n1 || !n2) return 0;
 	if (n1->external_family != n2->external_family) return 0;
 	if (n1->external_port != n2->external_port) return 0;
@@ -275,6 +281,47 @@ int nodes_equal(node_t *n1, node_t *n2) {
 		case AF_INET6: return n1->external_ip6 == n2->external_ip6;
 		default: return 0;
 	}
+}
+
+int node_and_node_buf_equal(node_t *n, node_buf_t *nb) {
+	if (!n || !nb) return 0;
+	node_t nb_node;
+	memset(&nb_node, '\0', SZ_NODE);
+	nb_node.status = nb->status;
+	nb_node.int_or_ext = nb->int_or_ext;
+	if (nb_node.int_or_ext == INTERNAL_ADDR) {
+		nb_node.internal_family = nb->family;
+		switch (nb_node.internal_family) {
+			case AF_INET: {
+				nb_node.internal_ip4 = nb->ip4;
+				break;
+			}
+			case AF_INET6: {
+				memcpy(nb_node.internal_ip6, nb->ip6, 16);
+				break;
+			}
+			default: break;
+		}
+		nb_node.internal_port = nb->port;
+		nb_node.internal_chat_port = nb->chat_port;
+	} else {
+		nb_node.external_family = nb->family;
+		switch (nb_node.external_family) {
+			case AF_INET: {
+				nb_node.external_ip4 = nb->ip4;
+				break;
+			}
+			case AF_INET6: {
+				memcpy(nb_node.external_ip6, nb->ip6, 16);
+				break;
+			}
+			default: break;
+		}
+		nb_node.external_port = nb->port;
+		nb_node.external_chat_port = nb->chat_port;
+	}
+
+	return nodes_equal(&nb_node, n);
 }
 
 struct node *find_node(LinkedList_t *list, node_t *node) {
@@ -288,31 +335,43 @@ struct node *find_node(LinkedList_t *list, node_t *node) {
 	return NULL;
 }
 
-int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr) {
+int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr, SERVER_TYPE st) {
 	if (!node || !addr) return 0;
 	if (node->external_family != addr->sa_family) return 0;
+	in_port_t aport;
+	switch (st) {
+		case SERVER_SIGNIN: {
+			aport = node->external_port;
+			break;
+		}
+		case SERVER_CHAT: {
+			aport = node->external_chat_port;
+			break;
+		}
+		default: return 0;
+	}
 
 	switch (addr->sa_family) {
 		case AF_INET: {
 			struct sockaddr_in *sa4 = (struct sockaddr_in *)addr;
 			return node->external_ip4 == sa4->sin_addr.s_addr &&
-				node->external_port == sa4->sin_port;
+				aport == sa4->sin_port;
 		}
 		case AF_INET6: {
 			struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)addr;
 			return node->external_ip6 == sa6->sin6_addr.s6_addr &&
-				node->external_port == sa6->sin6_port;
+				aport == sa6->sin6_port;
 		}
 		default: return 0;
 	}
 }
 
-struct node *find_node_from_sockaddr(LinkedList_t *list, struct sockaddr *addr) {
+struct node *find_node_from_sockaddr(LinkedList_t *list, struct sockaddr *addr, SERVER_TYPE st) {
 	if (!list || !list->head) return NULL;
 
 	node_t *p = list->head;
 	while (p) {
-		if (node_and_sockaddr_equal(p, addr)) return p;
+		if (node_and_sockaddr_equal(p, addr, st)) return p;
 		p = p->next;
 	}
 	return NULL;
@@ -392,6 +451,46 @@ void node_external_to_node_buf(node_t *node, node_buf_t **node_buf) {
 	}
 }
 
+void node_buf_to_node(node_buf_t *nb, node_t **n) {
+	if (!nb || !n) return;
+
+	node_t *new_node = malloc(SZ_NODE);
+	*n = new_node;
+	new_node->status = nb->status;
+	new_node->int_or_ext = nb->int_or_ext;
+	if (new_node->int_or_ext == INTERNAL_ADDR) {
+		new_node->internal_family = nb->family;
+		switch (new_node->internal_family) {
+			case AF_INET: {
+				new_node->internal_ip4 = nb->ip4;
+				break;
+			}
+			case AF_INET6: {
+				memcpy(new_node->internal_ip6, nb->ip6, 16);
+				break;
+			}
+			default: break;
+		}
+		new_node->internal_port = nb->port;
+		new_node->internal_chat_port = nb->chat_port;
+	} else {
+		new_node->external_family = nb->family;
+		switch (new_node->external_family) {
+			case AF_INET: {
+				new_node->external_ip4 = nb->ip4;
+				break;
+			}
+			case AF_INET6: {
+				memcpy(new_node->external_ip6, nb->ip6, 16);
+				break;
+			}
+			default: break;
+		}
+		new_node->external_port = nb->port;
+		new_node->external_chat_port = nb->chat_port;
+	}
+}
+
 void copy_and_add_tail(LinkedList_t *list, node_t *node_to_copy, node_t **new_tail) {
 	if (!list) {
 		printf("copy_and_add_tail: given list is NULL, returning NULL\n");
@@ -422,11 +521,48 @@ void copy_and_add_tail(LinkedList_t *list, node_t *node_to_copy, node_t **new_ta
 	list->node_count++;
 }
 
+void copy_and_add_head(LinkedList_t *list, node_t *node_to_copy, node_t **new_head) {
+	if (!list) {
+		printf("copy_and_add_tail: given list is NULL, returning NULL\n");
+		return;
+	}
+
+	if (!new_head) {
+		printf("copy_and_add_head: given new_head parameter is NULL\n");
+		return;
+	}
+
+	node_t *nn;
+
+	nn = malloc(SZ_NODE);
+	*new_head = nn;
+	memset(nn, '\0', SZ_NODE);
+	memcpy(nn, node_to_copy, SZ_NODE);
+	nn->next = NULL;
+
+	if (!list->head) {
+		list->head = nn;
+		list->tail = nn;
+	} else {
+		nn->next = list->head;
+		list->head = nn;
+	}
+
+	list->node_count++;
+}
+
 void get_new_tail(LinkedList_t *list, node_t **new_tail) {
 	if (!new_tail) return;
 	node_t ntc;
 	memset(&ntc, '\0', SZ_NODE);
 	copy_and_add_tail(list, &ntc, new_tail);
+}
+
+void get_new_head(LinkedList_t *list, node_t **new_head) {
+	if (!new_head) return;
+	node_t ntc;
+	memset(&ntc, '\0', SZ_NODE);
+	copy_and_add_head(list, &ntc, new_head);
 }
 
 void nodes_perform(LinkedList_t *list, void (*perform)(node_t *n, void *arg), void *arg) {

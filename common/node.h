@@ -28,11 +28,9 @@ typedef enum STATUS_TYPE {
     STATUS_CONFIRMED_CHAT_PEER = 9,
 } STATUS_TYPE;
 
-typedef char ID[ID_LEN];
-
 typedef struct node_buf {
 	STATUS_TYPE status;
-	ID id;
+	char id[MAX_CHARS_USERNAME];
 	unsigned short int_or_ext; // 0 is internal and 1 is external
 	union {
 		in_addr_t ip4;
@@ -104,7 +102,11 @@ char *status_to_str(STATUS_TYPE st);
 
 // node_buf_t functions
 
-void addr_to_node_buf(struct sockaddr *sa, node_buf_t **nb, STATUS_TYPE status, unsigned short int_or_ext);
+void addr_to_node_buf(struct sockaddr *sa,
+			node_buf_t **nb,
+			STATUS_TYPE status,
+			unsigned short int_or_ext,
+			char id[MAX_CHARS_USERNAME]);
 
 int node_buf_to_addr(node_buf_t *node_buf, struct sockaddr **addr);
 
@@ -138,11 +140,13 @@ int same_nat(node_t *n1, node_t *n2);
 
 int nodes_equal(node_t *n1, node_t *n2);
 
+int node_and_node_buf_equal(node_t *n, node_buf_t *nb);
+
 node_t *find_node(LinkedList_t *list, node_t *node);
 
-int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr);
+int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr, SERVER_TYPE st);
 
-node_t *find_node_from_sockaddr(LinkedList_t *list, struct sockaddr *addr);
+node_t *find_node_from_sockaddr(LinkedList_t *list, struct sockaddr *addr, SERVER_TYPE st);
 
 void node_to_internal_addr(node_t *node, struct sockaddr **addr);
 
@@ -150,9 +154,15 @@ void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf);
 
 void node_external_to_node_buf(node_t *node, node_buf_t **node_buf);
 
+void node_buf_to_node(node_buf_t *nb, node_t **n);
+
 void copy_and_add_tail(LinkedList_t *list, node_t *node_to_copy, node_t **new_tail);
 
+void copy_and_add_head(LinkedList_t *list, node_t *node_to_copy, node_t **new_head);
+
 void get_new_tail(LinkedList_t *list, node_t **new_tail);
+
+void get_new_head(LinkedList_t *list, node_t **new_head);
 
 void nodes_perform(LinkedList_t *list, void (*perform)(node_t *node, void *arg), void *arg);
 
