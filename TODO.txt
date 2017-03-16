@@ -1,17 +1,16 @@
 
 finish in-memory structure (hashtable)
+display list of contacts, select contact, send msg
 authentication
+self <=> get internal hole punching working
+stay-in-touch with peers
+
 thread the server
+thread wain et al
+
 database
 
 server host?
-
-stay-in-touch with peers
-
-self
-get internal hole punching working
-
-thread wain et al
 
 video_port
 video server
