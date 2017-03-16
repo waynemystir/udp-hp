@@ -216,7 +216,7 @@ void *sign_in_endpoint(void *msg) {
 				break;
 			}
 			case STATUS_ACQUIRED_CHAT_PORT: {
-				node_t *peer_with_new_chat_port = find_node_from_sockaddr(nodes, &si_other);
+				node_t *peer_with_new_chat_port = find_node_from_sockaddr(nodes, &si_other, SERVER_SIGNIN);
 				if (peer_with_new_chat_port) {
 					peer_with_new_chat_port->external_chat_port = buf.chat_port;
 					// TODO how to handle internal_chat_port here?

@@ -130,15 +130,17 @@ void node_min_to_node_buf(node_min_t *nm, node_buf_t **nb) {
 	}
 }
 
-void get_approp_node_bufs(node_t *n1, node_t *n2, node_buf_t **nb1, node_buf_t **nb2) {
+void get_approp_node_bufs(node_t *n1, node_t *n2,
+				node_buf_t **nb1, node_buf_t **nb2,
+				char id1[MAX_CHARS_USERNAME], char id2[MAX_CHARS_USERNAME]) {
 	if (!n1 || !n2 || !nb1 || !nb2) return;
 
 	if (same_nat(n1, n2)) {
-		node_internal_to_node_buf(n1, nb1);
-		node_internal_to_node_buf(n2, nb2);
+		node_internal_to_node_buf(n1, nb1, id1);
+		node_internal_to_node_buf(n2, nb2, id2);
 	} else {
-		node_external_to_node_buf(n1, nb1);
-		node_external_to_node_buf(n2, nb2);
+		node_external_to_node_buf(n1, nb1, id1);
+		node_external_to_node_buf(n2, nb2, id2);
 	}
 }
 
@@ -405,12 +407,13 @@ void node_to_internal_addr(node_t *node, struct sockaddr **addr) {
 	}
 }
 
-void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf) {
+void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf, char id[MAX_CHARS_USERNAME]) {
 	if (!node || !node_buf) return;
 
 	node_buf_t *new_node_buf = malloc(SZ_NODE_BF);
 	*node_buf = new_node_buf;
 	new_node_buf->status = node->status;
+	strcpy(new_node_buf->id, id);
 	new_node_buf->int_or_ext = INTERNAL_ADDR;
 	new_node_buf->family = node->internal_family;
 	new_node_buf->port = node->internal_port;
@@ -428,12 +431,13 @@ void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf) {
 	}
 }
 
-void node_external_to_node_buf(node_t *node, node_buf_t **node_buf) {
+void node_external_to_node_buf(node_t *node, node_buf_t **node_buf, char id[MAX_CHARS_USERNAME]) {
 	if (!node || !node_buf) return;
 
 	node_buf_t *new_node_buf = malloc(SZ_NODE_BF);
 	*node_buf = new_node_buf;
 	new_node_buf->status = node->status;
+	strcpy(new_node_buf->id, id);
 	new_node_buf->int_or_ext = EXTERNAL_ADDR;
 	new_node_buf->family = node->external_family;
 	new_node_buf->port = node->external_port;
@@ -565,12 +569,16 @@ void get_new_head(LinkedList_t *list, node_t **new_head) {
 	copy_and_add_head(list, &ntc, new_head);
 }
 
-void nodes_perform(LinkedList_t *list, void (*perform)(node_t *n, void *arg), void *arg) {
+void nodes_perform(LinkedList_t *list,
+		void (*perform)(node_t *node, void *arg1, void *arg2, void *arg3),
+		void *arg1,
+		void *arg2,
+		void *arg3) {
 	if (!list || !list->head) return;
 
 	node_t *p = list->head;
 	while (p) {
-		perform(p, arg);
+		perform(p, arg1, arg2, arg3);
 		p = p->next;
 	}
 }

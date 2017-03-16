@@ -52,9 +52,13 @@ void load_hashtbl_from_db() {
 	add_contact(&hashtbl, "waynemystir", "julius_erving");
 }
 
-void notify_existing_peer_of_new_node(node_t *existing_peer, void *arg) {
-	if (!existing_peer || !arg) return;
-	node_t *new_node = arg;
+void notify_existing_peer_of_new_node(node_t *existing_peer, void *arg1, void *arg2, void *arg3) {
+	if (!existing_peer || !arg1) return;
+	node_t *new_node = arg1;
+	char id_ep[MAX_CHARS_USERNAME];
+	char id_nn[MAX_CHARS_USERNAME];
+	strcpy(id_ep, arg2);
+	strcpy(id_nn, arg3);
 
 	// Let's get the sockaddr of existing_peer
 	struct sockaddr ep_addr;
@@ -77,7 +81,7 @@ void notify_existing_peer_of_new_node(node_t *existing_peer, void *arg) {
 	}
 
 	node_buf_t *exip_node_buf, *new_node_buf;
-	get_approp_node_bufs(existing_peer, new_node, &exip_node_buf, &new_node_buf);
+	get_approp_node_bufs(existing_peer, new_node, &exip_node_buf, &new_node_buf, id_ep, id_nn);
 
 	// And now we notify existing peer of new tail
 	if (sendto(sock_fd, new_node_buf, SZ_NODE_BF, 0, &ep_addr, slen)==-1)
@@ -91,9 +95,14 @@ void notify_existing_peer_of_new_node(node_t *existing_peer, void *arg) {
 	free(new_node_buf);
 }
 
-void notify_existing_peer_of_new_chat_port(node_t *existing_peer, void *arg) {
-	node_t *peer_with_new_port = arg;
+void notify_existing_peer_of_new_chat_port(node_t *existing_peer, void *arg1, void *arg2, void *arg3) {
+	node_t *peer_with_new_port = arg1;
+	printf("notify_existing_peer_of_new_chat_port\n");
 	if (nodes_equal(existing_peer, peer_with_new_port)) return;
+	char id_ep[MAX_CHARS_USERNAME];
+	char id_nn[MAX_CHARS_USERNAME];
+	strcpy(id_ep, arg2);
+	strcpy(id_nn, arg3);
 
 	// Let's get the sockaddr of existing_peer
 	struct sockaddr ep_addr;
@@ -116,7 +125,7 @@ void notify_existing_peer_of_new_chat_port(node_t *existing_peer, void *arg) {
 	}
 
 	node_buf_t *exip_node_buf, *pwnp_buf;
-	get_approp_node_bufs(existing_peer, peer_with_new_port, &exip_node_buf, &pwnp_buf);
+	get_approp_node_bufs(existing_peer, peer_with_new_port, &exip_node_buf, &pwnp_buf, id_ep, id_nn);
 	exip_node_buf->status = STATUS_PROCEED_CHAT_HP;
 	pwnp_buf->status = STATUS_PROCEED_CHAT_HP;
 
@@ -132,14 +141,15 @@ void notify_existing_peer_of_new_chat_port(node_t *existing_peer, void *arg) {
 	free(pwnp_buf);
 }
 
-void notify_contact_of_new_node(contact_t *contact, void *arg) {
-	if (!arg || !contact || !contact->hn || !contact->hn->nodes) return;
-	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_node, arg);
+void notify_contact_of_new_node(contact_t *contact, void *arg1, void *arg2, void *arg3) {
+	if (!arg1 || !contact || !contact->hn || !contact->hn->nodes) return;
+	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_node, arg1, contact->hn->username, arg2);
 }
 
-void notify_contact_of_new_chat_port(contact_t *contact, void *arg) {
-	if (!arg || !contact || !contact->hn || !contact->hn->nodes) return;
-	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_chat_port, arg);
+void notify_contact_of_new_chat_port(contact_t *contact, void *arg1, void *arg2, void *arg3) {
+	printf("notify_contact_of_new_chat_port\n");
+	if (!arg1 || !contact || !contact->hn || !contact->hn->nodes) return;
+	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_chat_port, arg1, contact->hn->username, arg2);
 }
 
 void *main_server_endpoint(void *arg) {
@@ -222,7 +232,7 @@ void *main_server_endpoint(void *arg) {
 				}
 				new_tail->external_family = si_other.sa_family;
 				node_buf_t *new_tail_buf;
-				node_external_to_node_buf(new_tail, &new_tail_buf);
+				node_external_to_node_buf(new_tail, &new_tail_buf, hn->username);
 				sendto_len = sendto(sock_fd, new_tail_buf, SZ_NODE_BF, 0, &si_other, slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
@@ -239,7 +249,7 @@ void *main_server_endpoint(void *arg) {
 				new_tail->status = STATUS_NEW_PEER;
 				// And now we notify all peers of new peer as
 				// well as notify new peer of existing peers
-				contacts_perform(hn->contacts, notify_contact_of_new_node, new_tail);
+				contacts_perform(hn->contacts, notify_contact_of_new_node, new_tail, hn->username, NULL);
 				// TODO notify new_node of itself i.e. the other nodes in hn->nodes
 				break;
 			}
@@ -253,15 +263,23 @@ void *main_server_endpoint(void *arg) {
 				break;
 			}
 			case STATUS_ACQUIRED_CHAT_PORT: {
+				printf("STATUS_ACQUIRED_CHAT_PORT from %s %s port%d %d\n", buf.id, ip_str, port, family);
 				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
-				node_t *peer_with_new_chat_port = find_node_from_sockaddr(hn->nodes, &si_other);
+				if (!hn) {
+					printf("STATUS_ACQUIRED_CHAT_PORT no hn for user (%s)\n", buf.id);
+					break;
+				}
+
+				node_t *peer_with_new_chat_port = find_node_from_sockaddr(hn->nodes,
+					&si_other,
+					SERVER_SIGNIN);
 				if (peer_with_new_chat_port) {
 					peer_with_new_chat_port->external_chat_port = buf.chat_port;
 					// TODO how to handle internal_chat_port here?
 					// Just use buf.int_or_ext?
 					contacts_perform(hn->contacts,
 						notify_contact_of_new_chat_port,
-						peer_with_new_chat_port);
+						peer_with_new_chat_port, hn->username, NULL);
 				}
 				break;
 			}

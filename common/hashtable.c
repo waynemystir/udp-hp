@@ -63,6 +63,9 @@ hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]) {
 		contact_list_t *contacts = malloc(SZ_CONTACT_LIST);
 		memset(contacts, '\0', SZ_CONTACT_LIST);
 		np->contacts = contacts;
+		LinkedList_t *nodes = malloc(SZ_LINK_LIST);
+		memset(nodes, '\0', SZ_LINK_LIST);
+		np->nodes = nodes;
 	}
 
 	// TODO what should we do if lookup_user returns non-NULL?
@@ -176,11 +179,15 @@ void add_node_to_contacts(hash_node_t *hn, node_buf_t *nb, node_t **new_node) {
 	contact->hn->nodes->node_count++;
 }
 
-void contacts_perform(contact_list_t *contacts, void (*perform)(contact_t *contact, void *arg), void *arg) {
+void contacts_perform(contact_list_t *contacts,
+		void (*perform)(contact_t *contact, void *arg1, void *arg2, void *arg3),
+		void *arg1,
+		void *arg2,
+		void *arg3) {
 	if (!contacts || !perform) return;
 	contact_t *c = contacts->head;
 	while (c) {
-		perform(c, arg);
+		perform(c, arg1, arg2, arg3);
 		c = c->next;
 	}
 }

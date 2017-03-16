@@ -114,7 +114,9 @@ void node_buf_to_node_min(node_buf_t *nb, node_min_t **nm);
 
 void node_min_to_node_buf(node_min_t *nm, node_buf_t **nb);
 
-void get_approp_node_bufs(node_t *n1, node_t *n2, node_buf_t **nb1, node_buf_t **nb2);
+void get_approp_node_bufs(node_t *n1, node_t *n2,
+				node_buf_t **nb1, node_buf_t **nb2,
+				char id1[MAX_CHARS_USERNAME], char id2[MAX_CHARS_USERNAME]);
 
 // LinkedList_min and node_min_t functions
 
@@ -150,9 +152,9 @@ node_t *find_node_from_sockaddr(LinkedList_t *list, struct sockaddr *addr, SERVE
 
 void node_to_internal_addr(node_t *node, struct sockaddr **addr);
 
-void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf);
+void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf, char id[MAX_CHARS_USERNAME]);
 
-void node_external_to_node_buf(node_t *node, node_buf_t **node_buf);
+void node_external_to_node_buf(node_t *node, node_buf_t **node_buf, char id[MAX_CHARS_USERNAME]);
 
 void node_buf_to_node(node_buf_t *nb, node_t **n);
 
@@ -164,7 +166,11 @@ void get_new_tail(LinkedList_t *list, node_t **new_tail);
 
 void get_new_head(LinkedList_t *list, node_t **new_head);
 
-void nodes_perform(LinkedList_t *list, void (*perform)(node_t *node, void *arg), void *arg);
+void nodes_perform(LinkedList_t *list,
+		void (*perform)(node_t *node, void *arg1, void *arg2, void *arg3),
+		void *arg1,
+		void *arg2,
+		void *arg3);
 
 void free_list(LinkedList_t *list);
 
