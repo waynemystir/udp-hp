@@ -10,7 +10,7 @@
 
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
-char username[] = "pete_rose";
+char username[] = "waynemystir";
 
 void send_hole_punch(node_t *peer);
 void *chat_hole_punch_thread(void *peer_to_hole_punch);
@@ -72,6 +72,7 @@ void (*socket_created_cb)(int) = NULL;
 void (*socket_bound_cb)(void) = NULL;
 void (*sendto_succeeded_cb)(size_t) = NULL;
 void (*recd_cb)(size_t, socklen_t, char *) = NULL;
+void (*notify_existing_contact_cb)(char *) = NULL;
 void (*stay_touch_recd_cb)(SERVER_TYPE) = NULL;
 void (*coll_buf_cb)(char *) = NULL;
 void (*new_client_cb)(SERVER_TYPE, char *) = NULL;
@@ -230,6 +231,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 		void (*coll_buf)(char *),
 		void (*new_client)(SERVER_TYPE, char *),
 		void (*confirmed_client)(void),
+		void (*notify_existing_contact)(char *),
 		void (*stay_touch_recd)(SERVER_TYPE),
 		void (*new_peer)(char *),
 		void (*hole_punch_sent)(char *, int),
@@ -247,6 +249,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	socket_bound_cb = socket_bound;
 	sendto_succeeded_cb = sendto_succeeded;
 	recd_cb = recd;
+	notify_existing_contact_cb = notify_existing_contact;
 	stay_touch_recd_cb = stay_touch_recd;
 	coll_buf_cb = coll_buf;
 	new_client_cb = new_client;
@@ -376,6 +379,11 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 					if (new_client_cb) new_client_cb(SERVER_SIGNIN, sprintf);
 					stay_in_touch_with_server(SERVER_SIGNIN);
 					init_chat_hp();
+					break;
+				}
+				case STATUS_NOTIFY_EXISTING_CONTACT: {
+					if (notify_existing_contact_cb) notify_existing_contact_cb(buf.id);
+					add_contact_to_list(self.contacts, buf.id);
 					break;
 				}
 				// TODO add status to populate self->nodes
@@ -801,4 +809,9 @@ void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3
 
 	if (sendto(chat_sock_fd, &wcb, SZ_CH_BF, 0, peer_addr, peer_socklen) == -1)
 		pfail("send_message_to_peer sendto");
+}
+
+void list_contacts(contact_list_t **contacts) {
+	if (!contacts) return;
+	*contacts = self.contacts;
 }

@@ -72,7 +72,28 @@ hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]) {
 	return np;
 }
 
-void add_contact(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char contactname[MAX_CHARS_USERNAME]) {
+contact_t *add_contact_to_list(contact_list_t *contacts, char contactname[MAX_CHARS_USERNAME]) {
+	if (!contacts) return NULL;
+	contact_t *ec;
+	if ((ec = lookup_contact(contacts, contactname)) != NULL) return ec;
+	contact_t *new_contact = malloc(SZ_CONTACT);
+	memset(new_contact, '\0', SZ_CONTACT);
+	new_contact->hn = malloc(SZ_HASH_NODE);
+	strcpy(new_contact->hn->username, contactname);
+	new_contact->hn->nodes = malloc(SZ_NODE);
+
+	if (!contacts->head) {
+		contacts->head = new_contact;
+		contacts->tail = new_contact;
+	} else {
+		new_contact->next = contacts->head;
+		contacts->head = new_contact;
+	}
+	contacts->count++;
+	return new_contact;
+}
+
+void add_contact_to_hashtbl(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char contactname[MAX_CHARS_USERNAME]) {
 	printf("lets add contact %s to user %s\n", contactname, username);
 	if (!hashtbl) return;
 	hash_node_t *user = lookup_user(hashtbl, username);
@@ -102,7 +123,7 @@ void add_contact(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char c
 }
 
 contact_t *lookup_contact(contact_list_t *cl, char contactname[MAX_CHARS_USERNAME]) {
-	if (!cl || !cl->head) return NULL;
+	if (!cl) return NULL;
 	contact_t *c = cl->head;
 	while (c) {
 		if (c->hn && (strcmp(c->hn->username, contactname) == 0)) return c;
@@ -152,22 +173,7 @@ void add_node_to_contacts(hash_node_t *hn, node_buf_t *nb, node_t **new_node) {
 	node_buf_to_node(nb, &nn);
 	if (!nn) return;
 	if (new_node) *new_node = nn;
-	contact_t *contact = lookup_contact(hn->contacts, nb->id);
-	if (!contact) {
-		contact = malloc(SZ_CONTACT);
-		memset(contact, '\0', SZ_CONTACT);
-		contact->hn = malloc(SZ_HASH_NODE);
-		strcpy(contact->hn->username, nb->id);
-		contact->hn->nodes = malloc(SZ_NODE);
-		if (!hn->contacts->head) {
-			hn->contacts->head = contact;
-			hn->contacts->tail = contact;
-		} else {
-			contact->next = hn->contacts->head;
-			hn->contacts->head = contact;
-		}
-		hn->contacts->count++;
-	}
+	contact_t *contact = add_contact_to_list(hn->contacts, nb->id);
 
 	if (!contact->hn->nodes->head) {
 		contact->hn->nodes->head = nn;
