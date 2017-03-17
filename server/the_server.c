@@ -142,7 +142,15 @@ void notify_existing_peer_of_new_chat_port(node_t *existing_peer, void *arg1, vo
 }
 
 void notify_contact_of_new_node(contact_t *contact, void *arg1, void *arg2, void *arg3) {
-	if (!arg1 || !contact || !contact->hn || !contact->hn->nodes) return;
+	if (!contact || !contact->hn) return;
+	// And notify peer_with_new_port (i.e. si_other) of existing peer
+	node_buf_t contact_nb;
+	contact_nb.status = STATUS_NOTIFY_EXISTING_CONTACT;
+	strcpy(contact_nb.id, contact->hn->username);
+	if (sendto(sock_fd, &contact_nb, SZ_NODE_BF, 0, &si_other, slen)==-1)
+		pfail("sendto");
+
+	if (!arg1 || !contact->hn->nodes) return;
 	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_node, arg1, contact->hn->username, arg2);
 }
 
