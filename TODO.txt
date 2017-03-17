@@ -1,10 +1,19 @@
 
-finish in-memory structure (hashtable)
-display list of contacts, select contact, send msg, recv msg
 authentication
 self <=> get internal hole punching working
 stay-in-touch with peers
-new functionality: search for and add new contact + accept contact request
+new functionality:
+	search for and add new contact + accept contact request
+new ios functionality:
+	messageTextField should move up and down with keyboard
+	chatHistoryTextView should shrink and grow with keyboard + messageTextField
+	recv msg in textview
+	save chat history locally
+	show chat history in textview
+
+video_port
+video server
+POC video functionality
 
 thread the server
 thread wain et al
@@ -13,9 +22,7 @@ database
 
 server host?
 
-video_port
-video server
-POC video functionality
+stress test in-memory data
 
 security
 	network encryption
@@ -27,6 +34,7 @@ mvp app
 APNs
 
 test IPv6 somehow
-valgrind (for client, try to install on OSX and use udp_client_test.c)
+valgrind (for client, try to use udp_client_test.c on linux)
 create folder client-peer
 clean up buttons and extraneous functions
+get rid of node_min?

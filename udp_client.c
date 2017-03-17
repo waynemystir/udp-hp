@@ -382,8 +382,8 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 					break;
 				}
 				case STATUS_NOTIFY_EXISTING_CONTACT: {
-					if (notify_existing_contact_cb) notify_existing_contact_cb(buf.id);
 					add_contact_to_list(self.contacts, buf.id);
+					if (notify_existing_contact_cb) notify_existing_contact_cb(buf.id);
 					break;
 				}
 				// TODO add status to populate self->nodes
@@ -764,6 +764,10 @@ void send_chat_hole_punch(node_t *peer) {
 void send_message_to_all_nodes_in_contact(contact_t *contact, void *msg, void *arg2_unused, void *arg3_unused) {
 	if (!contact || !contact->hn || !contact->hn->nodes) return;
 	nodes_perform(contact->hn->nodes, send_message_to_peer, msg, NULL, NULL);
+}
+
+void send_message_to_contact(contact_t *c, char *msg) {
+	send_message_to_all_nodes_in_contact(c, msg, NULL, NULL);
 }
 
 void send_message_to_all_peers(char *msg) {
