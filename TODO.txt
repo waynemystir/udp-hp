@@ -1,9 +1,10 @@
 
 finish in-memory structure (hashtable)
-display list of contacts, select contact, send msg
+display list of contacts, select contact, send msg, recv msg
 authentication
 self <=> get internal hole punching working
 stay-in-touch with peers
+new functionality: search for and add new contact + accept contact request
 
 thread the server
 thread wain et al

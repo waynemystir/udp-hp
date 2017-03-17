@@ -30,26 +30,26 @@ void load_hashtbl_from_db() {
 	add_user(&hashtbl, "mike_schmidt");
 	add_user(&hashtbl, "pete_rose");
 
-	add_contact(&hashtbl, "pete_rose", "waynemystir");
-	add_contact(&hashtbl, "pete_rose", "mike_schmidt");
-	add_contact(&hashtbl, "pete_rose", "pete_rose");
-	add_contact(&hashtbl, "pete_rose", "julius_erving");
+	add_contact_to_hashtbl(&hashtbl, "pete_rose", "waynemystir");
+	add_contact_to_hashtbl(&hashtbl, "pete_rose", "mike_schmidt");
+	add_contact_to_hashtbl(&hashtbl, "pete_rose", "pete_rose");
+	add_contact_to_hashtbl(&hashtbl, "pete_rose", "julius_erving");
 
-	add_contact(&hashtbl, "julius_erving", "waynemystir");
-	add_contact(&hashtbl, "julius_erving", "waynemystir");
-	add_contact(&hashtbl, "julius_erving", "pete_rose");
-	add_contact(&hashtbl, "julius_erving", "mike_schmidt");
-	add_contact(&hashtbl, "julius_erving", "julius_erving");
+	add_contact_to_hashtbl(&hashtbl, "julius_erving", "waynemystir");
+	add_contact_to_hashtbl(&hashtbl, "julius_erving", "waynemystir");
+	add_contact_to_hashtbl(&hashtbl, "julius_erving", "pete_rose");
+	add_contact_to_hashtbl(&hashtbl, "julius_erving", "mike_schmidt");
+	add_contact_to_hashtbl(&hashtbl, "julius_erving", "julius_erving");
 
-	add_contact(&hashtbl, "mike_schmidt", "waynemystir");
-	add_contact(&hashtbl, "mike_schmidt", "mike_schmidt");
-	add_contact(&hashtbl, "mike_schmidt", "pete_rose");
-	add_contact(&hashtbl, "mike_schmidt", "julius_erving");
+	add_contact_to_hashtbl(&hashtbl, "mike_schmidt", "waynemystir");
+	add_contact_to_hashtbl(&hashtbl, "mike_schmidt", "mike_schmidt");
+	add_contact_to_hashtbl(&hashtbl, "mike_schmidt", "pete_rose");
+	add_contact_to_hashtbl(&hashtbl, "mike_schmidt", "julius_erving");
 	
-	add_contact(&hashtbl, "waynemystir", "waynemystir");
-	add_contact(&hashtbl, "waynemystir", "mike_schmidt");
-	add_contact(&hashtbl, "waynemystir", "pete_rose");
-	add_contact(&hashtbl, "waynemystir", "julius_erving");
+	add_contact_to_hashtbl(&hashtbl, "waynemystir", "waynemystir");
+	add_contact_to_hashtbl(&hashtbl, "waynemystir", "mike_schmidt");
+	add_contact_to_hashtbl(&hashtbl, "waynemystir", "pete_rose");
+	add_contact_to_hashtbl(&hashtbl, "waynemystir", "julius_erving");
 }
 
 void notify_existing_peer_of_new_node(node_t *existing_peer, void *arg1, void *arg2, void *arg3) {

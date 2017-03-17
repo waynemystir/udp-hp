@@ -33,12 +33,6 @@ typedef struct hash_node {
 	struct hash_node *next;
 } hash_node_t;
 
-typedef struct hash_node_list {
-	hash_node_t *head;
-	hash_node_t *tail;
-	unsigned int count;
-} hash_node_list_t;
-
 typedef hash_node_t *hashtable_t[HASHSIZE];
 
 #define SZ_HASH_NODE sizeof(hash_node_t)
