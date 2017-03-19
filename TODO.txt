@@ -1,5 +1,7 @@
 
+network encryption
 authentication
+
 self <=> get internal hole punching working
 stay-in-touch with peers
 new functionality:
@@ -11,6 +13,7 @@ new ios functionality:
 	save chat history locally
 	show chat history in textview
 
+ffmpeg encryption or webrtc?
 video_port
 video server
 POC video functionality
@@ -25,9 +28,10 @@ server host?
 stress test in-memory data
 
 security
-	network encryption
 	server firewalls
 	something else?
+
+UDP-restricted firewall (STUN and TURN)
 
 mvp app
 
