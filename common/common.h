@@ -12,11 +12,35 @@
 #include <netdb.h>
 
 #define MAX_CHARS_USERNAME 47
+#define MAX_CHARS_PASSWORD 20
+#define RSA_PUBLIC_KEY_LEN 512
+#define NUM_BYTES_AES_KEY 256
+#define NUM_BYTES_AES_IV 128
+#define AUTHEN_TOKEN_LEN 160
 
 typedef enum SERVER_TYPE {
 	SERVER_SIGNIN,
 	SERVER_CHAT,
 } SERVER_TYPE;
+
+typedef enum AUTH_STATUS {
+	AUTH_STATUS_RSA_SWAP = 0,
+	AUTH_STATUS_AES_SWAP = 1,
+	AUTH_STATUS_NEW_USER = 2,
+	AUTH_STATUS_AUTH_TOKEN = 3,
+	AUTH_STATUS_RE_AUTH = 4,
+} AUTH_STATUS;
+
+typedef struct auth_buf {
+	AUTH_STATUS status;
+	union {
+		unsigned char rsa_pub_key[RSA_PUBLIC_KEY_LEN];
+		unsigned char aes_key[NUM_BYTES_AES_KEY];
+		unsigned char auth_token[AUTHEN_TOKEN_LEN];
+	};
+	char id[MAX_CHARS_USERNAME];
+	char pw[MAX_CHARS_PASSWORD];
+} auth_buf_t;
 
 typedef enum CHAT_STATUS {
 	CHAT_STATUS_INIT = 0,
@@ -38,12 +62,15 @@ typedef struct chat_buf {
 	char msg[64];
 } chat_buf_t;
 
+extern const unsigned short AUTHENTICATION_PORT;
+
 void str_from_server_type(SERVER_TYPE st, char str[15]);
 
 char *chat_status_to_str(CHAT_STATUS cs);
 
 int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr);
 
+#define SZ_AU_BF sizeof(auth_buf_t)
 #define SZ_CH_BF sizeof(chat_buf_t)
 
 #endif /* common_h */

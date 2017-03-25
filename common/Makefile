@@ -3,13 +3,14 @@ CFLAGS=-c -Wall
 AR=ar
 ARFLAGS=rcs
 
-SOURCES=node.c hashtable.c
+SOURCES=common.c node.c hashtable.c
 
 OBJECTS=$(SOURCES:.c=.o)
 
 STATIC_LIB=libudp-hp-common.a
 
-DEPENDENCIES=network
+DEPENDENCIES=network \
+		crypto_wrapper
 
 define get_objs =
 `ls $(1)/*.o`

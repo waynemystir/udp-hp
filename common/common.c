@@ -3,6 +3,8 @@
 
 #include "common.h"
 
+const unsigned short AUTHENTICATION_PORT = 9929;
+
 void str_from_server_type(SERVER_TYPE st, char str[15]) {
 	switch (st) {
 		case SERVER_SIGNIN: {

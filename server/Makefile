@@ -1,7 +1,7 @@
 CC=gcc
-CFLAGS=-c -Wall -I../common -I../common/network
+CFLAGS=-c -Wall -I../common -I../common/network -I../common/crypto_wrapper
 LDFLAGS=-Wall -I../common -I../common/network -L../common
-LIBS=-pthread -ludp-hp-common
+LIBS=-pthread -ludp-hp-common -lcrypto
 
 THE_SRV_SOURCES=the_server.c
 CHAT_SOURCES=chat_hp_endpoint.c

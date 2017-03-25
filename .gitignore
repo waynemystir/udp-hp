@@ -4,6 +4,9 @@ the_server
 server_sign_in
 server_chat
 common/network
+common/crypto_wrapper
+SUP_RSA_PRI_KEY
+SUP_RSA_PUB_KEY
 .DS_Store
 ht_test
 uc

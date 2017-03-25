@@ -10,17 +10,49 @@
 
 #include "hashtable.h"
 #include "network_utils.h"
+#include "crypto_wrapper.h"
+
+#define RSA_PUB_KEY_FILEPATH "SUP_RSA_PUB_KEY"
+#define RSA_PRI_KEY_FILEPATH "SUP_RSA_PRI_KEY"
+
+char *rsa_public_key_str;
+char *rsa_private_key_str;
 
 pthread_t main_server_thread;
+pthread_t authentication_server_thread;
+
 int main_server_running = 1;
+int authentication_server_running = 1;
+
 int sock_fd;
+int authn_sock_fd;
+
 struct sockaddr si_other;
+struct sockaddr sa_auth_other;
 socklen_t slen = SZ_SOCKADDR;
 hashtable_t hashtbl;
 
 void pfail(char *s) {
 	perror(s);
 	exit(1);
+}
+
+int collect_rsa_keys() {
+	rsa_public_key_str = read_file_to_str(RSA_PUB_KEY_FILEPATH);
+	rsa_private_key_str = read_file_to_str(RSA_PRI_KEY_FILEPATH);
+	if (!rsa_public_key_str || !rsa_private_key_str) {
+		int ret = -1;
+		generate_rsa_keypair(NULL, &rsa_private_key_str, &rsa_public_key_str,
+			RSA_PRI_KEY_FILEPATH, RSA_PUB_KEY_FILEPATH);
+
+		FILE *publ_file = fopen(RSA_PUB_KEY_FILEPATH, "r");
+		FILE *priv_file = fopen(RSA_PRI_KEY_FILEPATH, "r");
+		if (rsa_public_key_str && rsa_private_key_str && publ_file && priv_file) ret = 0;
+		fclose(publ_file);
+		fclose(priv_file);
+		return ret;
+	}
+	return 0;
 }
 
 void load_hashtbl_from_db() {
@@ -160,6 +192,80 @@ void notify_contact_of_new_chat_port(contact_t *contact, void *arg1, void *arg2,
 	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_chat_port, arg1, contact->hn->username, arg2);
 }
 
+void *authentication_server_endpoint(void *arg) {
+	printf("authentication_server_endpoint thread started\n");
+	for (int j = 0; j < 10;) printf("authN %d\n", ++j);
+
+	size_t recvf_len, sendto_len;
+	struct sockaddr_in *si_me;
+	auth_buf_t buf;
+
+	authn_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if ( authn_sock_fd == -1 ) pfail("socket");
+	printf("authentication_server_endpoint 1 %d\n", authn_sock_fd);
+
+	// si_me stores our local endpoint. Remember that this program
+	// has to be run in a network with UDP endpoint previously known
+	// and directly accessible by all clients. In simpler terms, the
+	// server cannot be behind a NAT.
+	char auth_port[10];
+	sprintf(auth_port, "%d", AUTHENTICATION_PORT);
+	str_to_addr((struct sockaddr**)&si_me, NULL, auth_port, AF_INET, SOCK_DGRAM, AI_PASSIVE);
+	char me_ip_str[256];
+	char me_port[20];
+	char me_fam[5];
+	addr_to_str( (struct sockaddr*)si_me, me_ip_str, me_port, me_fam );
+	printf("authentication_server_endpoint 2 %s %s %s %zu\n", me_ip_str, me_port, me_fam, sizeof(*si_me));
+
+	int br = bind(authn_sock_fd, (struct sockaddr*)si_me, sizeof(*si_me));
+	if ( br == -1 ) pfail("bind");
+	printf("authentication_server_endpoint 3 %d\n", br);
+
+	while (authentication_server_running) {
+		// printf("main -: 3\n");
+		recvf_len = recvfrom(authn_sock_fd, &buf, SZ_AU_BF, 0, &sa_auth_other, &slen);
+		if ( recvf_len == -1) pfail("recvfrom");
+
+		char ip_str[INET6_ADDRSTRLEN];
+		unsigned short port;
+		unsigned short family;
+		// void *addr = &(sa_auth_other.sin_addr);
+		// inet_ntop( AF_INET, &(sa_auth_other.sin_addr), ip_str, sizeof(ip_str) );
+		addr_to_str_short( &sa_auth_other, ip_str, &port, &family );
+		printf("Auth received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
+
+		switch (buf.status) {
+			case AUTH_STATUS_RSA_SWAP: {
+				printf("The node's RSA pub key (%s)\n", buf.rsa_pub_key);
+				memset(buf.rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
+				memcpy(buf.rsa_pub_key, rsa_public_key_str, RSA_PUBLIC_KEY_LEN);
+				sendto_len = sendto(authn_sock_fd, &buf, SZ_AU_BF, 0, &sa_auth_other, slen);
+				if (sendto_len == -1) {
+					pfail("sendto");
+				}
+				break;
+			}
+			case AUTH_STATUS_AES_SWAP: {
+				break;
+			}
+			case AUTH_STATUS_NEW_USER: {
+				break;
+			}
+			case AUTH_STATUS_AUTH_TOKEN: {
+				break;
+			}
+			case AUTH_STATUS_RE_AUTH: {
+				break;
+			}
+			default: {
+				break;
+			}
+		}
+	}
+
+	pthread_exit("authentication_server_thread exited normally");
+}
+
 void *main_server_endpoint(void *arg) {
 	printf("main_server_endpoint 0 %s %zu %zu %zu %zu\n", (char *)arg,
 		SZ_NODE, sizeof(node_t),
@@ -170,7 +276,6 @@ void *main_server_endpoint(void *arg) {
 	node_buf_t buf;
 	// nodes = malloc(SZ_LINK_LIST);
 	// memset(nodes, '\0', SZ_LINK_LIST);
-	load_hashtbl_from_db();
 
 	sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if ( sock_fd == -1 ) pfail("socket");
@@ -312,14 +417,35 @@ void *main_server_endpoint(void *arg) {
 
 int main() {
 	printf("the_server main 0 %zu %zu\n", sizeof(STATUS_TYPE), sizeof(struct node));
+
+	// Get the keys
+	int ckr = collect_rsa_keys();
+	if (ckr == -1) {
+		printf("ERROR collecting RSA keys\n");
+		exit(-1);
+	}
+
+	// Load up the hashtbl
+	load_hashtbl_from_db();
+
+	// Fire up the authentication server
+	char *authn_exit_msg;
+	int atcr = pthread_create(&authentication_server_thread, NULL,
+		authentication_server_endpoint, (void *)"authN_server_thread");
+	if (atcr) {
+		printf("ERROR starting authentication_server_thread: %d\n", atcr);
+		exit(-1);
+	}
+
 	char *thread_exit_msg;
 	int pcr = pthread_create(&main_server_thread, NULL, main_server_endpoint, (void *)"main_server_thread");
 	if (pcr) {
 		printf("ERROR starting main_server_thread: %d\n", pcr);
 		exit(-1);
-	} else {
-		pthread_join(main_server_thread,(void**)&thread_exit_msg);
 	}
+
+	pthread_join(authentication_server_thread, (void**)&authn_exit_msg);
+	pthread_join(main_server_thread,(void**)&thread_exit_msg);
 
 	printf("Wrapping up sign_in_service: %s\n", thread_exit_msg);
 	return 0;
