@@ -19,6 +19,7 @@ void init_chat_hp();
 void *chat_hp_server(void *w);
 
 hash_node_t self;
+char *rsa_public_key, *rsa_private_key;
 
 // Self
 node_buf_t *self_internal;
@@ -61,11 +62,13 @@ int sock_fd;
 int chat_sock_fd;
 
 // Runnings
+int authn_running = 1;
 int stay_in_touch_running = 1;
 int chat_stay_in_touch_running = 1;
 int chat_server_conn_running = 1;
 
 // function pointers
+void (*rsa_response_cb)(char *server_rsa_pub_key) = NULL;
 void (*self_info_cb)(char *, unsigned short, unsigned short, unsigned short) = NULL;
 void (*server_info_cb)(char *) = NULL;
 void (*socket_created_cb)(int) = NULL;
@@ -85,6 +88,77 @@ void pfail(char *w) {
 	printf("pfail 0\n");
 	perror(w);
 	exit(1);
+}
+
+void *authn_thread_routine(void *arg) {
+	AUTH_STATUS *auth_status = arg;
+	for (int j = 0; j < 20;)
+		printf("X#X#X#X#XX#X#X#X#X (%d)\n", ++j);
+
+	struct sockaddr *sa_authn_server;
+	char authn_server_ip[INET6_ADDRSTRLEN];
+	char authn_server_port[20];
+	char authn_server_family[20];
+	socklen_t authn_server_socklen = 0;
+	size_t authn_sendto_len, authn_recvf_len;
+	char wes[256];
+	authn_buf_t buf;
+
+	int authn_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (authn_sock_fd == -1) {
+		printf("There was a problem creating the authn socket\n");
+	}
+
+	// Setup server
+	char auth_port[10];
+	sprintf(auth_port, "%d", AUTHENTICATION_PORT);
+	str_to_addr(&sa_authn_server, "142.105.56.124", auth_port, AF_INET, SOCK_DGRAM, 0);
+	authn_server_socklen = sa_authn_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
+	addr_to_str(sa_authn_server, authn_server_ip, authn_server_port, authn_server_family);
+	sprintf(wes, "The authn server %s port%s %s %u",
+		authn_server_ip,
+		authn_server_port,
+		authn_server_family,
+		authn_server_socklen);
+	if (server_info_cb) server_info_cb(wes);
+
+	buf.status = *auth_status;
+	if (rsa_public_key) memcpy(buf.rsa_pub_key, rsa_public_key, sizeof(*rsa_public_key));
+
+	authn_sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, sa_authn_server, authn_server_socklen);
+	if (authn_sendto_len == -1) {
+		char w[256];
+		sprintf(w, "authn sendto failed with %zu", authn_sendto_len);
+		pfail(w);
+	}
+
+
+	while (authn_running) {
+
+	}
+
+	pthread_exit("authn_thread exited normally");
+}
+
+int authn(AUTH_STATUS auth_status, char *rsa_pub_key, char *rsa_pri_key,
+	void (*rsa_response)(char *server_rsa_pub_key)) {
+
+	if (!rsa_pub_key || !rsa_pri_key) return -1;
+
+	rsa_public_key = malloc(strlen(rsa_pub_key)+1);
+	rsa_private_key = malloc(strlen(rsa_pri_key)+1);
+	memset(rsa_public_key, '\0', strlen(rsa_pub_key)+1);
+	memset(rsa_private_key, '\0', strlen(rsa_pri_key)+1);
+	strcpy(rsa_public_key, rsa_pub_key);
+	strcpy(rsa_private_key, rsa_pri_key);
+	rsa_response_cb = rsa_response;
+	pthread_t authn_thread;
+	int atr = pthread_create(&authn_thread, NULL, authn_thread_routine, &auth_status);
+	if (atr) {
+		printf("ERROR in authn_thread creation; return code from pthread_create() is %d\n", atr);
+		return -1;
+	}
+	return 0;
 }
 
 void *hole_punch_thread(void *peer_to_hole_punch) {

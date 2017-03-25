@@ -1,6 +1,7 @@
 
 network encryption
 authentication
+ensure RSA swap comes from Sup app: maybe some sort of time-dependent key to pass with RSA swap
 
 self <=> get internal hole punching working
 stay-in-touch with peers
@@ -19,11 +20,15 @@ video server
 POC video functionality
 
 thread the server
+	recvfrom -> copy details (si_other, buf, etc) and handle in threadpool
 thread wain et al
+
+can we possibly put the in-memory structure in another program? if so, then we could stagger the server program and the memory program, which would allow us to change where the memory is run from without causing a disruption in service... i.e. start another memory program, wait for it to load up (copied from current memory program?), stop the server, and repoint the server to the new memory program... this might be a bad idea... but maybe a variation could help?
 
 database
 
 server host?
+shrink node_buf, auth_buf, etc by converting to base64?
 
 stress test in-memory data
 

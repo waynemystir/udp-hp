@@ -31,7 +31,7 @@ typedef enum AUTH_STATUS {
 	AUTH_STATUS_RE_AUTH = 4,
 } AUTH_STATUS;
 
-typedef struct auth_buf {
+typedef struct authn_buf {
 	AUTH_STATUS status;
 	union {
 		unsigned char rsa_pub_key[RSA_PUBLIC_KEY_LEN];
@@ -40,7 +40,7 @@ typedef struct auth_buf {
 	};
 	char id[MAX_CHARS_USERNAME];
 	char pw[MAX_CHARS_PASSWORD];
-} auth_buf_t;
+} authn_buf_t;
 
 typedef enum CHAT_STATUS {
 	CHAT_STATUS_INIT = 0,
@@ -70,7 +70,7 @@ char *chat_status_to_str(CHAT_STATUS cs);
 
 int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr);
 
-#define SZ_AU_BF sizeof(auth_buf_t)
+#define SZ_AUN_BF sizeof(authn_buf_t)
 #define SZ_CH_BF sizeof(chat_buf_t)
 
 #endif /* common_h */

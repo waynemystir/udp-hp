@@ -13,6 +13,9 @@
 #include "hashtable.h"
 #include "network_utils.h"
 
+int authn(AUTH_STATUS auth_status, char *rsa_pub_key, char *rsa_pri_key,
+	void (*rsa_response)(char *server_rsa_pub_key));
+
 int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port, unsigned short family),
 		void (*server_info)(char *),
 		void (*socket_created)(int sock_fd),
