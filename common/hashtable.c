@@ -175,6 +175,7 @@ void add_node_to_contacts(hash_node_t *hn, node_buf_t *nb, node_t **new_node) {
 	if (new_node) *new_node = nn;
 	contact_t *contact = add_contact_to_list(hn->contacts, nb->id);
 	if (!contact) return;
+	nn->next = NULL;
 
 	if (!contact->hn->nodes->head) {
 		contact->hn->nodes->head = nn;
