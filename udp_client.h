@@ -13,7 +13,7 @@
 #include "hashtable.h"
 #include "network_utils.h"
 
-int authn(AUTH_STATUS auth_status,
+int authn(AUTHN_STATUS auth_status,
 	char *rsa_pub_key,
 	char *rsa_pri_key,
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),

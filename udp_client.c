@@ -91,7 +91,7 @@ void pfail(char *w) {
 }
 
 void *authn_thread_routine(void *arg) {
-	AUTH_STATUS auth_status = *(AUTH_STATUS *)arg;
+	AUTHN_STATUS auth_status = *(AUTHN_STATUS *)arg;
 	printf("authn_thread_routine (%d)\n", auth_status);
 
 	struct sockaddr *sa_authn_server;
@@ -153,7 +153,7 @@ void *authn_thread_routine(void *arg) {
 		authn_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
 		switch (buf.status) {
-			case AUTH_STATUS_RSA_SWAP: {
+			case AUTHN_STATUS_RSA_SWAP_RESPONSE: {
 				char *server_rsa_pub_key = malloc(RSA_PUBLIC_KEY_LEN);
 				memset(server_rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
 				memcpy(server_rsa_pub_key, buf.rsa_pub_key, RSA_PUBLIC_KEY_LEN);
@@ -170,7 +170,7 @@ void *authn_thread_routine(void *arg) {
 	pthread_exit("authn_thread exited normally");
 }
 
-int authn(AUTH_STATUS auth_status,
+int authn(AUTHN_STATUS auth_status,
 	char *rsa_pub_key,
 	char *rsa_pri_key,
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
@@ -180,7 +180,7 @@ int authn(AUTH_STATUS auth_status,
 	rsa_response_cb = rsa_response;
 
 	if (!rsa_pub_key || !rsa_pri_key) return -1;
-	AUTH_STATUS *as = malloc(sizeof(int));
+	AUTHN_STATUS *as = malloc(sizeof(int));
 	if (as) *as = auth_status;
 
 	rsa_public_key = malloc(strlen(rsa_pub_key)+1);

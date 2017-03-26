@@ -24,16 +24,20 @@ typedef enum SERVER_TYPE {
 	SERVER_CHAT,
 } SERVER_TYPE;
 
-typedef enum AUTH_STATUS {
-	AUTH_STATUS_RSA_SWAP = 0,
-	AUTH_STATUS_AES_SWAP = 1,
-	AUTH_STATUS_NEW_USER = 2,
-	AUTH_STATUS_AUTH_TOKEN = 3,
-	AUTH_STATUS_RE_AUTH = 4,
-} AUTH_STATUS;
+typedef enum AUTHN_STATUS {
+	AUTHN_STATUS_RSA_SWAP = 0,
+	AUTHN_STATUS_RSA_SWAP_RESPONSE = 1,
+	AUTHN_STATUS_AES_SWAP = 2,
+	AUTHN_STATUS_AES_SWAP_RESPONSE = 3,
+	AUTHN_STATUS_NEW_USER = 4,
+	AUTHN_STATUS_NEW_USER_RESPONSE = 5,
+	AUTHN_STATUS_AUTH_TOKEN = 6,
+	AUTHN_STATUS_AUTH_TOKEN_RESPONSE = 7,
+	AUTHN_STATUS_SIGN_OUT = 8,
+} AUTHN_STATUS;
 
 typedef struct authn_buf {
-	AUTH_STATUS status;
+	AUTHN_STATUS status;
 	union {
 		unsigned char rsa_pub_key[RSA_PUBLIC_KEY_LEN];
 		unsigned char aes_key[NUM_BYTES_AES_KEY];
@@ -65,7 +69,7 @@ typedef struct chat_buf {
 
 extern const unsigned short AUTHENTICATION_PORT;
 
-char *authn_status_to_str(AUTH_STATUS as);
+char *authn_status_to_str(AUTHN_STATUS as);
 
 char *str_from_server_type(SERVER_TYPE st);
 
