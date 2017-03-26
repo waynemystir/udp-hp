@@ -92,7 +92,7 @@ void pfail(char *w) {
 
 void *authn_thread_routine(void *arg) {
 	AUTH_STATUS *auth_status = arg;
-	for (int j = 0; j < 20;)
+	for (int j = 0; j < 7;)
 		printf("X#X#X#X#XX#X#X#X#X (%d)\n", ++j);
 
 	struct sockaddr *sa_authn_server;
@@ -122,8 +122,10 @@ void *authn_thread_routine(void *arg) {
 		authn_server_socklen);
 	if (server_info_cb) server_info_cb(wes);
 
+	printf("^^^^^^^^^^^^^^^(%d)\n", *auth_status);
 	buf.status = *auth_status;
-	if (rsa_public_key) memcpy(buf.rsa_pub_key, rsa_public_key, sizeof(*rsa_public_key));
+	// memset(buf.rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
+	// if (rsa_public_key) memcpy(buf.rsa_pub_key, rsa_public_key, strlen(rsa_public_key));
 
 	authn_sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, sa_authn_server, authn_server_socklen);
 	if (authn_sendto_len == -1) {
@@ -144,16 +146,17 @@ int authn(AUTH_STATUS auth_status, char *rsa_pub_key, char *rsa_pri_key,
 	void (*rsa_response)(char *server_rsa_pub_key)) {
 
 	if (!rsa_pub_key || !rsa_pri_key) return -1;
+	AUTH_STATUS as = auth_status;
 
-	rsa_public_key = malloc(strlen(rsa_pub_key)+1);
-	rsa_private_key = malloc(strlen(rsa_pri_key)+1);
-	memset(rsa_public_key, '\0', strlen(rsa_pub_key)+1);
-	memset(rsa_private_key, '\0', strlen(rsa_pri_key)+1);
-	strcpy(rsa_public_key, rsa_pub_key);
-	strcpy(rsa_private_key, rsa_pri_key);
+	// rsa_public_key = malloc(strlen(rsa_pub_key)+1);
+	// rsa_private_key = malloc(strlen(rsa_pri_key)+1);
+	// memset(rsa_public_key, '\0', strlen(rsa_pub_key)+1);
+	// memset(rsa_private_key, '\0', strlen(rsa_pri_key)+1);
+	// strcpy(rsa_public_key, rsa_pub_key);
+	// strcpy(rsa_private_key, rsa_pri_key);
 	rsa_response_cb = rsa_response;
 	pthread_t authn_thread;
-	int atr = pthread_create(&authn_thread, NULL, authn_thread_routine, &auth_status);
+	int atr = pthread_create(&authn_thread, NULL, authn_thread_routine, &as);
 	if (atr) {
 		printf("ERROR in authn_thread creation; return code from pthread_create() is %d\n", atr);
 		return -1;
