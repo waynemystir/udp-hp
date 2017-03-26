@@ -198,7 +198,7 @@ void *authentication_server_endpoint(void *arg) {
 
 	size_t recvf_len, sendto_len;
 	struct sockaddr_in *si_me;
-	auth_buf_t buf;
+	authn_buf_t buf;
 
 	authn_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if ( authn_sock_fd == -1 ) pfail("socket");
@@ -223,7 +223,7 @@ void *authentication_server_endpoint(void *arg) {
 
 	while (authentication_server_running) {
 		// printf("main -: 3\n");
-		recvf_len = recvfrom(authn_sock_fd, &buf, SZ_AU_BF, 0, &sa_auth_other, &slen);
+		recvf_len = recvfrom(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, &slen);
 		if ( recvf_len == -1) pfail("recvfrom");
 
 		char ip_str[INET6_ADDRSTRLEN];
@@ -232,14 +232,15 @@ void *authentication_server_endpoint(void *arg) {
 		// void *addr = &(sa_auth_other.sin_addr);
 		// inet_ntop( AF_INET, &(sa_auth_other.sin_addr), ip_str, sizeof(ip_str) );
 		addr_to_str_short( &sa_auth_other, ip_str, &port, &family );
-		printf("Auth received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
+		printf("Auth received packet (%d):(%s) (%zu bytes) from %s port%d %d\n", buf.status,
+			authn_status_to_str(buf.status), recvf_len, ip_str, port, family);
 
 		switch (buf.status) {
 			case AUTH_STATUS_RSA_SWAP: {
 				printf("The node's RSA pub key (%s)\n", buf.rsa_pub_key);
 				memset(buf.rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
 				memcpy(buf.rsa_pub_key, rsa_public_key_str, RSA_PUBLIC_KEY_LEN);
-				sendto_len = sendto(authn_sock_fd, &buf, SZ_AU_BF, 0, &sa_auth_other, slen);
+				sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}

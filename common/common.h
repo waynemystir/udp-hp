@@ -64,6 +64,8 @@ typedef struct chat_buf {
 
 extern const unsigned short AUTHENTICATION_PORT;
 
+char *authn_status_to_str(AUTH_STATUS as);
+
 void str_from_server_type(SERVER_TYPE st, char str[15]);
 
 char *chat_status_to_str(CHAT_STATUS cs);

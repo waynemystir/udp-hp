@@ -5,6 +5,17 @@
 
 const unsigned short AUTHENTICATION_PORT = 9929;
 
+char *authn_status_to_str(AUTH_STATUS as) {
+	switch (as) {
+		case AUTH_STATUS_RSA_SWAP: return "AUTH_STATUS_RSA_SWAP";
+		case AUTH_STATUS_AES_SWAP: return "AUTH_STATUS_AES_SWAP";
+		case AUTH_STATUS_NEW_USER: return "AUTH_STATUS_NEW_USER";
+		case AUTH_STATUS_AUTH_TOKEN: return "AUTH_STATUS_AUTH_TOKEN";
+		case AUTH_STATUS_RE_AUTH: return "AUTH_STATUS_RE_AUTH";
+		default: return "AUTH_STATUS_UNKNOWN";
+	}
+}
+
 void str_from_server_type(SERVER_TYPE st, char str[15]) {
 	switch (st) {
 		case SERVER_SIGNIN: {
