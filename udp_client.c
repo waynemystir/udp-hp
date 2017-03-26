@@ -10,7 +10,7 @@
 
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
-char username[] = "waynemystir";
+char username[] = "julius_erving";
 
 void send_hole_punch(node_t *peer);
 void *chat_hole_punch_thread(void *peer_to_hole_punch);
@@ -74,7 +74,7 @@ void (*server_info_cb)(SERVER_TYPE, char *) = NULL;
 void (*socket_created_cb)(int) = NULL;
 void (*socket_bound_cb)(void) = NULL;
 void (*sendto_succeeded_cb)(size_t) = NULL;
-void (*recd_cb)(size_t, socklen_t, char *) = NULL;
+void (*recd_cb)(SERVER_TYPE, size_t, socklen_t, char *) = NULL;
 void (*notify_existing_contact_cb)(char *) = NULL;
 void (*stay_touch_recd_cb)(SERVER_TYPE) = NULL;
 void (*coll_buf_cb)(char *) = NULL;
@@ -102,6 +102,12 @@ void *authn_thread_routine(void *arg) {
 	size_t authn_sendto_len, authn_recvf_len;
 	char wes[256];
 	authn_buf_t buf;
+	struct sockaddr sa_authn_other;
+	char authn_other_ip[INET6_ADDRSTRLEN];
+	char authn_other_port[20];
+	char authn_other_family[20];
+	socklen_t authn_other_socklen = DEFAULT_OTHER_ADDR_LEN;
+	char wayne[256];
 
 	int authn_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (authn_sock_fd == -1) {
@@ -134,14 +140,44 @@ void *authn_thread_routine(void *arg) {
 
 
 	while (authn_running) {
+		authn_recvf_len = recvfrom(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_authn_other, &authn_other_socklen);
+		if (authn_recvf_len == -1) {
+			char w[256];
+			sprintf(w, "authn recvfrom failed with %zu", authn_recvf_len);
+			pfail(w);
+		}
+
+		addr_to_str(&sa_authn_other, authn_other_ip, authn_other_port, authn_other_family);
+		sprintf(wayne, "%s port%s %s", authn_other_ip, authn_other_port, authn_other_family);
+		if (recd_cb) recd_cb(SERVER_AUTHN, authn_recvf_len, authn_other_socklen, wayne);
+		authn_other_socklen = DEFAULT_OTHER_ADDR_LEN;
+
+		switch (buf.status) {
+			case AUTH_STATUS_RSA_SWAP: {
+				char *server_rsa_pub_key = malloc(RSA_PUBLIC_KEY_LEN);
+				memset(server_rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
+				memcpy(server_rsa_pub_key, buf.rsa_pub_key, RSA_PUBLIC_KEY_LEN);
+				if (rsa_response_cb) rsa_response_cb(server_rsa_pub_key);
+				break;
+			}
+			default: {
+				break;
+			}
+		}
 
 	}
 
 	pthread_exit("authn_thread exited normally");
 }
 
-int authn(AUTH_STATUS auth_status, char *rsa_pub_key, char *rsa_pri_key,
+int authn(AUTH_STATUS auth_status,
+	char *rsa_pub_key,
+	char *rsa_pri_key,
+	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
 	void (*rsa_response)(char *server_rsa_pub_key)) {
+
+	recd_cb = recd;
+	rsa_response_cb = rsa_response;
 
 	if (!rsa_pub_key || !rsa_pri_key) return -1;
 	AUTH_STATUS *as = malloc(sizeof(int));
@@ -299,30 +335,28 @@ void stay_in_touch_with_server(SERVER_TYPE st) {
 }
 
 int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned short),
-		void (*socket_created)(int),
-		void (*socket_bound)(void),
-		void (*sendto_succeeded)(size_t),
-		void (*recd)(size_t, socklen_t, char *),
-		void (*coll_buf)(char *),
-		void (*new_client)(SERVER_TYPE, char *),
-		void (*confirmed_client)(void),
-		void (*notify_existing_contact)(char *),
-		void (*stay_touch_recd)(SERVER_TYPE),
-		void (*new_peer)(char *),
-		void (*hole_punch_sent)(char *, int),
-		void (*confirmed_peer_while_punching)(SERVER_TYPE),
-		void (*from_peer)(SERVER_TYPE, char *),
-		void (*chat_msg)(char *),
-		void (*unhandled_response_from_server)(int),
-		void (*whilew)(int),
-		void (*end_while)(void)) {
+	void (*socket_created)(int),
+	void (*socket_bound)(void),
+	void (*sendto_succeeded)(size_t),
+	void (*coll_buf)(char *),
+	void (*new_client)(SERVER_TYPE, char *),
+	void (*confirmed_client)(void),
+	void (*notify_existing_contact)(char *),
+	void (*stay_touch_recd)(SERVER_TYPE),
+	void (*new_peer)(char *),
+	void (*hole_punch_sent)(char *, int),
+	void (*confirmed_peer_while_punching)(SERVER_TYPE),
+	void (*from_peer)(SERVER_TYPE, char *),
+	void (*chat_msg)(char *),
+	void (*unhandled_response_from_server)(int),
+	void (*whilew)(int),
+	void (*end_while)(void)) {
 
 	printf("main 0 %lu\n", DEFAULT_OTHER_ADDR_LEN);
 	self_info_cb = self_info;
 	socket_created_cb = socket_created;
 	socket_bound_cb = socket_bound;
 	sendto_succeeded_cb = sendto_succeeded;
-	recd_cb = recd;
 	notify_existing_contact_cb = notify_existing_contact;
 	stay_touch_recd_cb = stay_touch_recd;
 	coll_buf_cb = coll_buf;
@@ -415,7 +449,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 
 		addr_to_str(&sa_other, other_ip, other_port, other_family);
 		sprintf(sprintf, "%s port%s %s", other_ip, other_port, other_family);
-		if (recd) recd(recvf_len, other_socklen, sprintf);
+		if (recd_cb) recd_cb(SERVER_MAIN, recvf_len, other_socklen, sprintf);
 		other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
 		struct sockaddr *buf_sa = NULL;
@@ -670,7 +704,7 @@ void *chat_hp_server(void *w) {
 
 		addr_to_str(&sa_chat_other, chat_other_ip, chat_other_port, chat_other_family);
 		sprintf(sprintf, "CHAT-RECV-FRM %s port%s %s", chat_other_ip, chat_other_port, chat_other_family);
-		if (recd_cb) recd_cb(recvf_len, chat_other_socklen, sprintf);
+		if (recd_cb) recd_cb(SERVER_CHAT, recvf_len, chat_other_socklen, sprintf);
 		chat_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
 		struct sockaddr *buf_sa = NULL;

@@ -13,27 +13,29 @@
 #include "hashtable.h"
 #include "network_utils.h"
 
-int authn(AUTH_STATUS auth_status, char *rsa_pub_key, char *rsa_pri_key,
+int authn(AUTH_STATUS auth_status,
+	char *rsa_pub_key,
+	char *rsa_pri_key,
+	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
 	void (*rsa_response)(char *server_rsa_pub_key));
 
 int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port, unsigned short family),
-		void (*socket_created)(int sock_fd),
-		void (*socket_bound)(void),
-		void (*sendto_succeeded)(size_t bytes_sent),
-		void (*recd)(size_t bytes_recd, socklen_t addr_len, char *),
-		void (*coll_buf)(char *),
-		void (*new_client)(SERVER_TYPE, char *),
-		void (*confirmed_client)(void),
-		void (*notify_existing_contact)(char *),
-		void (*stay_touch_recd)(SERVER_TYPE),
-		void (*new_peer)(char *),
-		void (*hole_punch_sent)(char *, int),
-		void (*confirmed_peer_while_punching)(SERVER_TYPE),
-		void (*from_peer)(SERVER_TYPE, char *),
-		void (*chat_msg)(char *),
-		void (*unhandled_response_from_server)(int),
-		void (*whilew)(int),
-		void (*end_while)(void));
+	void (*socket_created)(int sock_fd),
+	void (*socket_bound)(void),
+	void (*sendto_succeeded)(size_t bytes_sent),
+	void (*coll_buf)(char *),
+	void (*new_client)(SERVER_TYPE, char *),
+	void (*confirmed_client)(void),
+	void (*notify_existing_contact)(char *),
+	void (*stay_touch_recd)(SERVER_TYPE),
+	void (*new_peer)(char *),
+	void (*hole_punch_sent)(char *, int),
+	void (*confirmed_peer_while_punching)(SERVER_TYPE),
+	void (*from_peer)(SERVER_TYPE, char *),
+	void (*chat_msg)(char *),
+	void (*unhandled_response_from_server)(int),
+	void (*whilew)(int),
+	void (*end_while)(void));
 
 void ping_all_peers();
 
