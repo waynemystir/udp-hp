@@ -386,7 +386,7 @@ void *main_server_endpoint(void *arg) {
 
 				node_t *peer_with_new_chat_port = find_node_from_sockaddr(hn->nodes,
 					&si_other,
-					SERVER_SIGNIN);
+					SERVER_MAIN);
 				if (peer_with_new_chat_port) {
 					peer_with_new_chat_port->external_chat_port = buf.chat_port;
 					// TODO how to handle internal_chat_port here?
