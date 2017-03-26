@@ -1,7 +1,7 @@
 
 network encryption
 authentication
-ensure RSA swap comes from Sup app: maybe some sort of time-dependent key to pass with RSA swap
+ensure RSA swap request comes from Sup app (ie not from a fisher): maybe some sort of time-dependent key to pass with RSA swap
 
 self <=> get internal hole punching working
 stay-in-touch with peers

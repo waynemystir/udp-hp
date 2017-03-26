@@ -199,7 +199,7 @@ int node_min_and_sockaddr_equal(node_min_t *node, struct sockaddr *addr, SERVER_
 	if (node->family != addr->sa_family) return 0;
 	in_port_t aport;
 	switch (st) {
-		case SERVER_SIGNIN: {
+		case SERVER_MAIN: {
 			aport = node->port;
 			break;
 		}
@@ -342,7 +342,7 @@ int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr, SERVER_TYPE st)
 	if (node->external_family != addr->sa_family) return 0;
 	in_port_t aport;
 	switch (st) {
-		case SERVER_SIGNIN: {
+		case SERVER_MAIN: {
 			aport = node->external_port;
 			break;
 		}

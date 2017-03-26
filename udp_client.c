@@ -70,7 +70,7 @@ int chat_server_conn_running = 1;
 // function pointers
 void (*rsa_response_cb)(char *server_rsa_pub_key) = NULL;
 void (*self_info_cb)(char *, unsigned short, unsigned short, unsigned short) = NULL;
-void (*server_info_cb)(char *) = NULL;
+void (*server_info_cb)(SERVER_TYPE, char *) = NULL;
 void (*socket_created_cb)(int) = NULL;
 void (*socket_bound_cb)(void) = NULL;
 void (*sendto_succeeded_cb)(size_t) = NULL;
@@ -91,9 +91,8 @@ void pfail(char *w) {
 }
 
 void *authn_thread_routine(void *arg) {
-	AUTH_STATUS *auth_status = arg;
-	for (int j = 0; j < 7;)
-		printf("X#X#X#X#XX#X#X#X#X (%d)\n", ++j);
+	AUTH_STATUS auth_status = *(AUTH_STATUS *)arg;
+	printf("authn_thread_routine (%d)\n", auth_status);
 
 	struct sockaddr *sa_authn_server;
 	char authn_server_ip[INET6_ADDRSTRLEN];
@@ -120,12 +119,11 @@ void *authn_thread_routine(void *arg) {
 		authn_server_port,
 		authn_server_family,
 		authn_server_socklen);
-	if (server_info_cb) server_info_cb(wes);
+	if (server_info_cb) server_info_cb(SERVER_AUTHN, wes);
 
-	printf("^^^^^^^^^^^^^^^(%d)\n", *auth_status);
-	buf.status = *auth_status;
-	// memset(buf.rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
-	// if (rsa_public_key) memcpy(buf.rsa_pub_key, rsa_public_key, strlen(rsa_public_key));
+	buf.status = auth_status;
+	memset(buf.rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
+	if (rsa_public_key) memcpy(buf.rsa_pub_key, rsa_public_key, strlen(rsa_public_key));
 
 	authn_sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, sa_authn_server, authn_server_socklen);
 	if (authn_sendto_len == -1) {
@@ -146,17 +144,18 @@ int authn(AUTH_STATUS auth_status, char *rsa_pub_key, char *rsa_pri_key,
 	void (*rsa_response)(char *server_rsa_pub_key)) {
 
 	if (!rsa_pub_key || !rsa_pri_key) return -1;
-	AUTH_STATUS as = auth_status;
+	AUTH_STATUS *as = malloc(sizeof(int));
+	if (as) *as = auth_status;
 
-	// rsa_public_key = malloc(strlen(rsa_pub_key)+1);
-	// rsa_private_key = malloc(strlen(rsa_pri_key)+1);
-	// memset(rsa_public_key, '\0', strlen(rsa_pub_key)+1);
-	// memset(rsa_private_key, '\0', strlen(rsa_pri_key)+1);
-	// strcpy(rsa_public_key, rsa_pub_key);
-	// strcpy(rsa_private_key, rsa_pri_key);
+	rsa_public_key = malloc(strlen(rsa_pub_key)+1);
+	rsa_private_key = malloc(strlen(rsa_pri_key)+1);
+	memset(rsa_public_key, '\0', strlen(rsa_pub_key)+1);
+	memset(rsa_private_key, '\0', strlen(rsa_pri_key)+1);
+	strcpy(rsa_public_key, rsa_pub_key);
+	strcpy(rsa_private_key, rsa_pri_key);
 	rsa_response_cb = rsa_response;
 	pthread_t authn_thread;
-	int atr = pthread_create(&authn_thread, NULL, authn_thread_routine, &as);
+	int atr = pthread_create(&authn_thread, NULL, authn_thread_routine, as);
 	if (atr) {
 		printf("ERROR in authn_thread creation; return code from pthread_create() is %d\n", atr);
 		return -1;
@@ -171,7 +170,7 @@ void *hole_punch_thread(void *peer_to_hole_punch) {
 		// is confirmed, whichever occurs first.
 		if (peer->status >= STATUS_CONFIRMED_PEER) {
 			if (confirmed_peer_while_punching_cb)
-				confirmed_peer_while_punching_cb(SERVER_SIGNIN);
+				confirmed_peer_while_punching_cb(SERVER_MAIN);
 			break;
 		}
 		send_hole_punch(peer);
@@ -184,7 +183,7 @@ void punch_hole_in_peer(SERVER_TYPE st, node_t *peer) {
 	pthread_t hpt;
 	void *start_routine = NULL;
 	switch (st) {
-		case SERVER_SIGNIN: {
+		case SERVER_MAIN: {
 			start_routine = hole_punch_thread;
 			break;
 		}
@@ -282,7 +281,7 @@ void stay_in_touch_with_server(SERVER_TYPE st) {
 	char *w = "stay_in_touch_with_server";
 	void *start_routine = NULL;
 	switch (st) {
-		case SERVER_SIGNIN: {
+		case SERVER_MAIN: {
 			start_routine = stay_in_touch_with_server_thread;
 			break;
 		}
@@ -300,7 +299,6 @@ void stay_in_touch_with_server(SERVER_TYPE st) {
 }
 
 int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned short),
-		void (*server_info)(char *),
 		void (*socket_created)(int),
 		void (*socket_bound)(void),
 		void (*sendto_succeeded)(size_t),
@@ -321,7 +319,6 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 
 	printf("main 0 %lu\n", DEFAULT_OTHER_ADDR_LEN);
 	self_info_cb = self_info;
-	server_info_cb = server_info;
 	socket_created_cb = socket_created;
 	socket_bound_cb = socket_bound;
 	sendto_succeeded_cb = sendto_succeeded;
@@ -376,7 +373,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 		server_internal_port,
 		server_internal_family,
 		server_socklen);
-	if (server_info) server_info(sprintf);
+	if (server_info_cb) server_info_cb(SERVER_MAIN, sprintf);
 
 	sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock_fd == -1) {
@@ -453,8 +450,8 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 						me_external_ip,
 						me_external_port,
 						me_external_family);
-					if (new_client_cb) new_client_cb(SERVER_SIGNIN, sprintf);
-					stay_in_touch_with_server(SERVER_SIGNIN);
+					if (new_client_cb) new_client_cb(SERVER_MAIN, sprintf);
+					stay_in_touch_with_server(SERVER_MAIN);
 					init_chat_hp();
 					break;
 				}
@@ -465,7 +462,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 				}
 				// TODO add status to populate self->nodes
 				case STATUS_STAY_IN_TOUCH_RESPONSE: {
-					if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_SIGNIN);
+					if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_MAIN);
 					break;
 				}
 				case STATUS_CONFIRMED_NODE: {
@@ -508,7 +505,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 					// our NAT may get an ICMP Destination Unreachable, but most NATs are
 					// configured to simply discard them) but when the peer sends us a datagram,
 					// it will pass through the hole punch into our local endpoint.
-					punch_hole_in_peer(SERVER_SIGNIN, new_peer_node);
+					punch_hole_in_peer(SERVER_MAIN, new_peer_node);
 					break;
                     
 				}
@@ -532,7 +529,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 		} else {
 			node_t *existing_node;
 			lookup_contact_and_node_from_sockaddr(self.contacts,
-				&sa_other, SERVER_SIGNIN, &existing_node);
+				&sa_other, SERVER_MAIN, &existing_node);
 			if (!existing_node) {
 				/* TODO: This is an issue. Either a security issue (how
 				did an unknown peer get through the firewall) or my list
@@ -541,7 +538,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 					other_ip,
 					other_port,
 					other_family);
-				if (from_peer_cb) from_peer_cb(SERVER_SIGNIN, sprintf);
+				if (from_peer_cb) from_peer_cb(SERVER_MAIN, sprintf);
 				continue;
 			}
 
@@ -590,7 +587,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 				other_ip,
 				other_port,
 				other_family);
-			if (from_peer_cb) from_peer_cb(SERVER_SIGNIN, sprintf);
+			if (from_peer_cb) from_peer_cb(SERVER_MAIN, sprintf);
 		}
 		free(buf_sa);
 	}
@@ -632,7 +629,7 @@ void *chat_hp_server(void *w) {
 		server_internal_port,
 		server_internal_family,
 		chat_server_socklen);
-	if (server_info_cb) server_info_cb(sprintf);
+	if (server_info_cb) server_info_cb(SERVER_CHAT, sprintf);
 
 	// Setup sa_chat_other
 	struct sockaddr sa_chat_other;

@@ -19,7 +19,8 @@
 #define AUTHEN_TOKEN_LEN 160
 
 typedef enum SERVER_TYPE {
-	SERVER_SIGNIN,
+	SERVER_AUTHN,
+	SERVER_MAIN,
 	SERVER_CHAT,
 } SERVER_TYPE;
 
@@ -66,7 +67,7 @@ extern const unsigned short AUTHENTICATION_PORT;
 
 char *authn_status_to_str(AUTH_STATUS as);
 
-void str_from_server_type(SERVER_TYPE st, char str[15]);
+char *str_from_server_type(SERVER_TYPE st);
 
 char *chat_status_to_str(CHAT_STATUS cs);
 

@@ -16,20 +16,12 @@ char *authn_status_to_str(AUTH_STATUS as) {
 	}
 }
 
-void str_from_server_type(SERVER_TYPE st, char str[15]) {
+char *str_from_server_type(SERVER_TYPE st) {
 	switch (st) {
-		case SERVER_SIGNIN: {
-			strcpy(str, "SERVER_SIGNIN");
-			break;
-		}
-		case SERVER_CHAT: {
-			strcpy(str, "SERVER_CHAT");
-			break;
-		}
-		default: {
-			strcpy(str, "UNKNOWN");
-			break;
-		}
+		case SERVER_AUTHN: return "SERVER_AUTHN";
+		case SERVER_MAIN: return "SERVER_MAIN";
+		case SERVER_CHAT: return "SERVER_CHAT";
+		default: return "SERVER_UNKNOWN";
 	}
 }
 
