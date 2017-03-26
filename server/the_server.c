@@ -31,6 +31,7 @@ struct sockaddr si_other;
 struct sockaddr sa_auth_other;
 socklen_t slen = SZ_SOCKADDR;
 hashtable_t hashtbl;
+authn_hashtable_t authn_tbl;
 
 void pfail(char *s) {
 	perror(s);
@@ -236,8 +237,13 @@ void *authentication_server_endpoint(void *arg) {
 			authn_status_to_str(buf.status), recvf_len, ip_str, port, family);
 
 		switch (buf.status) {
-			case AUTH_STATUS_RSA_SWAP: {
-				printf("The node's RSA pub key (%s)\n", buf.rsa_pub_key);
+			case AUTHN_STATUS_RSA_SWAP: {
+				char *key = authn_addr_info_to_key(family, ip_str, port);
+				authn_node_t *new_authn_node = add_authn_node(&authn_tbl, AUTHN_STATUS_RSA_SWAP_RESPONSE, key);
+				memset(new_authn_node->rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
+				memcpy(new_authn_node->rsa_pub_key, buf.rsa_pub_key, strlen((char*)buf.rsa_pub_key));
+				printf("The node's RSA pub key (%s)\n", new_authn_node->rsa_pub_key);
+				buf.status = AUTHN_STATUS_RSA_SWAP_RESPONSE;
 				memset(buf.rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
 				memcpy(buf.rsa_pub_key, rsa_public_key_str, RSA_PUBLIC_KEY_LEN);
 				sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, slen);
@@ -246,19 +252,12 @@ void *authentication_server_endpoint(void *arg) {
 				}
 				break;
 			}
-			case AUTH_STATUS_AES_SWAP: {
-				break;
-			}
-			case AUTH_STATUS_NEW_USER: {
-				break;
-			}
-			case AUTH_STATUS_AUTH_TOKEN: {
-				break;
-			}
-			case AUTH_STATUS_RE_AUTH: {
-				break;
-			}
-			default: {
+			case AUTHN_STATUS_AES_SWAP: {
+				char *key = authn_addr_info_to_key(family, ip_str, port);
+				authn_node_t *an = lookup_authn_node(&authn_tbl, key);
+				memset(an->aes_key, '\0', NUM_BYTES_AES_KEY);
+				memcpy(an->aes_key, buf.aes_key, strlen((char*)buf.aes_key));
+				printf("The node's AES key (%s)\n", an->aes_key);
 				break;
 			}
 		}

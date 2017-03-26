@@ -17,6 +17,8 @@
 #define NUM_BYTES_AES_KEY 256
 #define NUM_BYTES_AES_IV 128
 #define AUTHEN_TOKEN_LEN 160
+#define AUTHN_HASHSIZE 10001
+#define AUTHN_NODE_KEY_LENGTH INET6_ADDRSTRLEN + 20 + 20
 
 typedef enum SERVER_TYPE {
 	SERVER_AUTHN,
@@ -47,6 +49,19 @@ typedef struct authn_buf {
 	char pw[MAX_CHARS_PASSWORD];
 } authn_buf_t;
 
+typedef struct authn_node {
+	AUTHN_STATUS status;
+	char key[AUTHN_NODE_KEY_LENGTH];
+	unsigned char rsa_pub_key[RSA_PUBLIC_KEY_LEN];
+	unsigned char aes_key[NUM_BYTES_AES_KEY];
+	unsigned char auth_token[AUTHEN_TOKEN_LEN];
+	char id[MAX_CHARS_USERNAME];
+	char pw[MAX_CHARS_PASSWORD];
+	struct authn_node *next;
+} authn_node_t;
+
+typedef authn_node_t *authn_hashtable_t[AUTHN_HASHSIZE];
+
 typedef enum CHAT_STATUS {
 	CHAT_STATUS_INIT = 0,
 	CHAT_STATUS_NEW = 1,
@@ -70,14 +85,17 @@ typedef struct chat_buf {
 extern const unsigned short AUTHENTICATION_PORT;
 
 char *authn_status_to_str(AUTHN_STATUS as);
-
 char *str_from_server_type(SERVER_TYPE st);
-
 char *chat_status_to_str(CHAT_STATUS cs);
+
+char *authn_addr_info_to_key(sa_family_t family, char *ip_str, in_port_t port);
+authn_node_t *add_authn_node(authn_hashtable_t *ahtbl, AUTHN_STATUS status, char *key);
+authn_node_t *lookup_authn_node(authn_hashtable_t *ahtbl, char *key);
 
 int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr);
 
 #define SZ_AUN_BF sizeof(authn_buf_t)
 #define SZ_CH_BF sizeof(chat_buf_t)
+#define SZ_AUN_ND sizeof(authn_node_t)
 
 #endif /* common_h */

@@ -21,6 +21,7 @@ video_port
 video server
 POC video functionality
 
+go back and use memcmp to compare all unsigned char arrays (i.e. ip6, etc)
 thread the server
 	recvfrom -> copy details (si_other, buf, etc) and handle in threadpool
 thread wain et al
@@ -33,6 +34,7 @@ server host?
 shrink node_buf, auth_buf, etc by converting to base64?
 
 stress test in-memory data
+	correct HASHSIZE AND AUTHN_HASHSIZE?
 
 security
 	server firewalls
