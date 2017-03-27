@@ -166,6 +166,7 @@ void *authn_thread_routine(void *arg) {
 		authn_server_socklen);
 	if (server_info_cb) server_info_cb(SERVER_AUTHN, wes);
 
+	memset(&buf, '\0', SZ_AUN_BF);
 	buf.status = auth_status;
 	memset(buf.rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
 	if (rsa_public_key) memcpy(buf.rsa_pub_key, rsa_public_key, strlen(rsa_public_key));
@@ -176,7 +177,6 @@ void *authn_thread_routine(void *arg) {
 		sprintf(w, "authn sendto failed with %zu", authn_sendto_len);
 		pfail(w);
 	}
-
 
 	while (authn_running) {
 		authn_recvf_len = recvfrom(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_authn_other, &authn_other_socklen);

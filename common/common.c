@@ -88,7 +88,7 @@ unsigned authn_hash(char *s) {
 
 int authn_nodes_equal(authn_node_t *a1, authn_node_t *a2) {
 	if (!a1 || !a2) return 0;
-	return strcmp(a1->key, a2->key);
+	return strcmp(a1->key, a2->key) == 0;
 }
 
 authn_node_t *lookup_authn_node(authn_hashtable_t *ahtbl, char *key) {
@@ -96,7 +96,7 @@ authn_node_t *lookup_authn_node(authn_hashtable_t *ahtbl, char *key) {
 	if (!ahtbl) return NULL;
 	authn_node_t *np;
 	for (np = (*ahtbl)[authn_hash(key)]; np != NULL; np = np->next)
-		if (strcmp(np->key, key))
+		if (strcmp(np->key, key) == 0)
 			return np; /* found */
 	return NULL; /* not found */
 }

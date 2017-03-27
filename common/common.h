@@ -99,5 +99,6 @@ int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr);
 #define SZ_AUN_BF sizeof(authn_buf_t)
 #define SZ_CH_BF sizeof(chat_buf_t)
 #define SZ_AUN_ND sizeof(authn_node_t)
+#define SZ_AUN_TBL sizeof(authn_hashtable_t)
 
 #endif /* common_h */

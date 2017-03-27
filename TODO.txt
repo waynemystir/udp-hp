@@ -1,5 +1,6 @@
 
 network encryption
+	time-based reset of server AES IV... and notification to all nodes... once a day?
 authentication
 	strlen + 1?
 	delete items from keychain on app delete

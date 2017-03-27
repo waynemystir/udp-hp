@@ -8,15 +8,22 @@
 #include <netdb.h>
 #include <pthread.h>
 
+#include <openssl/rand.h>
+#include <openssl/err.h>
+
 #include "hashtable.h"
 #include "network_utils.h"
 #include "crypto_wrapper.h"
 
 #define RSA_PUB_KEY_FILEPATH "SUP_RSA_PUB_KEY"
 #define RSA_PRI_KEY_FILEPATH "SUP_RSA_PRI_KEY"
+#define AES_KEY_FILEPATH "SUP_AES_KEY"
+#define AES_IV_FILEPATH "SUP_AES_IV"
 
 char *rsa_public_key_str;
 char *rsa_private_key_str;
+unsigned char *aes_key;
+unsigned char *aes_iv;
 
 pthread_t main_server_thread;
 pthread_t authentication_server_thread;
@@ -53,6 +60,64 @@ int collect_rsa_keys() {
 		fclose(priv_file);
 		return ret;
 	}
+	return 0;
+}
+
+void create_aes_iv() {
+	unsigned char iv[NUM_BYTES_AES_IV];
+	memset(iv, '\0', NUM_BYTES_AES_IV);
+	if (!RAND_bytes(iv, sizeof(iv))) {
+		printf("RAND_bytes failed for iv\n");
+		ERR_print_errors_fp(stdout);
+		return;
+	}
+
+	free(aes_iv);
+	aes_iv = malloc(NUM_BYTES_AES_IV);
+	memset(aes_iv, '\0', NUM_BYTES_AES_IV);
+	memcpy(aes_iv, iv, NUM_BYTES_AES_IV);
+}
+
+void create_aes_key() {
+	create_aes_iv();
+	if (aes_key) return;
+
+	unsigned char symmetric_key[NUM_BYTES_AES_KEY];
+	memset(symmetric_key, '\0', NUM_BYTES_AES_KEY);
+
+	if (!RAND_bytes(symmetric_key, sizeof(symmetric_key))) {
+		printf("RAND_bytes failed for symmetric_key\n");
+		ERR_print_errors_fp(stdout);
+	}
+
+	aes_key = malloc(NUM_BYTES_AES_KEY);
+	memset(aes_key, '\0', NUM_BYTES_AES_KEY);
+	memcpy(aes_key, symmetric_key, NUM_BYTES_AES_KEY);
+}
+
+int collect_aes_key_and_iv() {
+	aes_key = read_file_to_bytes(AES_KEY_FILEPATH);
+	aes_iv = read_file_to_bytes(AES_IV_FILEPATH);
+	if (!aes_key) {
+		create_aes_key();
+		if (!aes_key) return -1;
+	}
+	FILE *aes_key_file = fopen(AES_KEY_FILEPATH, "wb+");
+	if (aes_key_file) {
+		fwrite(aes_key, 1, NUM_BYTES_AES_KEY, aes_key_file);
+		fclose(aes_key_file);
+	}
+
+	if (!aes_iv) {
+		create_aes_iv();
+		if (!aes_iv) return -1;
+	}
+	FILE *aes_iv_file = fopen(AES_IV_FILEPATH, "wb+");
+	if (aes_iv_file) {
+		fwrite(aes_iv, 1, NUM_BYTES_AES_IV, aes_iv_file);
+		fclose(aes_iv_file);
+	}
+
 	return 0;
 }
 
@@ -222,6 +287,8 @@ void *authentication_server_endpoint(void *arg) {
 	if ( br == -1 ) pfail("bind");
 	printf("authentication_server_endpoint 3 %d\n", br);
 
+	memset(&authn_tbl, '\0', SZ_AUN_TBL);
+
 	while (authentication_server_running) {
 		// printf("main -: 3\n");
 		recvf_len = recvfrom(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, &slen);
@@ -239,10 +306,14 @@ void *authentication_server_endpoint(void *arg) {
 		switch (buf.status) {
 			case AUTHN_STATUS_RSA_SWAP: {
 				char *key = authn_addr_info_to_key(family, ip_str, port);
+				printf("The node's key (%s)\n", key);
 				authn_node_t *new_authn_node = add_authn_node(&authn_tbl, AUTHN_STATUS_RSA_SWAP_RESPONSE, key);
+				printf("And the node was added with key (%s)\n", new_authn_node->key);
 				memset(new_authn_node->rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
 				memcpy(new_authn_node->rsa_pub_key, buf.rsa_pub_key, strlen((char*)buf.rsa_pub_key));
 				printf("The node's RSA pub key (%s)\n", new_authn_node->rsa_pub_key);
+
+				memset(&buf, '\0', SZ_AUN_BF);
 				buf.status = AUTHN_STATUS_RSA_SWAP_RESPONSE;
 				memset(buf.rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
 				memcpy(buf.rsa_pub_key, rsa_public_key_str, RSA_PUBLIC_KEY_LEN);
@@ -254,10 +325,37 @@ void *authentication_server_endpoint(void *arg) {
 			}
 			case AUTHN_STATUS_AES_SWAP: {
 				char *key = authn_addr_info_to_key(family, ip_str, port);
+				printf("The node's key (%s)\n", key);
 				authn_node_t *an = lookup_authn_node(&authn_tbl, key);
+				if (!an) {
+					printf("No node was found for key (%s)\n", key);
+					break;
+				}
+				printf("And the node was found with key (%s)\n", an->key);
 				memset(an->aes_key, '\0', NUM_BYTES_AES_KEY);
-				memcpy(an->aes_key, buf.aes_key, strlen((char*)buf.aes_key));
+				memcpy(an->aes_key, buf.aes_key, NUM_BYTES_AES_KEY);
+				memset(an->aes_iv, '\0', NUM_BYTES_AES_IV);
+				memcpy(an->aes_iv, buf.aes_iv, NUM_BYTES_AES_IV);
 				printf("The node's AES key (%s)\n", an->aes_key);
+				printf("The node's AES iv (%s)\n", an->aes_iv);
+
+				memset(&buf, '\0', SZ_AUN_BF);
+				buf.status = AUTHN_STATUS_AES_SWAP_RESPONSE;
+				memset(buf.aes_key, '\0', NUM_BYTES_AES_KEY);
+				memcpy(buf.aes_key, aes_key, NUM_BYTES_AES_KEY);
+				memset(buf.aes_iv, '\0', NUM_BYTES_AES_IV);
+				memcpy(buf.aes_iv, aes_iv, NUM_BYTES_AES_IV);
+				sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, slen);
+				if (sendto_len == -1) {
+					pfail("sendto");
+				}
+				break;
+			}
+			case AUTHN_STATUS_RSA_SWAP_RESPONSE:
+			case AUTHN_STATUS_AES_SWAP_RESPONSE:
+			case AUTHN_STATUS_NEW_USER_RESPONSE:
+			case AUTHN_STATUS_AUTH_TOKEN_RESPONSE: {
+				printf("THIS SHOULDN'T HAPPEN!!!! (%s)\n", authn_status_to_str(buf.status));
 				break;
 			}
 		}
@@ -422,6 +520,12 @@ int main() {
 	int ckr = collect_rsa_keys();
 	if (ckr == -1) {
 		printf("ERROR collecting RSA keys\n");
+		exit(-1);
+	}
+
+	ckr = collect_aes_key_and_iv();
+	if (ckr == -1) {
+		printf("ERROR collecting AES key or IV\n");
 		exit(-1);
 	}
 
