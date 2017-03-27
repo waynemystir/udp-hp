@@ -45,6 +45,7 @@ typedef struct authn_buf {
 		unsigned char aes_key[NUM_BYTES_AES_KEY];
 		unsigned char auth_token[AUTHEN_TOKEN_LEN];
 	};
+	unsigned char aes_iv[NUM_BYTES_AES_IV];
 	char id[MAX_CHARS_USERNAME];
 	char pw[MAX_CHARS_PASSWORD];
 } authn_buf_t;
@@ -54,6 +55,7 @@ typedef struct authn_node {
 	char key[AUTHN_NODE_KEY_LENGTH];
 	unsigned char rsa_pub_key[RSA_PUBLIC_KEY_LEN];
 	unsigned char aes_key[NUM_BYTES_AES_KEY];
+	unsigned char aes_iv[NUM_BYTES_AES_IV];
 	unsigned char auth_token[AUTHEN_TOKEN_LEN];
 	char id[MAX_CHARS_USERNAME];
 	char pw[MAX_CHARS_PASSWORD];

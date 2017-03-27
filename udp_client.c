@@ -4,13 +4,16 @@
 #include <pthread.h>
 #include <unistd.h>
 
+#include <openssl/rand.h>
+#include <openssl/err.h>
+
 #include "udp_client.h"
 #include "hashtable.h"
 #include "common.h"
 
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
-char username[] = "julius_erving";
+char username[] = "waynemystir";
 
 void send_hole_punch(node_t *peer);
 void *chat_hole_punch_thread(void *peer_to_hole_punch);
@@ -20,6 +23,8 @@ void *chat_hp_server(void *w);
 
 hash_node_t self;
 char *rsa_public_key, *rsa_private_key;
+unsigned char *aes_key;
+unsigned char *aes_iv;
 
 // Self
 node_buf_t *self_internal;
@@ -69,6 +74,7 @@ int chat_server_conn_running = 1;
 
 // function pointers
 void (*rsa_response_cb)(char *server_rsa_pub_key) = NULL;
+void (*aes_key_created_cb)(unsigned char[NUM_BYTES_AES_KEY]) = NULL;
 void (*self_info_cb)(char *, unsigned short, unsigned short, unsigned short) = NULL;
 void (*server_info_cb)(SERVER_TYPE, char *) = NULL;
 void (*socket_created_cb)(int) = NULL;
@@ -88,6 +94,39 @@ void pfail(char *w) {
 	printf("pfail 0\n");
 	perror(w);
 	exit(1);
+}
+
+void create_aes_iv() {
+	unsigned char iv[NUM_BYTES_AES_IV];
+	memset(iv, '\0', NUM_BYTES_AES_IV);
+	if (!RAND_bytes(iv, sizeof(iv))) {
+		printf("RAND_bytes failed for iv\n");
+		ERR_print_errors_fp(stdout);
+		return;
+	}
+
+	free(aes_iv);
+	aes_iv = malloc(NUM_BYTES_AES_IV);
+	memset(aes_iv, '\0', NUM_BYTES_AES_IV);
+	memcpy(aes_iv, iv, NUM_BYTES_AES_IV);
+}
+
+void create_aes_key_iv() {
+	create_aes_iv();
+	if (aes_key) return;
+
+	unsigned char symmetric_key[NUM_BYTES_AES_KEY];
+	memset(symmetric_key, '\0', NUM_BYTES_AES_KEY);
+
+	if (!RAND_bytes(symmetric_key, sizeof(symmetric_key))) {
+		printf("RAND_bytes failed for symmetric_key\n");
+		ERR_print_errors_fp(stdout);
+	}
+
+	aes_key = malloc(NUM_BYTES_AES_KEY);
+	memset(aes_key, '\0', NUM_BYTES_AES_KEY);
+	memcpy(aes_key, symmetric_key, NUM_BYTES_AES_KEY);
+	if (aes_key_created_cb) aes_key_created_cb(aes_key);
 }
 
 void *authn_thread_routine(void *arg) {
@@ -148,7 +187,8 @@ void *authn_thread_routine(void *arg) {
 		}
 
 		addr_to_str(&sa_authn_other, authn_other_ip, authn_other_port, authn_other_family);
-		sprintf(wayne, "%s port%s %s", authn_other_ip, authn_other_port, authn_other_family);
+		sprintf(wayne, "(%s) %s port%s %s", authn_status_to_str(buf.status),
+			authn_other_ip, authn_other_port, authn_other_family);
 		if (recd_cb) recd_cb(SERVER_AUTHN, authn_recvf_len, authn_other_socklen, wayne);
 		authn_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
@@ -158,6 +198,25 @@ void *authn_thread_routine(void *arg) {
 				memset(server_rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
 				memcpy(server_rsa_pub_key, buf.rsa_pub_key, RSA_PUBLIC_KEY_LEN);
 				if (rsa_response_cb) rsa_response_cb(server_rsa_pub_key);
+
+				create_aes_key_iv();
+				memset(&buf, '\0', SZ_AUN_BF);
+				buf.status = AUTHN_STATUS_AES_SWAP;
+				memset(buf.aes_key, '\0', NUM_BYTES_AES_KEY);
+				memcpy(buf.aes_key, aes_key, NUM_BYTES_AES_KEY);
+				memset(buf.aes_iv, '\0', NUM_BYTES_AES_IV);
+				memcpy(buf.aes_iv, aes_iv, NUM_BYTES_AES_IV);
+
+				authn_sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0,
+					sa_authn_server, authn_server_socklen);
+				if (authn_sendto_len == -1) {
+					char w[256];
+					sprintf(w, "authn sendto failed with %zu", authn_sendto_len);
+					pfail(w);
+				}
+				break;
+			}
+			case AUTHN_STATUS_AES_SWAP_RESPONSE: {
 				break;
 			}
 			default: {
@@ -173,11 +232,19 @@ void *authn_thread_routine(void *arg) {
 int authn(AUTHN_STATUS auth_status,
 	char *rsa_pub_key,
 	char *rsa_pri_key,
+	unsigned char *aes_k,
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
-	void (*rsa_response)(char *server_rsa_pub_key)) {
+	void (*rsa_response)(char *server_rsa_pub_key),
+	void (*aes_key_created)(unsigned char[NUM_BYTES_AES_KEY])) {
 
 	recd_cb = recd;
 	rsa_response_cb = rsa_response;
+	aes_key_created_cb = aes_key_created;
+	if (aes_k) {
+		aes_key = malloc(NUM_BYTES_AES_KEY);
+		memset(aes_key, '\0', NUM_BYTES_AES_KEY);
+		memcpy(aes_key, aes_k, NUM_BYTES_AES_KEY);
+	}
 
 	if (!rsa_pub_key || !rsa_pri_key) return -1;
 	AUTHN_STATUS *as = malloc(sizeof(int));

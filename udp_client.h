@@ -16,8 +16,10 @@
 int authn(AUTHN_STATUS auth_status,
 	char *rsa_pub_key,
 	char *rsa_pri_key,
+	unsigned char *aes_key,
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
-	void (*rsa_response)(char *server_rsa_pub_key));
+	void (*rsa_response)(char *server_rsa_pub_key),
+	void (*aes_key_created)(unsigned char[NUM_BYTES_AES_KEY]));
 
 int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port, unsigned short family),
 	void (*socket_created)(int sock_fd),

@@ -50,9 +50,11 @@ char *authn_addr_info_to_key(sa_family_t family, char *ip_str, in_port_t port) {
 	switch (family) {
 		case AF_INET: {
 			strcat(wes, "AF_INET");
+			break;
 		}
 		case AF_INET6: {
-			strcat(wes, "AF_INET");
+			strcat(wes, "AF_INET6");
+			break;
 		}
 		default: return NULL;
 	}
