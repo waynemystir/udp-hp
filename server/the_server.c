@@ -371,7 +371,7 @@ void *authentication_server_endpoint(void *arg) {
 					buf.id_ciphertext_len, aes_plaintext_len);
 				break;
 			}
-			case AUTHN_STATUS_AUTH_TOKEN: {
+			case AUTHN_STATUS_EXISTING_USER: {
 				// TODO
 				break;
 			}
@@ -382,7 +382,7 @@ void *authentication_server_endpoint(void *arg) {
 			case AUTHN_STATUS_RSA_SWAP_RESPONSE:
 			case AUTHN_STATUS_AES_SWAP_RESPONSE:
 			case AUTHN_STATUS_NEW_USER_RESPONSE:
-			case AUTHN_STATUS_AUTH_TOKEN_RESPONSE: {
+			case AUTHN_STATUS_EXISTING_USER_RESPONSE: {
 				printf("THIS SHOULDN'T HAPPEN!!!! (%s)\n", authn_status_to_str(buf.status));
 				break;
 			}

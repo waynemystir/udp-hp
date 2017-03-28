@@ -11,7 +11,10 @@ authentication
 	handle new user vs existing user in ios app
 	strlen + 1?
 	delete items from keychain on app delete
+
 	do we even need an AuthN token? I guess it verifies to the main server that we're authenticated, right? If the main server doesn't find a matching AuthN token in the corresponding hashnode->node, then it rejects that node, right?
+
+move chat_server into the_server
 
 fix bug where confirming chat port doesn't always work
 self <=> get internal hole punching working
