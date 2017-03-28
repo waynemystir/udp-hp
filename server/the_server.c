@@ -351,6 +351,34 @@ void *authentication_server_endpoint(void *arg) {
 				}
 				break;
 			}
+			case AUTHN_STATUS_NEW_USER: {
+				char *key = authn_addr_info_to_key(family, ip_str, port);
+				printf("The node's key (%s)\n", key);
+				authn_node_t *an = lookup_authn_node(&authn_tbl, key);
+				if (!an) {
+					printf("No node was found for key (%s)\n", key);
+					break;
+				}
+				printf("And the node was found with key (%s)\n", an->key);
+
+				unsigned char aes_decryptedtext[512];
+				memset(aes_decryptedtext, '\0', 512);
+				int aes_plaintext_len = aes_decrypt((unsigned char*)buf.id, buf.id_ciphertext_len,
+					an->aes_key, an->aes_iv, aes_decryptedtext);
+				char decrypted_substr[aes_plaintext_len];
+				memcpy(decrypted_substr, aes_decryptedtext, aes_plaintext_len);
+				printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX (%s)(%d)(%d)\n", decrypted_substr,
+					buf.id_ciphertext_len, aes_plaintext_len);
+				break;
+			}
+			case AUTHN_STATUS_AUTH_TOKEN: {
+				// TODO
+				break;
+			}
+			case AUTHN_STATUS_SIGN_OUT: {
+				// TODO
+				break;
+			}
 			case AUTHN_STATUS_RSA_SWAP_RESPONSE:
 			case AUTHN_STATUS_AES_SWAP_RESPONSE:
 			case AUTHN_STATUS_NEW_USER_RESPONSE:

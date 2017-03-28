@@ -252,6 +252,7 @@ void *authn_thread_routine(void *arg) {
 			case AUTHN_STATUS_NEW_USER:
 			case AUTHN_STATUS_AUTH_TOKEN:
 			case AUTHN_STATUS_SIGN_OUT: {
+				printf("THIS SHOULDN'T HAPPEN!!!! (%s)\n", authn_status_to_str(buf.status));
 				break;
 			}
 		}

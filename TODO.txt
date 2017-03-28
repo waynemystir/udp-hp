@@ -1,11 +1,9 @@
 
-network encryption
-	time-based reset of server AES IV... and notification to all nodes... once a day?
 authentication
 	strlen + 1?
 	delete items from keychain on app delete
-ensure RSA swap request comes from Sup app (ie not from a fisher): maybe some sort of time-dependent key to pass with RSA swap
 
+fix bug where confirming chat port doesn't always work
 self <=> get internal hole punching working
 stay-in-touch with peers
 new functionality:
@@ -16,6 +14,13 @@ new ios functionality:
 	recv msg in textview
 	save chat history locally
 	show chat history in textview
+
+network encryption
+	node-to-server
+	peer-to-peer
+	ACTUALLY, we can get rid of server-generated AES key: time-based reset of server AES IV... and notification to all nodes... once a day?
+	ensure RSA swap request comes from Sup app (ie not from a fisher): maybe some sort of time-dependent key to pass with RSA swap
+
 
 ffmpeg encryption or webrtc?
 video_port
