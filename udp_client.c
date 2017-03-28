@@ -10,6 +10,7 @@
 #include "udp_client.h"
 #include "hashtable.h"
 #include "common.h"
+#include "crypto_wrapper.h"
 
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
@@ -202,6 +203,7 @@ void *authn_thread_routine(void *arg) {
 				create_aes_key_iv();
 				memset(&buf, '\0', SZ_AUN_BF);
 				buf.status = AUTHN_STATUS_AES_SWAP;
+				// TODO encrypt AES key with RSA key before sending
 				memset(buf.aes_key, '\0', NUM_BYTES_AES_KEY);
 				memcpy(buf.aes_key, aes_key, NUM_BYTES_AES_KEY);
 				memset(buf.aes_iv, '\0', NUM_BYTES_AES_IV);
@@ -219,9 +221,37 @@ void *authn_thread_routine(void *arg) {
 			case AUTHN_STATUS_AES_SWAP_RESPONSE: {
 				printf("The server's AES key (%s)\n", buf.aes_key);
 				printf("The server's AES iv (%s)\n", buf.aes_iv);
+				unsigned char ciphertext[512];
+				memset(ciphertext, '\0', 512);
+				int id_ciphertext_len = aes_encrypt((unsigned char*)username, aes_key, aes_iv, ciphertext);
+				memset(&buf, '\0', SZ_AUN_BF);
+				buf.status = AUTHN_STATUS_NEW_USER;
+				memset(buf.id, '\0', id_ciphertext_len);
+				memcpy(buf.id, ciphertext, id_ciphertext_len);
+				buf.id_ciphertext_len = id_ciphertext_len;
+
+				authn_sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0,
+					sa_authn_server, authn_server_socklen);
+				if (authn_sendto_len == -1) {
+					char w[256];
+					sprintf(w, "authn sendto failed with %zu", authn_sendto_len);
+					pfail(w);
+				}
 				break;
 			}
-			default: {
+			case AUTHN_STATUS_NEW_USER_RESPONSE: {
+				// TODO
+				break;
+			}
+			case AUTHN_STATUS_AUTH_TOKEN_RESPONSE: {
+				// TODO
+				break;
+			}
+			case AUTHN_STATUS_RSA_SWAP:
+			case AUTHN_STATUS_AES_SWAP:
+			case AUTHN_STATUS_NEW_USER:
+			case AUTHN_STATUS_AUTH_TOKEN:
+			case AUTHN_STATUS_SIGN_OUT: {
 				break;
 			}
 		}

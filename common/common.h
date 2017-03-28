@@ -13,6 +13,8 @@
 
 #define MAX_CHARS_USERNAME 47
 #define MAX_CHARS_PASSWORD 20
+#define MAX_BYTES_ENCRYPTED_USERNAME MAX_CHARS_USERNAME + 100
+#define MAX_BYTES_ENCRYPTED_PASSWORD MAX_CHARS_PASSWORD + 100
 #define RSA_PUBLIC_KEY_LEN 512
 #define NUM_BYTES_AES_KEY 256
 #define NUM_BYTES_AES_IV 128
@@ -46,8 +48,10 @@ typedef struct authn_buf {
 		unsigned char auth_token[AUTHEN_TOKEN_LEN];
 	};
 	unsigned char aes_iv[NUM_BYTES_AES_IV];
-	char id[MAX_CHARS_USERNAME];
-	char pw[MAX_CHARS_PASSWORD];
+	char id[MAX_BYTES_ENCRYPTED_USERNAME];
+	char pw[MAX_BYTES_ENCRYPTED_PASSWORD];
+	int id_ciphertext_len;
+	int pw_ciphertext_len;
 } authn_buf_t;
 
 typedef struct authn_node {
