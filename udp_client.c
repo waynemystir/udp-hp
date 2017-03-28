@@ -243,14 +243,14 @@ void *authn_thread_routine(void *arg) {
 				// TODO
 				break;
 			}
-			case AUTHN_STATUS_AUTH_TOKEN_RESPONSE: {
+			case AUTHN_STATUS_EXISTING_USER_RESPONSE: {
 				// TODO
 				break;
 			}
 			case AUTHN_STATUS_RSA_SWAP:
 			case AUTHN_STATUS_AES_SWAP:
 			case AUTHN_STATUS_NEW_USER:
-			case AUTHN_STATUS_AUTH_TOKEN:
+			case AUTHN_STATUS_EXISTING_USER:
 			case AUTHN_STATUS_SIGN_OUT: {
 				printf("THIS SHOULDN'T HAPPEN!!!! (%s)\n", authn_status_to_str(buf.status));
 				break;

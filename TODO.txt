@@ -1,11 +1,21 @@
 
 authentication
+	encrypt AES key with RSA key
+	encryt entire authn_buf_t after AUTHN_STATUS_AES_SWAP_RESPONSE, yeah?
+	finish new user status (including password)
+	handle handoff from authn server to main server
+		1-add authn_token member to structs node_t and node_buf_t
+		2-if new user, add hashnode and node (with authn token, ip, port, fam, etc)
+		3-if existing user, add node to corresponding hashnode (with authn token, ip, port, fam)
+		4-for 2 & 3, move big chunk of code from main-server->STATUS_INIT_NODE to authn-server, yeah?
+	handle new user vs existing user in ios app
 	strlen + 1?
 	delete items from keychain on app delete
+	do we even need an AuthN token? I guess it verifies to the main server that we're authenticated, right? If the main server doesn't find a matching AuthN token in the corresponding hashnode->node, then it rejects that node, right?
 
 fix bug where confirming chat port doesn't always work
 self <=> get internal hole punching working
-stay-in-touch with peers
+stay-in-touch with peers (and self nodes?)
 new functionality:
 	search for and add new contact + accept contact request
 new ios functionality:
@@ -16,8 +26,8 @@ new ios functionality:
 	show chat history in textview
 
 network encryption
-	node-to-server
-	peer-to-peer
+	node-to-main-server (I think we can just encrypt and decrypt the entire struct node_buf_t)
+	peer-to-peer (I think we can just encrypt and decrypt the entire struct node_buf_t)
 	ACTUALLY, we can get rid of server-generated AES key: time-based reset of server AES IV... and notification to all nodes... once a day?
 	ensure RSA swap request comes from Sup app (ie not from a fisher): maybe some sort of time-dependent key to pass with RSA swap
 

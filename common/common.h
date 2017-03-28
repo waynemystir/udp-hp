@@ -34,9 +34,12 @@ typedef enum AUTHN_STATUS {
 	AUTHN_STATUS_AES_SWAP = 2,
 	AUTHN_STATUS_AES_SWAP_RESPONSE = 3,
 	AUTHN_STATUS_NEW_USER = 4,
-	AUTHN_STATUS_NEW_USER_RESPONSE = 5,
-	AUTHN_STATUS_AUTH_TOKEN = 6,
-	AUTHN_STATUS_AUTH_TOKEN_RESPONSE = 7,
+	AUTHN_STATUS_NEW_USER_RESPONSE = 5, // we return the AuthN token here
+	// TODO I think we can handle existing user from BOTH new or existing device
+	// with AUTHN_STATUS_EXISTING_USER, right? We don't need to treat existing
+	// user differently whether they are using new or existing device, yeah?
+	AUTHN_STATUS_EXISTING_USER = 6,
+	AUTHN_STATUS_EXISTING_USER_RESPONSE = 7, // we return the AuthN token here
 	AUTHN_STATUS_SIGN_OUT = 8,
 } AUTHN_STATUS;
 
