@@ -303,7 +303,32 @@ void *authentication_server_endpoint(void *arg) {
 		printf("Auth received packet (%d):(%s) (%zu bytes) from %s port%d %d\n", buf.status,
 			authn_status_to_str(buf.status), recvf_len, ip_str, port, family);
 
+start_switch:
 		switch (buf.status) {
+			case AUTHN_STATUS_ENCRYPTED: {
+				char *key = authn_addr_info_to_key(family, ip_str, port);
+				printf("The node's key (%s)\n", key);
+				authn_node_t *an = lookup_authn_node(&authn_tbl, key);
+				if (!an) {
+					printf("No node was found for key (%s)\n", key);
+					break;
+				}
+				printf("And the node was found with key (%s)\n", an->key);
+
+				authn_buf_encrypted_t buf_enc;
+				memset(&buf_enc, '\0', SZ_AE_BUF);
+				memcpy(&buf_enc, &buf, sizeof(buf));
+				memset(&buf, '\0', sizeof(buf));
+				unsigned char decrypted_buf[SZ_AUN_BF + AES_PADDING];
+				memset(decrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
+				printf("lets try aes_decrypt (%lu)(%d)\n", sizeof(buf_enc.encrypted_buf), buf_enc.encrypted_len);
+				int dl = aes_decrypt(buf_enc.encrypted_buf, buf_enc.encrypted_len,
+					an->aes_key, an->aes_iv, decrypted_buf);
+				printf("aes_decrypt done\n");
+				memcpy(&buf, decrypted_buf, dl);
+				printf("aes_decrypt copied (%s)\n", buf.id);
+				goto start_switch;
+			}
 			case AUTHN_STATUS_RSA_SWAP: {
 				char *key = authn_addr_info_to_key(family, ip_str, port);
 				printf("The node's key (%s)\n", key);
@@ -361,14 +386,7 @@ void *authentication_server_endpoint(void *arg) {
 				}
 				printf("And the node was found with key (%s)\n", an->key);
 
-				unsigned char aes_decryptedtext[512];
-				memset(aes_decryptedtext, '\0', 512);
-				int aes_plaintext_len = aes_decrypt((unsigned char*)buf.id, buf.id_ciphertext_len,
-					an->aes_key, an->aes_iv, aes_decryptedtext);
-				char decrypted_substr[aes_plaintext_len];
-				memcpy(decrypted_substr, aes_decryptedtext, aes_plaintext_len);
-				printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX (%s)(%d)(%d)\n", decrypted_substr,
-					buf.id_ciphertext_len, aes_plaintext_len);
+				printf("XXXXXXXXXXXXXXXXXXXXXXXXXXX new user (%s)\n", buf.id);
 				break;
 			}
 			case AUTHN_STATUS_EXISTING_USER: {
