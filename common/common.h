@@ -13,14 +13,13 @@
 
 #define MAX_CHARS_USERNAME 47
 #define MAX_CHARS_PASSWORD 20
-#define MAX_BYTES_ENCRYPTED_USERNAME MAX_CHARS_USERNAME + 100
-#define MAX_BYTES_ENCRYPTED_PASSWORD MAX_CHARS_PASSWORD + 100
 #define RSA_PUBLIC_KEY_LEN 512
 #define NUM_BYTES_AES_KEY 256
 #define NUM_BYTES_AES_IV 128
 #define AUTHEN_TOKEN_LEN 160
 #define AUTHN_HASHSIZE 10001
 #define AUTHN_NODE_KEY_LENGTH INET6_ADDRSTRLEN + 20 + 20
+#define AES_PADDING 16
 
 typedef enum SERVER_TYPE {
 	SERVER_AUTHN,
@@ -29,18 +28,19 @@ typedef enum SERVER_TYPE {
 } SERVER_TYPE;
 
 typedef enum AUTHN_STATUS {
-	AUTHN_STATUS_RSA_SWAP = 0,
-	AUTHN_STATUS_RSA_SWAP_RESPONSE = 1,
-	AUTHN_STATUS_AES_SWAP = 2,
-	AUTHN_STATUS_AES_SWAP_RESPONSE = 3,
-	AUTHN_STATUS_NEW_USER = 4,
-	AUTHN_STATUS_NEW_USER_RESPONSE = 5, // we return the AuthN token here
+	AUTHN_STATUS_ENCRYPTED = 0,
+	AUTHN_STATUS_RSA_SWAP = 1,
+	AUTHN_STATUS_RSA_SWAP_RESPONSE = 2,
+	AUTHN_STATUS_AES_SWAP = 3,
+	AUTHN_STATUS_AES_SWAP_RESPONSE = 4,
+	AUTHN_STATUS_NEW_USER = 5,
+	AUTHN_STATUS_NEW_USER_RESPONSE = 6, // we return the AuthN token here
 	// TODO I think we can handle existing user from BOTH new or existing device
 	// with AUTHN_STATUS_EXISTING_USER, right? We don't need to treat existing
 	// user differently whether they are using new or existing device, yeah?
-	AUTHN_STATUS_EXISTING_USER = 6,
-	AUTHN_STATUS_EXISTING_USER_RESPONSE = 7, // we return the AuthN token here
-	AUTHN_STATUS_SIGN_OUT = 8,
+	AUTHN_STATUS_EXISTING_USER = 7,
+	AUTHN_STATUS_EXISTING_USER_RESPONSE = 8, // we return the AuthN token here
+	AUTHN_STATUS_SIGN_OUT = 9,
 } AUTHN_STATUS;
 
 typedef struct authn_buf {
@@ -51,10 +51,8 @@ typedef struct authn_buf {
 		unsigned char auth_token[AUTHEN_TOKEN_LEN];
 	};
 	unsigned char aes_iv[NUM_BYTES_AES_IV];
-	char id[MAX_BYTES_ENCRYPTED_USERNAME];
-	char pw[MAX_BYTES_ENCRYPTED_PASSWORD];
-	int id_ciphertext_len;
-	int pw_ciphertext_len;
+	char id[MAX_CHARS_USERNAME];
+	char pw[MAX_CHARS_PASSWORD];
 } authn_buf_t;
 
 typedef struct authn_node {
@@ -107,5 +105,13 @@ int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr);
 #define SZ_CH_BF sizeof(chat_buf_t)
 #define SZ_AUN_ND sizeof(authn_node_t)
 #define SZ_AUN_TBL sizeof(authn_hashtable_t)
+
+typedef struct authn_buf_encrypted {
+	AUTHN_STATUS status;
+	unsigned char encrypted_buf[SZ_AUN_BF + AES_PADDING];
+	int encrypted_len;
+} authn_buf_encrypted_t;
+
+#define SZ_AE_BUF sizeof(authn_buf_encrypted_t)
 
 #endif /* common_h */

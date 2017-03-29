@@ -14,7 +14,7 @@
 
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
-char username[] = "waynemystir";
+char username[] = "Rupert Humperdink";
 
 void send_hole_punch(node_t *peer);
 void *chat_hole_punch_thread(void *peer_to_hole_punch);
@@ -194,6 +194,10 @@ void *authn_thread_routine(void *arg) {
 		authn_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
 		switch (buf.status) {
+			case AUTHN_STATUS_ENCRYPTED: {
+				// TODO
+				break;
+			}
 			case AUTHN_STATUS_RSA_SWAP_RESPONSE: {
 				char *server_rsa_pub_key = malloc(RSA_PUBLIC_KEY_LEN);
 				memset(server_rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
@@ -221,16 +225,22 @@ void *authn_thread_routine(void *arg) {
 			case AUTHN_STATUS_AES_SWAP_RESPONSE: {
 				printf("The server's AES key (%s)\n", buf.aes_key);
 				printf("The server's AES iv (%s)\n", buf.aes_iv);
-				unsigned char ciphertext[512];
-				memset(ciphertext, '\0', 512);
-				int id_ciphertext_len = aes_encrypt((unsigned char*)username, aes_key, aes_iv, ciphertext);
 				memset(&buf, '\0', SZ_AUN_BF);
 				buf.status = AUTHN_STATUS_NEW_USER;
-				memset(buf.id, '\0', id_ciphertext_len);
-				memcpy(buf.id, ciphertext, id_ciphertext_len);
-				buf.id_ciphertext_len = id_ciphertext_len;
+				memcpy(buf.id, username, strlen(username));
 
-				authn_sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0,
+				unsigned char cipherbuf[SZ_AUN_BF + AES_PADDING];
+				memset(cipherbuf, '\0', SZ_AUN_BF + AES_PADDING);
+				int cipherbuf_len = aes_encrypt((unsigned char*)&buf, SZ_AUN_BF, aes_key, aes_iv, cipherbuf);
+
+				authn_buf_encrypted_t buf_enc;
+				memset(&buf_enc, '\0', SZ_AE_BUF);
+				buf_enc.status = AUTHN_STATUS_ENCRYPTED;
+				memset(buf_enc.encrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
+				memcpy(buf_enc.encrypted_buf, cipherbuf, cipherbuf_len);
+				buf_enc.encrypted_len = cipherbuf_len;
+
+				authn_sendto_len = sendto(authn_sock_fd, &buf_enc, SZ_AE_BUF, 0,
 					sa_authn_server, authn_server_socklen);
 				if (authn_sendto_len == -1) {
 					char w[256];
