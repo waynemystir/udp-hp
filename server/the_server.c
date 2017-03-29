@@ -291,7 +291,7 @@ void *authentication_server_endpoint(void *arg) {
 
 	while (authentication_server_running) {
 		// printf("main -: 3\n");
-		recvf_len = recvfrom(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, &slen);
+		recvf_len = recvfrom(authn_sock_fd, &buf, SZ_AE_BUF, 0, &sa_auth_other, &slen);
 		if ( recvf_len == -1) pfail("recvfrom");
 
 		char ip_str[INET6_ADDRSTRLEN];
@@ -315,6 +315,10 @@ start_switch:
 				}
 				printf("And the node was found with key (%s)\n", an->key);
 
+				authn_buf_encrypted_t *bc = (authn_buf_encrypted_t*)&buf;
+				printf("AAAAAAAAAAAAAAAAAAAAAAAAAAA (%lu)(%lu)(%lu)(%d)\n",
+					sizeof(*bc), SZ_AUN_BF, sizeof(bc->encrypted_buf), bc->encrypted_len);
+
 				authn_buf_encrypted_t buf_enc;
 				memset(&buf_enc, '\0', SZ_AE_BUF);
 				memcpy(&buf_enc, &buf, sizeof(buf));
@@ -322,7 +326,7 @@ start_switch:
 				unsigned char decrypted_buf[SZ_AUN_BF + AES_PADDING];
 				memset(decrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
 				printf("lets try aes_decrypt (%lu)(%d)\n", sizeof(buf_enc.encrypted_buf), buf_enc.encrypted_len);
-				int dl = aes_decrypt(buf_enc.encrypted_buf, buf_enc.encrypted_len,
+				int dl = aes_decrypt(buf_enc.encrypted_buf, 720,
 					an->aes_key, an->aes_iv, decrypted_buf);
 				printf("aes_decrypt done\n");
 				memcpy(&buf, decrypted_buf, dl);
