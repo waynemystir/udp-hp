@@ -18,6 +18,7 @@
 #define NUM_BITS_IV_KEY 128
 #define NUM_BYTES_AES_KEY NUM_BITS_AES_KEY/8
 #define NUM_BYTES_AES_IV NUM_BITS_IV_KEY/8
+#define NUM_BYTES_RSA_ENCRYPTED_DATA 256
 #define AUTHEN_TOKEN_LEN 160
 #define AUTHN_HASHSIZE 10001
 #define AUTHN_NODE_KEY_LENGTH INET6_ADDRSTRLEN + 20 + 20
@@ -49,7 +50,7 @@ typedef struct authn_buf {
 	AUTHN_STATUS status;
 	union {
 		unsigned char rsa_pub_key[RSA_PUBLIC_KEY_LEN];
-		unsigned char aes_key[NUM_BYTES_AES_KEY];
+		unsigned char aes_key[NUM_BYTES_RSA_ENCRYPTED_DATA];
 		unsigned char auth_token[AUTHEN_TOKEN_LEN];
 	};
 	unsigned char aes_iv[NUM_BYTES_AES_IV];
