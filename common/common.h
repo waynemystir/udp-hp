@@ -12,7 +12,7 @@
 #include <netdb.h>
 
 #define MAX_CHARS_USERNAME 47
-#define MAX_CHARS_PASSWORD 20
+#define MAX_CHARS_PASSWORD 28
 #define RSA_PUBLIC_KEY_LEN 512
 #define NUM_BITS_AES_KEY 256
 #define NUM_BITS_IV_KEY 128

@@ -15,6 +15,7 @@
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
 char username[] = "Rupert Humperdink";
+char password[] = "A bottle of bordeaux please";
 
 void send_hole_punch(node_t *peer);
 void *chat_hole_punch_thread(void *peer_to_hole_punch);
@@ -210,8 +211,8 @@ void *authn_thread_routine(void *arg) {
 				int result_len = 0;
 				unsigned char rsa_encrypted_aes_key[NUM_BYTES_RSA_ENCRYPTED_DATA];
 				memset(rsa_encrypted_aes_key, '\0', NUM_BYTES_RSA_ENCRYPTED_DATA);
-				printf("Attempting to encrypt (%lu) bytes\n", sizeof(aes_key));
-				rsa_encrypt(rsa_pub_key, aes_key, sizeof(aes_key), rsa_encrypted_aes_key, &result_len);
+				printf("Attempting to encrypt (%lu) bytes\n", NUM_BYTES_AES_KEY);
+				rsa_encrypt(rsa_pub_key, aes_key, NUM_BYTES_AES_KEY, rsa_encrypted_aes_key, &result_len);
 				printf("rsa_encrypted:(%s)(%d)\n", rsa_encrypted_aes_key, result_len);
 
 				memset(&buf, '\0', SZ_AUN_BF);
@@ -237,6 +238,7 @@ void *authn_thread_routine(void *arg) {
 				memset(&buf, '\0', SZ_AUN_BF);
 				buf.status = AUTHN_STATUS_NEW_USER;
 				memcpy(buf.id, username, strlen(username));
+				memcpy(buf.pw, password, strlen(password));
 
 				unsigned char cipherbuf[SZ_AUN_BF + AES_PADDING];
 				memset(cipherbuf, '\0', SZ_AUN_BF + AES_PADDING);
