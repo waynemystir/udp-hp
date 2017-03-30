@@ -259,7 +259,8 @@ void notify_contact_of_new_chat_port(contact_t *contact, void *arg1, void *arg2,
 }
 
 void *authentication_server_endpoint(void *arg) {
-	printf("authentication_server_endpoint thread started\n");
+	printf("authentication_server_endpoint thread started (%d)(%d)(%d)(%d)\n",
+		NUM_BITS_AES_KEY, NUM_BYTES_AES_KEY, NUM_BITS_IV_KEY, NUM_BYTES_AES_IV);
 	for (int j = 0; j < 10;) printf("authN %d\n", ++j);
 
 	size_t recvf_len, sendto_len;
@@ -319,6 +320,7 @@ start_switch:
 
 				unsigned char decrypted_buf[SZ_AUN_BF + AES_PADDING];
 				memset(decrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
+				// printf("Lets AES descrypt with (%s)\n", );
 				int dl = aes_decrypt(be->encrypted_buf, be->encrypted_len, an->aes_key, an->aes_iv, decrypted_buf);
 				memset(&buf, '\0', sizeof(buf));
 				memcpy(&buf, decrypted_buf, dl);
@@ -338,6 +340,8 @@ start_switch:
 				buf.status = AUTHN_STATUS_RSA_SWAP_RESPONSE;
 				memset(buf.rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
 				memcpy(buf.rsa_pub_key, rsa_public_key_str, RSA_PUBLIC_KEY_LEN);
+				printf("Sending RSA public key (%s) to node\n", buf.rsa_pub_key);
+
 				sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
@@ -353,8 +357,19 @@ start_switch:
 					break;
 				}
 				printf("And the node was found with key (%s)\n", an->key);
+
+				RSA *rsa_priv_key;
+				unsigned char rsa_decrypted_aes_key[256];
+				memset(rsa_decrypted_aes_key, '\0', 256);
+				int result_len = 0;
+				load_private_key_from_str(&rsa_priv_key, rsa_private_key_str);
+				printf("Lets rsa decrypt with (%lu)(%lu)(%s)\n", sizeof(buf.aes_key),
+					sizeof(rsa_decrypted_aes_key), rsa_private_key_str);
+				rsa_decrypt(rsa_priv_key, buf.aes_key, rsa_decrypted_aes_key, &result_len);
+				printf("rsa_decrypted:(%s)(%d)\n", rsa_decrypted_aes_key, result_len);
+
 				memset(an->aes_key, '\0', NUM_BYTES_AES_KEY);
-				memcpy(an->aes_key, buf.aes_key, NUM_BYTES_AES_KEY);
+				memcpy(an->aes_key, rsa_decrypted_aes_key, result_len);
 				memset(an->aes_iv, '\0', NUM_BYTES_AES_IV);
 				memcpy(an->aes_iv, buf.aes_iv, NUM_BYTES_AES_IV);
 				printf("The node's AES key (%s)\n", an->aes_key);
