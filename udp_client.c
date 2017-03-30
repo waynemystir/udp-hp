@@ -23,7 +23,7 @@ void init_chat_hp();
 void *chat_hp_server(void *w);
 
 hash_node_t self;
-char *rsa_public_key, *rsa_private_key;
+char *rsa_public_key, *rsa_private_key, *server_rsa_pub_key;
 unsigned char *aes_key;
 unsigned char *aes_iv;
 
@@ -199,14 +199,14 @@ void *authn_thread_routine(void *arg) {
 				break;
 			}
 			case AUTHN_STATUS_RSA_SWAP_RESPONSE: {
-				char *server_rsa_pub_key = malloc(RSA_PUBLIC_KEY_LEN);
+				server_rsa_pub_key = malloc(RSA_PUBLIC_KEY_LEN);
 				memset(server_rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
 				memcpy(server_rsa_pub_key, buf.rsa_pub_key, RSA_PUBLIC_KEY_LEN);
 				if (rsa_response_cb) rsa_response_cb(server_rsa_pub_key);
 
 				create_aes_key_iv();
 				RSA *rsa_pub_key;
-				load_public_key_from_str(&rsa_pub_key, rsa_public_key);
+				load_public_key_from_str(&rsa_pub_key, server_rsa_pub_key);
 				int result_len = 0;
 				unsigned char rsa_encrypted_aes_key[NUM_BYTES_AES_KEY];
 				memset(rsa_encrypted_aes_key, '\0', NUM_BYTES_AES_KEY);

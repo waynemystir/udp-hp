@@ -1,6 +1,7 @@
 
 authentication
 	why isn't AES key being retrieved properly in ios app? something wrong in - (id)objectForKey:(id)key
+	save server's RSA pub key in ios keychain
 	encrypt AES key with RSA key
 	handle new user vs existing user in ios app
 	finish new user status (including password)
