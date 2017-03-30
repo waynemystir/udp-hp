@@ -1,14 +1,14 @@
 
 authentication
 	encrypt AES key with RSA key
-	encryt entire authn_buf_t after AUTHN_STATUS_AES_SWAP_RESPONSE, yeah?
+	handle new user vs existing user in ios app
 	finish new user status (including password)
+
 	handle handoff from authn server to main server
 		1-add authn_token member to structs node_t and node_buf_t
 		2-if new user, add hashnode and node (with authn token, ip, port, fam, etc)
 		3-if existing user, add node to corresponding hashnode (with authn token, ip, port, fam)
 		4-for 2 & 3, move big chunk of code from main-server->STATUS_INIT_NODE to authn-server, yeah?
-	handle new user vs existing user in ios app
 	strlen + 1?
 	delete items from keychain on app delete
 
