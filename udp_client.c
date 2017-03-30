@@ -205,11 +205,20 @@ void *authn_thread_routine(void *arg) {
 				if (rsa_response_cb) rsa_response_cb(server_rsa_pub_key);
 
 				create_aes_key_iv();
+				RSA *rsa_pub_key;
+				load_public_key_from_str(&rsa_pub_key, rsa_public_key);
+				int result_len = 0;
+				unsigned char rsa_encrypted_aes_key[NUM_BYTES_AES_KEY];
+				memset(rsa_encrypted_aes_key, '\0', NUM_BYTES_AES_KEY);
+				printf("Attempting to encrypt (%lu) bytes\n", sizeof(aes_key));
+				rsa_encrypt(rsa_pub_key, aes_key, sizeof(aes_key), rsa_encrypted_aes_key, &result_len);
+				printf("rsa_encrypted:(%s)(%d)\n", rsa_encrypted_aes_key, result_len);
+
 				memset(&buf, '\0', SZ_AUN_BF);
 				buf.status = AUTHN_STATUS_AES_SWAP;
 				// TODO encrypt AES key with RSA key before sending
 				memset(buf.aes_key, '\0', NUM_BYTES_AES_KEY);
-				memcpy(buf.aes_key, aes_key, NUM_BYTES_AES_KEY);
+				memcpy(buf.aes_key, rsa_encrypted_aes_key, result_len);
 				memset(buf.aes_iv, '\0', NUM_BYTES_AES_IV);
 				memcpy(buf.aes_iv, aes_iv, NUM_BYTES_AES_IV);
 
