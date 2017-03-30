@@ -315,22 +315,14 @@ start_switch:
 				}
 				printf("And the node was found with key (%s)\n", an->key);
 
-				authn_buf_encrypted_t *bc = (authn_buf_encrypted_t*)&buf;
-				printf("AAAAAAAAAAAAAAAAAAAAAAAAAAA (%lu)(%lu)(%lu)(%d)\n",
-					sizeof(*bc), SZ_AUN_BF, sizeof(bc->encrypted_buf), bc->encrypted_len);
+				authn_buf_encrypted_t *be = (authn_buf_encrypted_t*)&buf;
 
-				authn_buf_encrypted_t buf_enc;
-				memset(&buf_enc, '\0', SZ_AE_BUF);
-				memcpy(&buf_enc, &buf, sizeof(buf));
-				memset(&buf, '\0', sizeof(buf));
 				unsigned char decrypted_buf[SZ_AUN_BF + AES_PADDING];
 				memset(decrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
-				printf("lets try aes_decrypt (%lu)(%d)\n", sizeof(buf_enc.encrypted_buf), buf_enc.encrypted_len);
-				int dl = aes_decrypt(buf_enc.encrypted_buf, 720,
-					an->aes_key, an->aes_iv, decrypted_buf);
-				printf("aes_decrypt done\n");
+				int dl = aes_decrypt(be->encrypted_buf, be->encrypted_len, an->aes_key, an->aes_iv, decrypted_buf);
+				memset(&buf, '\0', sizeof(buf));
 				memcpy(&buf, decrypted_buf, dl);
-				printf("aes_decrypt copied (%s)\n", buf.id);
+				// printf("aes_decrypt copied (%s)\n", buf.id);
 				goto start_switch;
 			}
 			case AUTHN_STATUS_RSA_SWAP: {
@@ -390,7 +382,7 @@ start_switch:
 				}
 				printf("And the node was found with key (%s)\n", an->key);
 
-				printf("XXXXXXXXXXXXXXXXXXXXXXXXXXX new user (%s)\n", buf.id);
+				printf("XXXXXXXXXXXXXXXXXXXXXXXXXXX new user (%s)(%s)\n", buf.id, buf.pw);
 				break;
 			}
 			case AUTHN_STATUS_EXISTING_USER: {
