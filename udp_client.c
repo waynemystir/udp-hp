@@ -14,8 +14,9 @@
 
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
-char username[] = "Rupert Humperdink";
-char password[] = "A bottle of bordeaux please";
+NODE_USER_STATUS node_user_status;
+char username[MAX_CHARS_USERNAME] = "Rupert Humperdink";
+char password[MAX_CHARS_PASSWORD] = "A bottle of bordeaux please";
 
 void send_hole_punch(node_t *peer);
 void *chat_hole_punch_thread(void *peer_to_hole_punch);
@@ -57,6 +58,11 @@ char server_internal_port[20];
 char server_internal_family[20];
 socklen_t server_socklen = 0;
 
+// The AuthN server
+struct sockaddr *sa_authn_server;
+socklen_t authn_server_socklen = 0;
+size_t authn_sendto_len, authn_recvf_len;
+
 // The chat server
 struct sockaddr *sa_chat_server;
 char chat_server_internal_ip[INET6_ADDRSTRLEN];
@@ -65,6 +71,7 @@ char chat_server_internal_family[20];
 socklen_t chat_server_socklen = 0;
 
 // The socket file descriptors
+int authn_sock_fd;
 int sock_fd;
 int chat_sock_fd;
 
@@ -131,16 +138,54 @@ void create_aes_key_iv() {
 	if (aes_key_created_cb) aes_key_created_cb(aes_key);
 }
 
+void send_user() {
+	authn_buf_t buf;
+	memset(&buf, '\0', SZ_AUN_BF);
+	switch (node_user_status) {
+		case NODE_USER_STATUS_NEW_USER: {
+			buf.status = AUTHN_STATUS_NEW_USER;
+			break;
+		}
+		case NODE_USER_STATUS_EXISTING_USER: {
+			buf.status = AUTHN_STATUS_EXISTING_USER;
+			break;
+		}
+		case NODE_USER_STATUS_UNKNOWN: {
+			return;
+		}
+	}
+	
+	memcpy(buf.id, username, strlen(username));
+	memcpy(buf.pw, password, strlen(password));
+
+	unsigned char cipherbuf[SZ_AUN_BF + AES_PADDING];
+	memset(cipherbuf, '\0', SZ_AUN_BF + AES_PADDING);
+	int cipherbuf_len = aes_encrypt((unsigned char*)&buf, SZ_AUN_BF, aes_key, aes_iv, cipherbuf);
+
+	authn_buf_encrypted_t buf_enc;
+	memset(&buf_enc, '\0', SZ_AE_BUF);
+	buf_enc.status = AUTHN_STATUS_ENCRYPTED;
+	memset(buf_enc.encrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
+	memcpy(buf_enc.encrypted_buf, cipherbuf, cipherbuf_len);
+	buf_enc.encrypted_len = cipherbuf_len;
+
+	authn_sendto_len = sendto(authn_sock_fd, &buf_enc, SZ_AE_BUF, 0,
+		sa_authn_server, authn_server_socklen);
+	if (authn_sendto_len == -1) {
+		char w[256];
+		sprintf(w, "authn sendto failed with %zu", authn_sendto_len);
+		pfail(w);
+	}
+
+}
+
 void *authn_thread_routine(void *arg) {
 	AUTHN_STATUS auth_status = *(AUTHN_STATUS *)arg;
 	printf("authn_thread_routine (%d)\n", auth_status);
 
-	struct sockaddr *sa_authn_server;
 	char authn_server_ip[INET6_ADDRSTRLEN];
 	char authn_server_port[20];
 	char authn_server_family[20];
-	socklen_t authn_server_socklen = 0;
-	size_t authn_sendto_len, authn_recvf_len;
 	char wes[256];
 	authn_buf_t buf;
 	struct sockaddr sa_authn_other;
@@ -150,7 +195,7 @@ void *authn_thread_routine(void *arg) {
 	socklen_t authn_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 	char wayne[256];
 
-	int authn_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	authn_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (authn_sock_fd == -1) {
 		printf("There was a problem creating the authn socket\n");
 	}
@@ -211,7 +256,7 @@ void *authn_thread_routine(void *arg) {
 				int result_len = 0;
 				unsigned char rsa_encrypted_aes_key[NUM_BYTES_RSA_ENCRYPTED_DATA];
 				memset(rsa_encrypted_aes_key, '\0', NUM_BYTES_RSA_ENCRYPTED_DATA);
-				printf("Attempting to encrypt (%lu) bytes\n", NUM_BYTES_AES_KEY);
+				printf("Attempting to encrypt (%d) bytes\n", NUM_BYTES_AES_KEY);
 				rsa_encrypt(rsa_pub_key, aes_key, NUM_BYTES_AES_KEY, rsa_encrypted_aes_key, &result_len);
 				printf("rsa_encrypted:(%s)(%d)\n", rsa_encrypted_aes_key, result_len);
 
@@ -235,29 +280,7 @@ void *authn_thread_routine(void *arg) {
 			case AUTHN_STATUS_AES_SWAP_RESPONSE: {
 				printf("The server's AES key (%s)\n", buf.aes_key);
 				printf("The server's AES iv (%s)\n", buf.aes_iv);
-				memset(&buf, '\0', SZ_AUN_BF);
-				buf.status = AUTHN_STATUS_NEW_USER;
-				memcpy(buf.id, username, strlen(username));
-				memcpy(buf.pw, password, strlen(password));
-
-				unsigned char cipherbuf[SZ_AUN_BF + AES_PADDING];
-				memset(cipherbuf, '\0', SZ_AUN_BF + AES_PADDING);
-				int cipherbuf_len = aes_encrypt((unsigned char*)&buf, SZ_AUN_BF, aes_key, aes_iv, cipherbuf);
-
-				authn_buf_encrypted_t buf_enc;
-				memset(&buf_enc, '\0', SZ_AE_BUF);
-				buf_enc.status = AUTHN_STATUS_ENCRYPTED;
-				memset(buf_enc.encrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
-				memcpy(buf_enc.encrypted_buf, cipherbuf, cipherbuf_len);
-				buf_enc.encrypted_len = cipherbuf_len;
-
-				authn_sendto_len = sendto(authn_sock_fd, &buf_enc, SZ_AE_BUF, 0,
-					sa_authn_server, authn_server_socklen);
-				if (authn_sendto_len == -1) {
-					char w[256];
-					sprintf(w, "authn sendto failed with %zu", authn_sendto_len);
-					pfail(w);
-				}
+				send_user();
 				break;
 			}
 			case AUTHN_STATUS_NEW_USER_RESPONSE: {
@@ -283,7 +306,10 @@ void *authn_thread_routine(void *arg) {
 	pthread_exit("authn_thread exited normally");
 }
 
-int authn(AUTHN_STATUS auth_status,
+int authn(NODE_USER_STATUS user_stat,
+	const char *usernm,
+	const char *passwd,
+	AUTHN_STATUS auth_status,
 	char *rsa_pub_key,
 	char *rsa_pri_key,
 	unsigned char *aes_k,
@@ -294,6 +320,18 @@ int authn(AUTHN_STATUS auth_status,
 	recd_cb = recd;
 	rsa_response_cb = rsa_response;
 	aes_key_created_cb = aes_key_created;
+	node_user_status = user_stat;
+
+	if (usernm) {
+		memset(username, '\0', MAX_CHARS_USERNAME);
+		strcpy(username, usernm);
+	}
+
+	if (passwd) {
+		memset(password, '\0', MAX_CHARS_PASSWORD);
+		strcpy(password, passwd);
+	}
+
 	if (aes_k) {
 		aes_key = malloc(NUM_BYTES_AES_KEY);
 		memset(aes_key, '\0', NUM_BYTES_AES_KEY);

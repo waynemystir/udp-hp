@@ -18,7 +18,8 @@ authentication
 
 move chat_server into the_server
 
-fix bug where confirming chat port doesn't always work
+change authN server to TCP to avoid packet loss, ordering problems?
+fix bug where confirming chat port doesn't always work... possibly due to packet loss or unordered receipt of packets?
 self <=> get internal hole punching working
 stay-in-touch with peers (and self nodes?)
 new functionality:

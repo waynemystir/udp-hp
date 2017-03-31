@@ -13,7 +13,10 @@
 #include "hashtable.h"
 #include "network_utils.h"
 
-int authn(AUTHN_STATUS auth_status,
+int authn(NODE_USER_STATUS user_stat,
+	const char *usernm,
+	const char *passwd,
+	AUTHN_STATUS auth_status,
 	char *rsa_pub_key,
 	char *rsa_pri_key,
 	unsigned char *aes_key,
