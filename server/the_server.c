@@ -421,7 +421,7 @@ start_switch:
 				else if (strcmp(hn->password, buf.pw) != 0) cr = AUTHN_CREDS_CHECK_RESULT_WRONG_PASSWORD;
 				else cr = AUTHN_CREDS_CHECK_RESULT_GOOD;
 
-				printf("AUTHN_STATUS_EXISTING_USER (%d)\n", creds_check_result_to_str(cr));
+				printf("AUTHN_STATUS_EXISTING_USER (%s)\n", creds_check_result_to_str(cr));
 
 				memset(&buf, '\0', sizeof(buf));
 				buf.status = AUTHN_STATUS_CREDS_CHECK_RESULT;
