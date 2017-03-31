@@ -408,10 +408,10 @@ start_switch:
 			}
 			case AUTHN_STATUS_EXISTING_USER: {
 				char *key = authn_addr_info_to_key(family, ip_str, port);
-				printf("The node's key (%s)\n", key);
+				printf("The EXISTING USER'S node's key (%s)\n", key);
 				authn_node_t *an = lookup_authn_node(&authn_tbl, key);
 				if (!an) {
-					printf("No node was found for key (%s)\n", key);
+					printf("AUTHN_STATUS_EXISTING_USER: No node was found for key (%s)\n", key);
 					break;
 				}
 
@@ -420,6 +420,8 @@ start_switch:
 				if (!hn) cr = AUTHN_CREDS_CHECK_RESULT_USER_NOT_FOUND;
 				else if (strcmp(hn->password, buf.pw) != 0) cr = AUTHN_CREDS_CHECK_RESULT_WRONG_PASSWORD;
 				else cr = AUTHN_CREDS_CHECK_RESULT_GOOD;
+
+				printf("AUTHN_STATUS_EXISTING_USER (%d)\n", creds_check_result_to_str(cr));
 
 				memset(&buf, '\0', sizeof(buf));
 				buf.status = AUTHN_STATUS_CREDS_CHECK_RESULT;

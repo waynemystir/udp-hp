@@ -22,7 +22,8 @@ int authn(NODE_USER_STATUS user_stat,
 	unsigned char *aes_key,
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
 	void (*rsa_response)(char *server_rsa_pub_key),
-	void (*aes_key_created)(unsigned char[NUM_BYTES_AES_KEY]));
+	void (*aes_key_created)(unsigned char[NUM_BYTES_AES_KEY]),
+	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, unsigned char[AUTHEN_TOKEN_LEN]));
 
 int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port, unsigned short family),
 	void (*socket_created)(int sock_fd),

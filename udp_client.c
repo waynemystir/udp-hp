@@ -17,6 +17,7 @@
 NODE_USER_STATUS node_user_status;
 char username[MAX_CHARS_USERNAME] = "Rupert Humperdink";
 char password[MAX_CHARS_PASSWORD] = "A bottle of bordeaux please";
+unsigned char authentication_token[AUTHEN_TOKEN_LEN];
 
 void send_hole_punch(node_t *peer);
 void *chat_hole_punch_thread(void *peer_to_hole_punch);
@@ -84,6 +85,7 @@ int chat_server_conn_running = 1;
 // function pointers
 void (*rsa_response_cb)(char *server_rsa_pub_key) = NULL;
 void (*aes_key_created_cb)(unsigned char[NUM_BYTES_AES_KEY]) = NULL;
+void (*creds_check_result_cb)(AUTHN_CREDS_CHECK_RESULT, unsigned char[AUTHEN_TOKEN_LEN]) = NULL;
 void (*self_info_cb)(char *, unsigned short, unsigned short, unsigned short) = NULL;
 void (*server_info_cb)(SERVER_TYPE, char *) = NULL;
 void (*socket_created_cb)(int) = NULL;
@@ -291,6 +293,12 @@ void *authn_thread_routine(void *arg) {
 				// TODO
 				break;
 			}
+			case AUTHN_STATUS_CREDS_CHECK_RESULT: {
+				if (buf.authn_result == AUTHN_CREDS_CHECK_RESULT_GOOD)
+					memcpy(authentication_token, buf.authn_token, AUTHEN_TOKEN_LEN);
+				if (creds_check_result_cb) creds_check_result_cb(buf.authn_result, buf.authn_token);
+				break;
+			}
 			case AUTHN_STATUS_RSA_SWAP:
 			case AUTHN_STATUS_AES_SWAP:
 			case AUTHN_STATUS_NEW_USER:
@@ -315,11 +323,13 @@ int authn(NODE_USER_STATUS user_stat,
 	unsigned char *aes_k,
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
 	void (*rsa_response)(char *server_rsa_pub_key),
-	void (*aes_key_created)(unsigned char[NUM_BYTES_AES_KEY])) {
+	void (*aes_key_created)(unsigned char[NUM_BYTES_AES_KEY]),
+	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, unsigned char[AUTHEN_TOKEN_LEN])) {
 
 	recd_cb = recd;
 	rsa_response_cb = rsa_response;
 	aes_key_created_cb = aes_key_created;
+	creds_check_result_cb = creds_check_result;
 	node_user_status = user_stat;
 
 	if (usernm) {
