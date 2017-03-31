@@ -49,7 +49,7 @@ typedef enum AUTHN_STATUS {
 	// user differently whether they are using new or existing device, yeah?
 	AUTHN_STATUS_EXISTING_USER = 7,
 	AUTHN_STATUS_EXISTING_USER_RESPONSE = 8, // we return the AuthN token here
-	AUTHN_STATUS_CREDS_CHECK_PROBLEM = 9,
+	AUTHN_STATUS_CREDS_CHECK_RESULT = 9,
 	AUTHN_STATUS_SIGN_OUT = 10,
 } AUTHN_STATUS;
 
@@ -65,7 +65,7 @@ typedef struct authn_buf {
 	union {
 		unsigned char rsa_pub_key[RSA_PUBLIC_KEY_LEN];
 		unsigned char aes_key[NUM_BYTES_RSA_ENCRYPTED_DATA];
-		unsigned char auth_token[AUTHEN_TOKEN_LEN];
+		unsigned char authn_token[AUTHEN_TOKEN_LEN];
 	};
 	unsigned char aes_iv[NUM_BYTES_AES_IV];
 	char id[MAX_CHARS_USERNAME];
@@ -79,7 +79,7 @@ typedef struct authn_node {
 	unsigned char rsa_pub_key[RSA_PUBLIC_KEY_LEN];
 	unsigned char aes_key[NUM_BYTES_AES_KEY];
 	unsigned char aes_iv[NUM_BYTES_AES_IV];
-	unsigned char auth_token[AUTHEN_TOKEN_LEN];
+	unsigned char authn_token[AUTHEN_TOKEN_LEN];
 	char id[MAX_CHARS_USERNAME];
 	char pw[MAX_CHARS_PASSWORD];
 	struct authn_node *next;
