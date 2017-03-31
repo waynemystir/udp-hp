@@ -83,6 +83,7 @@ int chat_stay_in_touch_running = 1;
 int chat_server_conn_running = 1;
 
 // function pointers
+void (*rsakeypair_generated_cb)(const char *rsa_pub_key, const char *rsa_pri_key) = NULL;
 void (*rsa_response_cb)(char *server_rsa_pub_key) = NULL;
 void (*aes_key_created_cb)(unsigned char[NUM_BYTES_AES_KEY]) = NULL;
 void (*creds_check_result_cb)(AUTHN_CREDS_CHECK_RESULT, unsigned char[AUTHEN_TOKEN_LEN]) = NULL;
@@ -140,7 +141,10 @@ void create_aes_key_iv() {
 	if (aes_key_created_cb) aes_key_created_cb(aes_key);
 }
 
-void send_user() {
+void send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
+	if (!usernm || !pw) return;
+
+	node_user_status = nus;
 	authn_buf_t buf;
 	memset(&buf, '\0', SZ_AUN_BF);
 	switch (node_user_status) {
@@ -157,8 +161,8 @@ void send_user() {
 		}
 	}
 	
-	memcpy(buf.id, username, strlen(username));
-	memcpy(buf.pw, password, strlen(password));
+	memcpy(buf.id, usernm, strlen(usernm));
+	memcpy(buf.pw, pw, strlen(pw));
 
 	unsigned char cipherbuf[SZ_AUN_BF + AES_PADDING];
 	memset(cipherbuf, '\0', SZ_AUN_BF + AES_PADDING);
@@ -282,7 +286,7 @@ void *authn_thread_routine(void *arg) {
 			case AUTHN_STATUS_AES_SWAP_RESPONSE: {
 				// printf("The server's AES key (%s)\n", buf.aes_key);
 				// printf("The server's AES iv (%s)\n", buf.aes_iv);
-				send_user();
+				send_user(node_user_status, username, password);
 				break;
 			}
 			case AUTHN_STATUS_NEW_USER_RESPONSE: {
@@ -318,14 +322,16 @@ int authn(NODE_USER_STATUS user_stat,
 	const char *usernm,
 	const char *passwd,
 	AUTHN_STATUS auth_status,
-	char *rsa_pub_key,
-	char *rsa_pri_key,
+	const char *rsa_pub_key,
+	const char *rsa_pri_key,
 	unsigned char *aes_k,
+	void (*rsakeypair_generated)(const char *rsa_pub_key, const char *rsa_pri_key),
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
 	void (*rsa_response)(char *server_rsa_pub_key),
 	void (*aes_key_created)(unsigned char[NUM_BYTES_AES_KEY]),
 	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, unsigned char[AUTHEN_TOKEN_LEN])) {
 
+	rsakeypair_generated_cb = rsakeypair_generated;
 	recd_cb = recd;
 	rsa_response_cb = rsa_response;
 	aes_key_created_cb = aes_key_created;
@@ -348,17 +354,30 @@ int authn(NODE_USER_STATUS user_stat,
 		memcpy(aes_key, aes_k, NUM_BYTES_AES_KEY);
 	}
 
-	if (!rsa_pub_key || !rsa_pri_key) return -1;
-	AUTHN_STATUS *as = malloc(sizeof(int));
-	if (as) *as = auth_status;
-
 	rsa_public_key = malloc(strlen(rsa_pub_key)+1);
 	rsa_private_key = malloc(strlen(rsa_pri_key)+1);
 	memset(rsa_public_key, '\0', strlen(rsa_pub_key)+1);
 	memset(rsa_private_key, '\0', strlen(rsa_pri_key)+1);
-	strcpy(rsa_public_key, rsa_pub_key);
-	strcpy(rsa_private_key, rsa_pri_key);
-	rsa_response_cb = rsa_response;
+
+	if (!rsa_pub_key || !rsa_pri_key) {
+		char *rsa_pri = NULL, *rsa_pub = NULL;
+		generate_rsa_keypair(NULL, &rsa_pri, &rsa_pub, NULL, NULL);
+		// TODO handle !rsa_pub || !rsa_pri
+		strcpy(rsa_public_key, rsa_pub);
+		strcpy(rsa_private_key, rsa_pri);
+		free(rsa_pub);
+		free(rsa_pri);
+		if (rsakeypair_generated_cb) rsakeypair_generated_cb(rsa_pub, rsa_pri);
+	} else {
+		strcpy(rsa_public_key, rsa_pub_key);
+		strcpy(rsa_private_key, rsa_pri_key);
+//		free((char*)rsa_pub_key);
+//		free((char*)rsa_pri_key);
+	}
+
+	AUTHN_STATUS *as = malloc(sizeof(int));
+	if (as) *as = auth_status;
+
 	pthread_t authn_thread;
 	int atr = pthread_create(&authn_thread, NULL, authn_thread_routine, as);
 	if (atr) {
