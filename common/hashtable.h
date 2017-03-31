@@ -28,6 +28,7 @@ typedef struct contact_list {
 
 typedef struct hash_node {
 	char username[MAX_CHARS_USERNAME];
+	char password[MAX_CHARS_PASSWORD];
 	LinkedList_t *nodes;
 	contact_list_t *contacts;
 	struct hash_node *next;
@@ -45,7 +46,7 @@ hash_node_t *lookup_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]
 // void username_from_id(ID id, char username[MAX_CHARS_USERNAME]);
 // void id_from_username(char username[MAX_CHARS_USERNAME], ID id);
 hash_node_t *lookup_user_from_id(hashtable_t *hashtbl, char id[MAX_CHARS_USERNAME]);
-hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]);
+hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char *password);
 hash_node_t *add_ip_to_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], node_t *ip);
 contact_t *add_contact_to_list(contact_list_t *contacts, char contactname[MAX_CHARS_USERNAME]);
 void add_contact_to_hashtbl(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char contactname[MAX_CHARS_USERNAME]);

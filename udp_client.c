@@ -278,8 +278,8 @@ void *authn_thread_routine(void *arg) {
 				break;
 			}
 			case AUTHN_STATUS_AES_SWAP_RESPONSE: {
-				printf("The server's AES key (%s)\n", buf.aes_key);
-				printf("The server's AES iv (%s)\n", buf.aes_iv);
+				// printf("The server's AES key (%s)\n", buf.aes_key);
+				// printf("The server's AES iv (%s)\n", buf.aes_iv);
 				send_user();
 				break;
 			}

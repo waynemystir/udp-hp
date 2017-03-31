@@ -49,8 +49,16 @@ typedef enum AUTHN_STATUS {
 	// user differently whether they are using new or existing device, yeah?
 	AUTHN_STATUS_EXISTING_USER = 7,
 	AUTHN_STATUS_EXISTING_USER_RESPONSE = 8, // we return the AuthN token here
-	AUTHN_STATUS_SIGN_OUT = 9,
+	AUTHN_STATUS_CREDS_CHECK_PROBLEM = 9,
+	AUTHN_STATUS_SIGN_OUT = 10,
 } AUTHN_STATUS;
+
+typedef enum AUTHN_CREDS_CHECK_RESULT {
+	AUTHN_CREDS_CHECK_RESULT_GOOD = 0,
+	AUTHN_CREDS_CHECK_RESULT_USER_NOT_FOUND = 1,
+	AUTHN_CREDS_CHECK_RESULT_WRONG_PASSWORD = 2,
+	AUTHN_CREDS_CHECK_RESULT_MISC_ERROR = 3,
+} AUTHN_CREDS_CHECK_RESULT;
 
 typedef struct authn_buf {
 	AUTHN_STATUS status;
@@ -62,6 +70,7 @@ typedef struct authn_buf {
 	unsigned char aes_iv[NUM_BYTES_AES_IV];
 	char id[MAX_CHARS_USERNAME];
 	char pw[MAX_CHARS_PASSWORD];
+	AUTHN_CREDS_CHECK_RESULT authn_result;
 } authn_buf_t;
 
 typedef struct authn_node {
@@ -101,6 +110,7 @@ typedef struct chat_buf {
 extern const unsigned short AUTHENTICATION_PORT;
 
 char *authn_status_to_str(AUTHN_STATUS as);
+char *creds_check_result_to_str(AUTHN_CREDS_CHECK_RESULT r);
 char *str_from_server_type(SERVER_TYPE st);
 char *chat_status_to_str(CHAT_STATUS cs);
 

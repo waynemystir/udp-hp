@@ -36,7 +36,8 @@ int authn_sock_fd;
 
 struct sockaddr si_other;
 struct sockaddr sa_auth_other;
-socklen_t slen = SZ_SOCKADDR;
+socklen_t main_slen = SZ_SOCKADDR;
+socklen_t authn_slen = SZ_SOCKADDR;
 hashtable_t hashtbl;
 authn_hashtable_t authn_tbl;
 
@@ -123,10 +124,10 @@ int collect_aes_key_and_iv() {
 
 void load_hashtbl_from_db() {
 	memset(&hashtbl, '\0', SZ_HASHTBL);
-	add_user(&hashtbl, "waynemystir");
-	add_user(&hashtbl, "julius_erving");
-	add_user(&hashtbl, "mike_schmidt");
-	add_user(&hashtbl, "pete_rose");
+	add_user(&hashtbl, "waynemystir", "");
+	add_user(&hashtbl, "julius_erving", "");
+	add_user(&hashtbl, "mike_schmidt", "");
+	add_user(&hashtbl, "pete_rose", "");
 
 	add_contact_to_hashtbl(&hashtbl, "pete_rose", "waynemystir");
 	add_contact_to_hashtbl(&hashtbl, "pete_rose", "mike_schmidt");
@@ -182,11 +183,11 @@ void notify_existing_peer_of_new_node(node_t *existing_peer, void *arg1, void *a
 	get_approp_node_bufs(existing_peer, new_node, &exip_node_buf, &new_node_buf, id_ep, id_nn);
 
 	// And now we notify existing peer of new tail
-	if (sendto(sock_fd, new_node_buf, SZ_NODE_BF, 0, &ep_addr, slen)==-1)
+	if (sendto(sock_fd, new_node_buf, SZ_NODE_BF, 0, &ep_addr, main_slen)==-1)
 		pfail("sendto");
 
 	// And notify new tail (i.e. si_other) of existing peer
-	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, &si_other, slen)==-1)
+	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, &si_other, main_slen)==-1)
 		pfail("sendto");
 
 	free(exip_node_buf);
@@ -228,11 +229,11 @@ void notify_existing_peer_of_new_chat_port(node_t *existing_peer, void *arg1, vo
 	pwnp_buf->status = STATUS_PROCEED_CHAT_HP;
 
 	// And now we notify existing peer of new tail
-	if (sendto(sock_fd, pwnp_buf, SZ_NODE_BF, 0, &ep_addr, slen)==-1)
+	if (sendto(sock_fd, pwnp_buf, SZ_NODE_BF, 0, &ep_addr, main_slen)==-1)
 		pfail("sendto");
 
 	// And notify peer_with_new_port (i.e. si_other) of existing peer
-	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, &si_other, slen)==-1)
+	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, &si_other, main_slen)==-1)
 		pfail("sendto");
 
 	free(exip_node_buf);
@@ -245,7 +246,7 @@ void notify_contact_of_new_node(contact_t *contact, void *arg1, void *arg2, void
 	node_buf_t contact_nb;
 	contact_nb.status = STATUS_NOTIFY_EXISTING_CONTACT;
 	strcpy(contact_nb.id, contact->hn->username);
-	if (sendto(sock_fd, &contact_nb, SZ_NODE_BF, 0, &si_other, slen)==-1)
+	if (sendto(sock_fd, &contact_nb, SZ_NODE_BF, 0, &si_other, main_slen)==-1)
 		pfail("sendto");
 
 	if (!arg1 || !contact->hn->nodes) return;
@@ -256,6 +257,53 @@ void notify_contact_of_new_chat_port(contact_t *contact, void *arg1, void *arg2,
 	printf("notify_contact_of_new_chat_port\n");
 	if (!arg1 || !contact || !contact->hn || !contact->hn->nodes) return;
 	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_chat_port, arg1, contact->hn->username, arg2);
+}
+
+AUTHN_CREDS_CHECK_RESULT add_user_node(char *username, char *password, node_t **new_node) {
+	hash_node_t *hn = lookup_user(&hashtbl, username);
+	if (!hn) return AUTHN_CREDS_CHECK_RESULT_USER_NOT_FOUND;
+	if (strcmp(hn->password, password) != 0) return AUTHN_CREDS_CHECK_RESULT_WRONG_PASSWORD;
+	// TODO We must add a check here to see if this new node
+	// already exists in our linked list. If so, how to 
+	// handle that?
+	node_t *new_tail;
+	// TODO Add a get_new_head
+	// If the user just signed in from this device
+	// It will probably get the most use
+	get_new_tail(hn->nodes, &new_tail);
+	if (new_node) *new_node = new_tail;
+	new_tail->status = STATUS_NEW_NODE;
+
+	switch (sa_auth_other.sa_family) {
+		case AF_INET: {
+			struct sockaddr_in *sai4 = (struct sockaddr_in*)&sa_auth_other;
+			new_tail->external_ip4 = sai4->sin_addr.s_addr;
+			new_tail->external_port = sai4->sin_port;
+			break;
+		}
+		case AF_INET6: {
+			struct sockaddr_in6 *sai6 = (struct sockaddr_in6*)&sa_auth_other;
+			memcpy(new_tail->external_ip6, sai6->sin6_addr.s6_addr, 16);
+			new_tail->external_port = sai6->sin6_port;
+			break;
+		}
+		default: {
+			printf("We received STATUS_INIT_NODE with invalid family %d\n",
+				sa_auth_other.sa_family);
+			return AUTHN_CREDS_CHECK_RESULT_MISC_ERROR;
+		}
+	}
+	new_tail->external_family = sa_auth_other.sa_family;
+	node_buf_t *new_tail_buf;
+	node_external_to_node_buf(new_tail, &new_tail_buf, hn->username);
+	// TODO encrypt new_tail_buf
+	size_t sendto_len = sendto(authn_sock_fd, new_tail_buf, SZ_NODE_BF, 0, &sa_auth_other, authn_slen);
+	if (sendto_len == -1) {
+		pfail("sendto");
+	}
+	printf("Sendto %zu %d\n", sendto_len, new_tail->external_family);
+
+	return AUTHN_CREDS_CHECK_RESULT_GOOD;
 }
 
 void *authentication_server_endpoint(void *arg) {
@@ -292,7 +340,7 @@ void *authentication_server_endpoint(void *arg) {
 
 	while (authentication_server_running) {
 		// printf("main -: 3\n");
-		recvf_len = recvfrom(authn_sock_fd, &buf, SZ_AE_BUF, 0, &sa_auth_other, &slen);
+		recvf_len = recvfrom(authn_sock_fd, &buf, SZ_AE_BUF, 0, &sa_auth_other, &authn_slen);
 		if ( recvf_len == -1) pfail("recvfrom");
 
 		char ip_str[INET6_ADDRSTRLEN];
@@ -342,7 +390,7 @@ start_switch:
 				memcpy(buf.rsa_pub_key, rsa_public_key_str, RSA_PUBLIC_KEY_LEN);
 				printf("Sending RSA public key (%s) to node\n", buf.rsa_pub_key);
 
-				sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, slen);
+				sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, authn_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
@@ -370,6 +418,8 @@ start_switch:
 
 				memset(an->aes_key, '\0', NUM_BYTES_AES_KEY);
 				memcpy(an->aes_key, rsa_decrypted_aes_key, result_len);
+				// I guess the initialization vector doesn't need to be encrypted
+				// http://stackoverflow.com/questions/8804574/aes-encryption-how-to-transport-iv
 				memset(an->aes_iv, '\0', NUM_BYTES_AES_IV);
 				memcpy(an->aes_iv, buf.aes_iv, NUM_BYTES_AES_IV);
 				printf("The node's AES key (%s)\n", an->aes_key);
@@ -377,11 +427,14 @@ start_switch:
 
 				memset(&buf, '\0', SZ_AUN_BF);
 				buf.status = AUTHN_STATUS_AES_SWAP_RESPONSE;
-				memset(buf.aes_key, '\0', NUM_BYTES_AES_KEY);
-				memcpy(buf.aes_key, aes_key, NUM_BYTES_AES_KEY);
-				memset(buf.aes_iv, '\0', NUM_BYTES_AES_IV);
-				memcpy(buf.aes_iv, aes_iv, NUM_BYTES_AES_IV);
-				sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, slen);
+				// There is no need to send the server's AES key
+				// to the node... in fact, we may not need a server
+				// AES key at all
+				// memset(buf.aes_key, '\0', NUM_BYTES_AES_KEY);
+				// memcpy(buf.aes_key, aes_key, NUM_BYTES_AES_KEY);
+				// memset(buf.aes_iv, '\0', NUM_BYTES_AES_IV);
+				// memcpy(buf.aes_iv, aes_iv, NUM_BYTES_AES_IV);
+				sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, authn_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
@@ -401,7 +454,18 @@ start_switch:
 				break;
 			}
 			case AUTHN_STATUS_EXISTING_USER: {
-				// TODO
+				node_t *n = NULL;
+				AUTHN_CREDS_CHECK_RESULT cr = add_user_node(buf.id, buf.pw, &n);
+				if (cr != AUTHN_CREDS_CHECK_RESULT_GOOD) {
+					memset(&buf, '\0', sizeof(buf));
+					buf.status = AUTHN_STATUS_CREDS_CHECK_PROBLEM;
+					buf.authn_result = AUTHN_CREDS_CHECK_RESULT_MISC_ERROR;
+					sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, authn_slen);
+					if (sendto_len == -1) {
+						pfail("sendto");
+					}
+				}
+				// TODO if n is not NULL, remove record from authn_tbl?
 				break;
 			}
 			case AUTHN_STATUS_SIGN_OUT: {
@@ -411,7 +475,8 @@ start_switch:
 			case AUTHN_STATUS_RSA_SWAP_RESPONSE:
 			case AUTHN_STATUS_AES_SWAP_RESPONSE:
 			case AUTHN_STATUS_NEW_USER_RESPONSE:
-			case AUTHN_STATUS_EXISTING_USER_RESPONSE: {
+			case AUTHN_STATUS_EXISTING_USER_RESPONSE:
+			case AUTHN_STATUS_CREDS_CHECK_PROBLEM: {
 				printf("THIS SHOULDN'T HAPPEN!!!! (%s)\n", authn_status_to_str(buf.status));
 				break;
 			}
@@ -453,7 +518,7 @@ void *main_server_endpoint(void *arg) {
 
 	while (main_server_running) {
 		// printf("main -: 3\n");
-		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, &slen);
+		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, &main_slen);
 		if ( recvf_len == -1) pfail("recvfrom");
 
 		char ip_str[INET6_ADDRSTRLEN];
@@ -468,63 +533,28 @@ void *main_server_endpoint(void *arg) {
 		// so that the next recvfrom isn't blocked by the below code
 		switch(buf.status) {
 			case STATUS_INIT_NODE: {
-				printf("New node %s %s %d\n", buf.id, ip_str, port);
+				printf("Init node %s %s %d\n", buf.id, ip_str, port);
 				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
-				// TODO We must add a check here to see if this new node
-				// already exists in our linked list. If so, how to 
-				// handle that?
-				node_t *new_tail;
-				// TODO Add a get_new_head
-				// If the user just signed in from this device
-				// It will probably get the most use
-				get_new_tail(hn->nodes, &new_tail);
-				new_tail->status = STATUS_NEW_NODE;
-				switch (si_other.sa_family) {
-					case AF_INET: {
-						struct sockaddr_in *sai4 = (struct sockaddr_in*)&si_other;
-						new_tail->external_ip4 = sai4->sin_addr.s_addr;
-						new_tail->external_port = sai4->sin_port;
-						break;
-					}
-					case AF_INET6: {
-						struct sockaddr_in6 *sai6 = (struct sockaddr_in6*)&si_other;
-						memcpy(new_tail->external_ip6, sai6->sin6_addr.s6_addr, 16);
-						new_tail->external_port = sai6->sin6_port;
-						break;
-					}
-					default: {
-						printf("We received STATUS_INIT_NODE with invalid family %d\n",
-							si_other.sa_family);
-						continue;
-					}
-				}
-				new_tail->external_family = si_other.sa_family;
-				node_buf_t *new_tail_buf;
-				node_external_to_node_buf(new_tail, &new_tail_buf, hn->username);
-				sendto_len = sendto(sock_fd, new_tail_buf, SZ_NODE_BF, 0, &si_other, slen);
-				if (sendto_len == -1) {
-					pfail("sendto");
-				}
-				printf("Sendto %zu %d\n", sendto_len, new_tail->external_family);
+				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
 				// TODO do we really need STATUS_CONFIRMED_NODE?
 				// if so, then we need to code node to send confirmation
 				// and add a case here to set STATUS_CONFIRMED_NODE
 				// for now, we'll just set it here
-				new_tail->status = STATUS_CONFIRMED_NODE;
+				n->status = STATUS_CONFIRMED_NODE;
 				// Now we set the status to new peer so that when the
 				// peers recv the sendto's below, they know they are
 				// getting a new peer
-				new_tail->status = STATUS_NEW_PEER;
+				n->status = STATUS_NEW_PEER;
 				// And now we notify all peers of new peer as
 				// well as notify new peer of existing peers
-				contacts_perform(hn->contacts, notify_contact_of_new_node, new_tail, hn->username, NULL);
+				contacts_perform(hn->contacts, notify_contact_of_new_node, n, hn->username, NULL);
 				// TODO notify new_node of itself i.e. the other nodes in hn->nodes
 				break;
 			}
 			case STATUS_STAY_IN_TOUCH: {
 				printf("Stay in touch from %s port%d %d %d\n", ip_str, port, family, STATUS_STAY_IN_TOUCH_RESPONSE);
 				buf.status = STATUS_STAY_IN_TOUCH_RESPONSE;
-				sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, slen);
+				sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, main_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}

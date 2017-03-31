@@ -43,12 +43,13 @@ hash_node_t *lookup_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]
 // }
 
 hash_node_t *lookup_user_from_id(hashtable_t *hashtbl, char id[MAX_CHARS_USERNAME]) {
+	// TODO get rid of this method and use lookup_user instead
 //	char username[MAX_CHARS_USERNAME];
 //	username_from_id(id, username);
 	return lookup_user(hashtbl, id);
 }
 
-hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]) {
+hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char *password) {
 	if (!hashtbl) return NULL;
 	hash_node_t *np;
 	unsigned hashval;
@@ -57,6 +58,7 @@ hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]) {
 		memset(np, '\0', SZ_HASH_NODE);
 		if (np == NULL) return NULL;
 		strcpy(np->username, username);
+		strcpy(np->password, password);
 		hashval = hash(username);
 		np->next = (*hashtbl)[hashval];
 		(*hashtbl)[hashval] = np;

@@ -1,7 +1,7 @@
 
 authentication
 	why isn't AES key being retrieved properly in ios app? something wrong in - (id)objectForKey:(id)key
-	save server's RSA pub key in ios keychain
+	save server's RSA pub key in ios keychain? or is that not even necessary, since we should ping the authn server every session start anyway?
 	encrypt AES key with RSA key
 	handle new user vs existing user in ios app
 	finish new user status (including password)
@@ -16,10 +16,10 @@ authentication
 
 	do we even need an AuthN token? I guess it verifies to the main server that we're authenticated, right? If the main server doesn't find a matching AuthN token in the corresponding hashnode->node, then it rejects that node, right? Answer: copy AuthN key (concated fam, ip, port) and token to node_t and node_buf_t, and match key and token from node_t with incoming data. Ywah?
 
-move chat_server into the_server
-
-change authN server to TCP to avoid packet loss, ordering problems?
 fix bug where confirming chat port doesn't always work... possibly due to packet loss or unordered receipt of packets?
+move chat_server into the_server
+change authN server to TCP to avoid packet loss, ordering problems?
+
 self <=> get internal hole punching working
 stay-in-touch with peers (and self nodes?)
 new functionality:
