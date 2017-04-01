@@ -86,7 +86,7 @@ int chat_server_conn_running = 1;
 void (*rsakeypair_generated_cb)(const char *rsa_pub_key, const char *rsa_pri_key) = NULL;
 void (*rsa_response_cb)(char *server_rsa_pub_key) = NULL;
 void (*aes_key_created_cb)(unsigned char[NUM_BYTES_AES_KEY]) = NULL;
-void (*creds_check_result_cb)(AUTHN_CREDS_CHECK_RESULT, unsigned char[AUTHEN_TOKEN_LEN]) = NULL;
+void (*creds_check_result_cb)(AUTHN_CREDS_CHECK_RESULT, char *username, char *password, unsigned char[AUTHEN_TOKEN_LEN]) = NULL;
 void (*self_info_cb)(char *, unsigned short, unsigned short, unsigned short) = NULL;
 void (*server_info_cb)(SERVER_TYPE, char *) = NULL;
 void (*socket_created_cb)(int) = NULL;
@@ -163,6 +163,8 @@ void send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 	
 	memcpy(buf.id, usernm, strlen(usernm));
 	memcpy(buf.pw, pw, strlen(pw));
+	memcpy(username, usernm, strlen(usernm));
+	memcpy(password, pw, strlen(pw));
 
 	unsigned char cipherbuf[SZ_AUN_BF + AES_PADDING];
 	memset(cipherbuf, '\0', SZ_AUN_BF + AES_PADDING);
@@ -300,7 +302,7 @@ void *authn_thread_routine(void *arg) {
 			case AUTHN_STATUS_CREDS_CHECK_RESULT: {
 				if (buf.authn_result == AUTHN_CREDS_CHECK_RESULT_GOOD)
 					memcpy(authentication_token, buf.authn_token, AUTHEN_TOKEN_LEN);
-				if (creds_check_result_cb) creds_check_result_cb(buf.authn_result, buf.authn_token);
+				if (creds_check_result_cb) creds_check_result_cb(buf.authn_result, username, password, buf.authn_token);
 				break;
 			}
 			case AUTHN_STATUS_RSA_SWAP:
@@ -329,7 +331,8 @@ int authn(NODE_USER_STATUS user_stat,
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
 	void (*rsa_response)(char *server_rsa_pub_key),
 	void (*aes_key_created)(unsigned char[NUM_BYTES_AES_KEY]),
-	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, unsigned char[AUTHEN_TOKEN_LEN])) {
+	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, char *username,
+		char *password, unsigned char[AUTHEN_TOKEN_LEN])) {
 
 	rsakeypair_generated_cb = rsakeypair_generated;
 	recd_cb = recd;
@@ -338,13 +341,13 @@ int authn(NODE_USER_STATUS user_stat,
 	creds_check_result_cb = creds_check_result;
 	node_user_status = user_stat;
 
+	memset(username, '\0', MAX_CHARS_USERNAME);
 	if (usernm) {
-		memset(username, '\0', MAX_CHARS_USERNAME);
 		strcpy(username, usernm);
 	}
 
+	memset(password, '\0', MAX_CHARS_PASSWORD);
 	if (passwd) {
-		memset(password, '\0', MAX_CHARS_PASSWORD);
 		strcpy(password, passwd);
 	}
 
