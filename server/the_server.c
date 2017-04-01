@@ -124,10 +124,11 @@ int collect_aes_key_and_iv() {
 
 void load_hashtbl_from_db() {
 	memset(&hashtbl, '\0', SZ_HASHTBL);
-	add_user(&hashtbl, "waynemystir", "");
-	add_user(&hashtbl, "julius_erving", "");
-	add_user(&hashtbl, "mike_schmidt", "");
-	add_user(&hashtbl, "pete_rose", "");
+	add_user(&hashtbl, "waynemystir", "wes");
+	add_user(&hashtbl, "julius_erving", "je");
+	add_user(&hashtbl, "mike_schmidt", "ms");
+	add_user(&hashtbl, "pete_rose", "pr");
+	add_user(&hashtbl, "w", "w");
 
 	add_contact_to_hashtbl(&hashtbl, "pete_rose", "waynemystir");
 	add_contact_to_hashtbl(&hashtbl, "pete_rose", "mike_schmidt");
@@ -421,7 +422,7 @@ start_switch:
 				else if (strcmp(hn->password, buf.pw) != 0) cr = AUTHN_CREDS_CHECK_RESULT_WRONG_PASSWORD;
 				else cr = AUTHN_CREDS_CHECK_RESULT_GOOD;
 
-				printf("AUTHN_STATUS_EXISTING_USER (%s)\n", creds_check_result_to_str(cr));
+				printf("AUTHN_STATUS_EXISTING_USER (%s)(%s)(%s)\n", creds_check_result_to_str(cr), buf.id, buf.pw);
 
 				memset(&buf, '\0', sizeof(buf));
 				buf.status = AUTHN_STATUS_CREDS_CHECK_RESULT;
@@ -442,7 +443,7 @@ start_switch:
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
-				// TODO if n is not NULL, remove record from authn_tbl?
+				// TODO if cr == AUTHN_CREDS_CHECK_RESULT_GOOD, remove record from authn_tbl?
 				break;
 			}
 			case AUTHN_STATUS_SIGN_OUT: {
@@ -591,6 +592,15 @@ void *main_server_endpoint(void *arg) {
 						notify_contact_of_new_chat_port,
 						peer_with_new_chat_port, hn->username, NULL);
 				}
+				break;
+			}
+			case STATUS_SIGN_OUT: {
+				hash_node_t *hn = lookup_user(&hashtbl, buf.id);
+				printf("STATUS_SIGN_OUT before(%d)\n", hn->nodes->node_count);
+				for (node_t *n = hn->nodes->head; n!=NULL; n=n->next) printf("(%d)", n->external_ip4);
+				remove_node_with_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				printf("STATUS_SIGN_OUT after(%d)\n", hn->nodes->node_count);
+				for (node_t *n = hn->nodes->head; n!=NULL; n=n->next) printf("(%d)", n->external_ip4);
 				break;
 			}
 			default: {

@@ -583,6 +583,53 @@ void nodes_perform(LinkedList_t *list,
 	}
 }
 
+// curtesy of https://www.cs.bu.edu/teaching/c/linked-list/delete/
+node_t *removeNode(node_t *currP, struct sockaddr *addr, SERVER_TYPE st) {
+	/* See if we are at end of list. */
+	if (currP == NULL) return NULL;
+
+	/*
+	* Check to see if current node is one
+	* to be deleted.
+	*/
+	if (node_and_sockaddr_equal(currP, addr, st)) {
+		node_t *tempNextP;
+
+		/* Save the next pointer in the node. */
+		tempNextP = currP->next;
+
+		/* Deallocate the node. */
+		free(currP);
+
+		/*
+		* Return the NEW pointer to where we
+		* were called from.  I.e., the pointer
+		* the previous call will use to "skip
+		* over" the removed node.
+		*/
+		return tempNextP;
+	}
+
+	/*
+	* Check the rest of the list, fixing the next
+	* pointer in case the next node is the one
+	* removed.
+	*/
+	currP->next = removeNode(currP->next, addr, st);
+
+	/*
+	* Return the pointer to where we were called
+	* from.  Since we did not remove this node it
+	* will be the same.
+	*/
+	return currP;
+}
+
+void remove_node_with_sockaddr(LinkedList_t *list, struct sockaddr *addr, SERVER_TYPE st) {
+	if (!list || !addr) return;
+	list->head = removeNode(list->head, addr, st);
+}
+
 void free_list(LinkedList_t *list) {
 	if (!list || !list->head) return;
 	node_t *tmp;
