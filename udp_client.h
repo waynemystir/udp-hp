@@ -56,4 +56,6 @@ void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3
 
 void list_contacts(contact_list_t **contacts);
 
+void signout();
+
 #endif /* udp_client_h */

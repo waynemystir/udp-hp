@@ -27,6 +27,7 @@ typedef enum STATUS_TYPE {
     STATUS_ACQUIRED_CHAT_PORT = 8,
     STATUS_PROCEED_CHAT_HP = 9,
     STATUS_CONFIRMED_CHAT_PEER = 10,
+    STATUS_SIGN_OUT = 11,
 } STATUS_TYPE;
 
 typedef struct node_buf {

@@ -1115,3 +1115,16 @@ void list_contacts(contact_list_t **contacts) {
 	if (!contacts) return;
 	*contacts = self.contacts;
 }
+
+void signout() {
+	node_buf_t buf;
+	memset(&buf, '\0', SZ_NODE_BF);
+	buf.status = STATUS_SIGN_OUT;
+	strcpy(buf.id, username);
+	size_t sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, sa_server, server_socklen);
+	if (sendto_len == -1) {
+		char w[256];
+		sprintf(w, "sendto failed with %zu", sendto_len);
+		pfail(w);
+	} else if (sendto_succeeded_cb) sendto_succeeded_cb(sendto_len);
+}
