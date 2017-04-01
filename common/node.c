@@ -584,7 +584,7 @@ void nodes_perform(LinkedList_t *list,
 }
 
 // curtesy of https://www.cs.bu.edu/teaching/c/linked-list/delete/
-node_t *removeNode(node_t *currP, struct sockaddr *addr, SERVER_TYPE st) {
+node_t *removeNode(node_t *currP, struct sockaddr *addr, SERVER_TYPE st, int *num_nodes_removed) {
 	/* See if we are at end of list. */
 	if (currP == NULL) return NULL;
 
@@ -600,6 +600,7 @@ node_t *removeNode(node_t *currP, struct sockaddr *addr, SERVER_TYPE st) {
 
 		/* Deallocate the node. */
 		free(currP);
+		if (num_nodes_removed) (*num_nodes_removed)++;
 
 		/*
 		* Return the NEW pointer to where we
@@ -615,7 +616,7 @@ node_t *removeNode(node_t *currP, struct sockaddr *addr, SERVER_TYPE st) {
 	* pointer in case the next node is the one
 	* removed.
 	*/
-	currP->next = removeNode(currP->next, addr, st);
+	currP->next = removeNode(currP->next, addr, st, num_nodes_removed);
 
 	/*
 	* Return the pointer to where we were called
@@ -627,7 +628,9 @@ node_t *removeNode(node_t *currP, struct sockaddr *addr, SERVER_TYPE st) {
 
 void remove_node_with_sockaddr(LinkedList_t *list, struct sockaddr *addr, SERVER_TYPE st) {
 	if (!list || !addr) return;
-	list->head = removeNode(list->head, addr, st);
+	int num_nodes_removed = 0;
+	list->head = removeNode(list->head, addr, st, &num_nodes_removed);
+	list->node_count = list->node_count - num_nodes_removed;
 }
 
 void free_list(LinkedList_t *list) {

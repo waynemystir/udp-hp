@@ -514,16 +514,20 @@ void *main_server_endpoint(void *arg) {
 				printf("New node %s %s %d\n", buf.id, ip_str, port);
 				hash_node_t *hn = lookup_user(&hashtbl, buf.id);
 				if (!hn) {
+					// TODO handle this
 					printf("No hashnode found for (%s)\n", buf.id);
 					break;
 				}
 				// TODO We must add a check here to see if this new node
-				// already exists in our linked list. If so, how to 
+				// already exists in our linked list. If it does exist, it
+				// might be legit, ex: user terminated app and app didn't
+				// get a chance to perform signout. If so, how to 
 				// handle that?
 				node_t *new_tail;
 				// TODO Add a get_new_head
-				// If the user just signed in from this device
-				// It will probably get the most use
+				// Since the user just signed in from this device,
+				// it will probably get the most use and hence should
+				// be the head
 				get_new_tail(hn->nodes, &new_tail);
 				new_tail->status = STATUS_NEW_NODE;
 				switch (si_other.sa_family) {
@@ -602,9 +606,11 @@ void *main_server_endpoint(void *arg) {
 				hash_node_t *hn = lookup_user(&hashtbl, buf.id);
 				printf("STATUS_SIGN_OUT before(%d)\n", hn->nodes->node_count);
 				for (node_t *n = hn->nodes->head; n!=NULL; n=n->next) printf("(%d)", n->external_ip4);
+				printf("\n");
 				remove_node_with_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
 				printf("STATUS_SIGN_OUT after(%d)\n", hn->nodes->node_count);
 				for (node_t *n = hn->nodes->head; n!=NULL; n=n->next) printf("(%d)", n->external_ip4);
+				printf("\n");
 				break;
 			}
 			default: {
