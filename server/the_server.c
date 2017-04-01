@@ -513,6 +513,10 @@ void *main_server_endpoint(void *arg) {
 			case STATUS_INIT_NODE: {
 				printf("New node %s %s %d\n", buf.id, ip_str, port);
 				hash_node_t *hn = lookup_user(&hashtbl, buf.id);
+				if (!hn) {
+					printf("No hashnode found for (%s)\n", buf.id);
+					break;
+				}
 				// TODO We must add a check here to see if this new node
 				// already exists in our linked list. If so, how to 
 				// handle that?
