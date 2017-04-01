@@ -77,6 +77,7 @@ int sock_fd;
 int chat_sock_fd;
 
 // Runnings
+int wain_running = 1;
 int authn_running = 1;
 int stay_in_touch_running = 1;
 int chat_stay_in_touch_running = 1;
@@ -573,7 +574,6 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	char buf_ip[INET6_ADDRSTRLEN];
 
 	// Various
-	int running = 1;
 	size_t sendto_len, recvf_len;
 	char sprintf[256];
 
@@ -630,7 +630,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	self.nodes = malloc(SZ_LINK_LIST);
 	self.contacts = malloc(SZ_CONTACT_LIST);
 
-	while (running) {
+	while (wain_running) {
 		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, &sa_other, &other_socklen);
 		if (recvf_len == -1) {
 			char w[256];
@@ -1130,4 +1130,10 @@ void signout() {
 		sprintf(w, "sendto failed with %zu", sendto_len);
 		pfail(w);
 	} else if (sendto_succeeded_cb) sendto_succeeded_cb(sendto_len);
+
+	wain_running = 0;
+	authn_running = 0;
+	stay_in_touch_running = 0;
+	chat_stay_in_touch_running = 0;
+	chat_server_conn_running = 0;
 }

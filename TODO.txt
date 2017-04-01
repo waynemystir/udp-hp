@@ -43,6 +43,8 @@ video_port
 video server
 POC video functionality
 
+device goes to sleep or app is background... will stay-in-touch with servers continue? do we need to re-do hole punching on awake/foregrounding?
+
 go back and use memcmp to compare all unsigned char arrays (i.e. ip6, etc)
 thread the server
 	recvfrom -> copy details (si_other, buf, etc) and handle in threadpool
