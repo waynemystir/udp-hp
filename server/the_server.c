@@ -399,16 +399,44 @@ start_switch:
 			}
 			case AUTHN_STATUS_NEW_USER: {
 				char *key = authn_addr_info_to_key(family, ip_str, port);
-				printf("The node's key (%s)\n", key);
+				printf("AUTHN_STATUS_NEW_USER The node's key (%s)\n", key);
 				authn_node_t *an = lookup_authn_node(&authn_tbl, key);
 				if (!an) {
-					printf("No node was found for key (%s)\n", key);
+					printf("AUTHN_STATUS_NEW_USER No node was found for key (%s)\n", key);
 					break;
 				}
-				printf("And the node was found with key (%s)\n", an->key);
+				printf("AUTHN_STATUS_NEW_USER And the node was found with key (%s)\n", an->key);
+
+				AUTHN_CREDS_CHECK_RESULT cr = -1;
+				hash_node_t *hn = lookup_user(&hashtbl, buf.id);
+				if (hn) cr = AUTHN_CREDS_CHECK_RESULT_USERNAME_ALREADY_EXISTS;
+				else cr = AUTHN_CREDS_CHECK_RESULT_GOOD;
+
 				add_user(&hashtbl, buf.id, buf.pw);
 				printf("New user added (%s)(%s)\n", buf.id, buf.pw);
-				// break;
+
+				memset(&buf, '\0', sizeof(buf));
+				buf.status = AUTHN_STATUS_CREDS_CHECK_RESULT;
+				buf.authn_result = cr;
+
+				if (cr == AUTHN_CREDS_CHECK_RESULT_GOOD) {
+					unsigned char authentication_token[AUTHEN_TOKEN_LEN];
+					memset(authentication_token, '\0', AUTHEN_TOKEN_LEN);
+					if (!RAND_bytes(authentication_token, sizeof(authentication_token))) {
+						printf("RAND_bytes failed for authentication_token\n");
+						ERR_print_errors_fp(stdout);
+						break;
+					}
+					memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+					add_token_node(&token_tbl, authentication_token);
+					remove_authn_node(&authn_tbl, key);
+				}
+
+				sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, authn_slen);
+				if (sendto_len == -1) {
+					pfail("sendto");
+				}
+				break;
 			}
 			case AUTHN_STATUS_EXISTING_USER: {
 				char *key = authn_addr_info_to_key(family, ip_str, port);
