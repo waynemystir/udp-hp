@@ -76,6 +76,10 @@ int authn_sock_fd;
 int sock_fd;
 int chat_sock_fd;
 
+// Threads
+pthread_t wain_thread;
+pthread_t authn_thread;
+
 // Runnings
 int wain_running = 1;
 int authn_running = 1;
@@ -98,10 +102,13 @@ void (*notify_existing_contact_cb)(char *) = NULL;
 void (*stay_touch_recd_cb)(SERVER_TYPE) = NULL;
 void (*coll_buf_cb)(char *) = NULL;
 void (*new_client_cb)(SERVER_TYPE, char *) = NULL;
+void (*confirmed_client_cb)(void) = NULL;
 void (*hole_punch_sent_cb)(char *, int) = NULL;
+void (*new_peer_cb)(char *) = NULL;
 void (*confirmed_peer_while_punching_cb)(SERVER_TYPE) = NULL;
 void (*from_peer_cb)(SERVER_TYPE, char *) = NULL;
 void (*chat_msg_cb)(char *) = NULL;
+void (*unhandled_response_from_server_cb)(int) = NULL;
 
 void pfail(char *w) {
 	printf("pfail 0\n");
@@ -136,6 +143,7 @@ void create_aes_key_iv() {
 		ERR_print_errors_fp(stdout);
 	}
 
+	printf("create_aes_key_iv (%s)(%lu)\n", symmetric_key, strlen(symmetric_key));
 	aes_key = malloc(NUM_BYTES_AES_KEY);
 	memset(aes_key, '\0', NUM_BYTES_AES_KEY);
 	memcpy(aes_key, symmetric_key, NUM_BYTES_AES_KEY);
@@ -177,6 +185,12 @@ void send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 	memset(buf_enc.encrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
 	memcpy(buf_enc.encrypted_buf, cipherbuf, cipherbuf_len);
 	buf_enc.encrypted_len = cipherbuf_len;
+
+	wain_running = 1;
+	authn_running = 1;
+	stay_in_touch_running = 1;
+	chat_stay_in_touch_running = 1;
+	chat_server_conn_running = 1;
 
 	authn_sendto_len = sendto(authn_sock_fd, &buf_enc, SZ_AE_BUF, 0,
 		sa_authn_server, authn_server_socklen);
@@ -383,7 +397,6 @@ int authn(NODE_USER_STATUS user_stat,
 	AUTHN_STATUS *as = malloc(sizeof(int));
 	if (as) *as = auth_status;
 
-	pthread_t authn_thread;
 	int atr = pthread_create(&authn_thread, NULL, authn_thread_routine, as);
 	if (atr) {
 		printf("ERROR in authn_thread creation; return code from pthread_create() is %d\n", atr);
@@ -528,37 +541,8 @@ void stay_in_touch_with_server(SERVER_TYPE st) {
 	}
 }
 
-int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned short),
-	void (*socket_created)(int),
-	void (*socket_bound)(void),
-	void (*sendto_succeeded)(size_t),
-	void (*coll_buf)(char *),
-	void (*new_client)(SERVER_TYPE, char *),
-	void (*confirmed_client)(void),
-	void (*notify_existing_contact)(char *),
-	void (*stay_touch_recd)(SERVER_TYPE),
-	void (*new_peer)(char *),
-	void (*hole_punch_sent)(char *, int),
-	void (*confirmed_peer_while_punching)(SERVER_TYPE),
-	void (*from_peer)(SERVER_TYPE, char *),
-	void (*chat_msg)(char *),
-	void (*unhandled_response_from_server)(int),
-	void (*whilew)(int),
-	void (*end_while)(void)) {
-
-	printf("main 0 %lu\n", DEFAULT_OTHER_ADDR_LEN);
-	self_info_cb = self_info;
-	socket_created_cb = socket_created;
-	socket_bound_cb = socket_bound;
-	sendto_succeeded_cb = sendto_succeeded;
-	notify_existing_contact_cb = notify_existing_contact;
-	stay_touch_recd_cb = stay_touch_recd;
-	coll_buf_cb = coll_buf;
-	new_client_cb = new_client;
-	hole_punch_sent_cb = hole_punch_sent;
-	confirmed_peer_while_punching_cb = confirmed_peer_while_punching;
-	from_peer_cb = from_peer;
-	chat_msg_cb = chat_msg;
+void *wain_thread_routine(void *arg) {
+	printf("STARTING.....%s\n", arg);
 
 	// Other (server or peer in recvfrom)
 	struct sockaddr sa_other;
@@ -606,11 +590,11 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock_fd == -1) {
 		printf("There was a problem creating the socket\n");
-	} else if (socket_created) socket_created(sock_fd);
+	} else if (socket_created_cb) socket_created_cb(sock_fd);
 
 	int br = bind(sock_fd, sa_me_internal, sizeof(*sa_me_internal));
 	if ( br == -1 ) pfail("bind");
-	if (socket_bound) socket_bound();
+	if (socket_bound_cb) socket_bound_cb();
 
 	socklen_t gsn_len = sizeof(*sa_me_internal);
 	int gsn = getsockname(sock_fd, sa_me_internal, &gsn_len);
@@ -626,7 +610,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 		char w[256];
 		sprintf(w, "sendto failed with %zu", sendto_len);
 		pfail(w);
-	} else if (sendto_succeeded) sendto_succeeded(sendto_len);
+	} else if (sendto_succeeded_cb) sendto_succeeded_cb(sendto_len);
 
 	// peers = malloc(SZ_LINK_LIST_MN);
 	memset(&self, '\0', SZ_HASH_NODE);
@@ -659,7 +643,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 			ntohs(buf.port),
 			ntohs(buf.chat_port),
 			buf.family);
-		if (coll_buf) coll_buf(sprintf);
+		if (coll_buf_cb) coll_buf_cb(sprintf);
 
 		if (addr_equals(sa_server, &sa_other)) {
 			// The datagram came from the server.
@@ -694,7 +678,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 					break;
 				}
 				case STATUS_CONFIRMED_NODE: {
-					if (confirmed_client) confirmed_client();
+					if (confirmed_client_cb) confirmed_client_cb();
 					break;
 				}
 				case STATUS_NEW_PEER: {
@@ -718,7 +702,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 							ntohs(buf.port),
 							self.contacts->count);
 					}
-					if (new_peer) new_peer(sprintf);
+					if (new_peer_cb) new_peer_cb(sprintf);
                     
 					// And here is where the actual hole punching happens. We are going to send
 					// a bunch of datagrams to each peer. Since we're using the same socket we
@@ -749,8 +733,8 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 				}
                     
 				default: {
-					if (unhandled_response_from_server)
-						unhandled_response_from_server(buf.status);
+					if (unhandled_response_from_server_cb)
+						unhandled_response_from_server_cb(buf.status);
 					break;
 				}
 			}
@@ -820,6 +804,49 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 		free(buf_sa);
 	}
 
+	pthread_exit("wain_thread exited normally");
+}
+
+int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned short),
+	void (*socket_created)(int),
+	void (*socket_bound)(void),
+	void (*sendto_succeeded)(size_t),
+	void (*coll_buf)(char *),
+	void (*new_client)(SERVER_TYPE, char *),
+	void (*confirmed_client)(void),
+	void (*notify_existing_contact)(char *),
+	void (*stay_touch_recd)(SERVER_TYPE),
+	void (*new_peer)(char *),
+	void (*hole_punch_sent)(char *, int),
+	void (*confirmed_peer_while_punching)(SERVER_TYPE),
+	void (*from_peer)(SERVER_TYPE, char *),
+	void (*chat_msg)(char *),
+	void (*unhandled_response_from_server)(int),
+	void (*whilew)(int),
+	void (*end_while)(void)) {
+
+	printf("main 0 %lu\n", DEFAULT_OTHER_ADDR_LEN);
+	self_info_cb = self_info;
+	socket_created_cb = socket_created;
+	socket_bound_cb = socket_bound;
+	sendto_succeeded_cb = sendto_succeeded;
+	notify_existing_contact_cb = notify_existing_contact;
+	stay_touch_recd_cb = stay_touch_recd;
+	coll_buf_cb = coll_buf;
+	new_client_cb = new_client;
+	confirmed_client_cb = confirmed_client;
+	hole_punch_sent_cb = hole_punch_sent;
+	new_peer_cb = new_peer;
+	confirmed_peer_while_punching_cb = confirmed_peer_while_punching;
+	from_peer_cb = from_peer;
+	chat_msg_cb = chat_msg;
+	unhandled_response_from_server_cb = unhandled_response_from_server;
+
+	int wtr = pthread_create(&wain_thread, NULL, wain_thread_routine, "wain_thread");
+	if (wtr) {
+		printf("ERROR in wain_thread creation; return code from pthread_create() is %d\n", wtr);
+		return -1;
+	}
 	return 0;
 }
 
