@@ -15,11 +15,13 @@ authentication
 	delete items from keychain on app delete
 	delete "stale" authn_nodes from authn hashtable
 	delete "stale" token_nodes from token hashtable
+	sign-out
+		isn't always working right
+		should notify contacts' nodes that it signed out... more exactly... the server should decide to notify the contacts' nodes if the user's hashnode->nodes->node_count == 0
 
 	do we even need an AuthN token? I guess it verifies to the main server that we're authenticated, right? If the main server doesn't find a matching AuthN token in the corresponding hashnode->node, then it rejects that node, right? Answer: copy AuthN key (concated fam, ip, port) and token to node_t and node_buf_t, and match key and token from node_t with incoming data. Ywah?
 
 fix bug where confirming chat port doesn't always work... possibly due to packet loss or unordered receipt of packets?
-move chat_server into the_server
 change authN server to TCP to avoid packet loss, ordering problems?
 
 self <=> get internal hole punching working

@@ -482,6 +482,7 @@ void *stay_in_touch_with_server_thread(void *msg) {
 	node_buf_t w;
 	strcpy(w.id, username);
 	w.status = STATUS_STAY_IN_TOUCH;
+	memcpy(w.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
 
 	while (stay_in_touch_running) {
 		if (sendto(sock_fd, &w, SZ_NODE_BF, 0, sa_server, server_socklen) == -1)
@@ -569,6 +570,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	// Self
 	get_if_addr(&sa_self_internal, &sz_sa_self_internal, self_internal_ip);
 	addr_to_node_buf(sa_self_internal, &self_internal, STATUS_INIT_NODE, 0, username);
+	memcpy(self_internal->authn_token, authentication_token, AUTHEN_TOKEN_LEN);
 
 	// Buffer
 	node_buf_t buf;
@@ -918,6 +920,7 @@ void *chat_hp_server(void *w) {
 				case CHAT_STATUS_NEW: {
 					self_external->chat_port = buf.port;
 					self_external->status = STATUS_ACQUIRED_CHAT_PORT;
+					memcpy(self_external->authn_token, authentication_token, AUTHEN_TOKEN_LEN);
 					size_t stl = sendto(sock_fd, self_external, SZ_NODE_BF, 0, sa_server, server_socklen);
 					if (stl == -1) {
 						char w[256];
@@ -1125,6 +1128,7 @@ void signout() {
 	memset(&buf, '\0', SZ_NODE_BF);
 	buf.status = STATUS_SIGN_OUT;
 	strcpy(buf.id, username);
+	memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
 	size_t sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, sa_server, server_socklen);
 	if (sendto_len == -1) {
 		char w[256];
