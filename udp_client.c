@@ -303,7 +303,8 @@ void *authn_thread_routine(void *arg) {
 			case AUTHN_STATUS_CREDS_CHECK_RESULT: {
 				if (buf.authn_result == AUTHN_CREDS_CHECK_RESULT_GOOD)
 					memcpy(authentication_token, buf.authn_token, AUTHEN_TOKEN_LEN);
-				if (creds_check_result_cb) creds_check_result_cb(buf.authn_result, username, password, buf.authn_token);
+				if (creds_check_result_cb)
+					creds_check_result_cb(buf.authn_result, username, password, buf.authn_token);
 				break;
 			}
 			case AUTHN_STATUS_RSA_SWAP:

@@ -33,6 +33,7 @@ typedef enum STATUS_TYPE {
 typedef struct node_buf {
 	STATUS_TYPE status;
 	char id[MAX_CHARS_USERNAME];
+	unsigned char authn_token[AUTHEN_TOKEN_LEN];
 	unsigned short int_or_ext; // 0 is internal and 1 is external
 	union {
 		in_addr_t ip4;
@@ -58,6 +59,7 @@ typedef struct node_min {
 
 typedef struct node {
 	STATUS_TYPE status;
+	unsigned char authn_token[AUTHEN_TOKEN_LEN];
 	unsigned short int_or_ext; // 0 is internal and 1 is external
 	union {
 		in_addr_t internal_ip4;
