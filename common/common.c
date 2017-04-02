@@ -157,7 +157,6 @@ token_node_t *add_token_node(token_hashtable_t *thtbl, unsigned char *authn_toke
 		memcpy(np->authn_token, authn_token, AUTHEN_TOKEN_LEN);
 
 		hashval = token_hash(authn_token);
-		printf("AAAAAAAAAAAAAAAAAAAAAAAAAA(%d)\n", hashval);
 		np->next = (*thtbl)[hashval];
 		(*thtbl)[hashval] = np;
 	}
@@ -168,7 +167,6 @@ token_node_t *add_token_node(token_hashtable_t *thtbl, unsigned char *authn_toke
 token_node_t *lookup_token_node(token_hashtable_t *thtbl, unsigned char *authn_token) {
 
 	if (!thtbl) return NULL;
-	printf("LLLLLLLLLLLLLLLLLLLLLL(%d)\n", token_hash(authn_token));
 	token_node_t *np;
 	for (np = (*thtbl)[token_hash(authn_token)]; np != NULL; np = np->next)
 		if (memcmp(np->authn_token, authn_token, AUTHEN_TOKEN_LEN) == 0)
