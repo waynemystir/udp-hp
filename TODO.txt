@@ -26,6 +26,7 @@ change authN server to TCP to avoid packet loss, ordering problems?
 
 self <=> get internal hole punching working
 stay-in-touch with peers (and self nodes?)
+remove node_t's and token_node_t's when stay-in-touch hasn't occurred after x time
 new functionality:
 	search for and add new contact + accept contact request
 new ios functionality:

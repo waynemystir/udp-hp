@@ -175,6 +175,10 @@ token_node_t *lookup_token_node(token_hashtable_t *thtbl, unsigned char *authn_t
 	return NULL;
 }
 
+void remove_token_node(token_hashtable_t *thtbl, unsigned char *authn_token) {
+	// TODO
+}
+
 int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr) {
 	if (!cb || !addr) return -1;
 

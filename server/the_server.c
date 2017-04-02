@@ -675,6 +675,7 @@ void *main_server_endpoint(void *arg) {
 					break;
 				}
 
+				remove_token_node(&token_tbl, buf.authn_token);
 				printf("STATUS_SIGN_OUT before(%d)\n", hn->nodes->node_count);
 				for (node_t *n = hn->nodes->head; n!=NULL; n=n->next) printf("(%d)", n->external_ip4);
 				printf("\n");
