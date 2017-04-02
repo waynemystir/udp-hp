@@ -27,7 +27,7 @@ int authn(NODE_USER_STATUS user_stat,
 	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, char *username,
 		char *password, unsigned char[AUTHEN_TOKEN_LEN]));
 
-void send_user(NODE_USER_STATUS nus, char *usernm, char *pw);
+int send_user(NODE_USER_STATUS nus, char *usernm, char *pw);
 
 int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port, unsigned short family),
 	void (*socket_created)(int sock_fd),

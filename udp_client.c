@@ -87,6 +87,10 @@ int stay_in_touch_running = 1;
 int chat_stay_in_touch_running = 1;
 int chat_server_conn_running = 1;
 
+// Misc
+int authn_thread_has_started = 0;
+int wain_thread_has_started = 0;
+
 // function pointers
 void (*rsakeypair_generated_cb)(const char *rsa_pub_key, const char *rsa_pri_key) = NULL;
 void (*rsa_response_cb)(char *server_rsa_pub_key) = NULL;
@@ -150,8 +154,8 @@ void create_aes_key_iv() {
 	if (aes_key_created_cb) aes_key_created_cb(aes_key);
 }
 
-void send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
-	if (!usernm || !pw) return;
+int send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
+	if (!usernm || !pw) return -1;
 
 	node_user_status = nus;
 	authn_buf_t buf;
@@ -166,7 +170,7 @@ void send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 			break;
 		}
 		case NODE_USER_STATUS_UNKNOWN: {
-			return;
+			return -1;
 		}
 	}
 	
@@ -186,11 +190,59 @@ void send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 	memcpy(buf_enc.encrypted_buf, cipherbuf, cipherbuf_len);
 	buf_enc.encrypted_len = cipherbuf_len;
 
-	wain_running = 1;
-	authn_running = 1;
 	stay_in_touch_running = 1;
 	chat_stay_in_touch_running = 1;
 	chat_server_conn_running = 1;
+
+	if (!authn_running) {
+		authn_running = 1;
+		wain_running = 1;
+		authn(nus, usernm, pw, buf.status, rsa_public_key, rsa_private_key, aes_key,
+			rsakeypair_generated_cb,
+			recd_cb,
+			rsa_response_cb,
+			aes_key_created_cb,
+			creds_check_result_cb);
+
+		int authn_retries = 0;
+		while (!authn_thread_has_started || !wain_thread_has_started) {
+			usleep(10*1000); // 10 milliseconds
+			if (++authn_retries >= 100) {
+				printf("Couldn't restart authn_thread\n");
+				return -1;
+			}
+		}
+	}
+
+	// if (!wain_running) {
+	// 	wain_running = 1;
+	// 	wain(self_info_cb,
+	// 		socket_created_cb,
+	// 		socket_bound_cb,
+	// 		sendto_succeeded_cb,
+	// 		coll_buf_cb,
+	// 		new_client_cb,
+	// 		confirmed_client_cb,
+	// 		notify_existing_contact_cb,
+	// 		stay_touch_recd_cb,
+	// 		new_peer_cb,
+	// 		hole_punch_sent_cb,
+	// 		confirmed_peer_while_punching_cb,
+	// 		from_peer_cb,
+	// 		chat_msg_cb,
+	// 		unhandled_response_from_server_cb,
+	// 		NULL,
+	// 		NULL);
+
+	// 	int wain_retries = 0;
+	// 	while (!wain_thread_has_started) {
+	// 		usleep(10*1000); // 10 milliseconds
+	// 		if (++wain_retries >= 100) {
+	// 			printf("Couldn't restart wain_thread\n");
+	// 			return -1;
+	// 		}
+	// 	}
+	// }
 
 	authn_sendto_len = sendto(authn_sock_fd, &buf_enc, SZ_AE_BUF, 0,
 		sa_authn_server, authn_server_socklen);
@@ -200,6 +252,7 @@ void send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 		pfail(w);
 	}
 
+	return 0;
 }
 
 void *authn_thread_routine(void *arg) {
@@ -248,6 +301,7 @@ void *authn_thread_routine(void *arg) {
 		pfail(w);
 	}
 
+	if (authn_running) authn_thread_has_started = 1;
 	while (authn_running) {
 		authn_recvf_len = recvfrom(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_authn_other, &authn_other_socklen);
 		if (authn_recvf_len == -1) {
@@ -332,7 +386,7 @@ void *authn_thread_routine(void *arg) {
 		}
 
 	}
-
+	authn_thread_has_started = 0;
 	pthread_exit("authn_thread exited normally");
 }
 
@@ -617,6 +671,7 @@ void *wain_thread_routine(void *arg) {
 	self.nodes = malloc(SZ_LINK_LIST);
 	self.contacts = malloc(SZ_CONTACT_LIST);
 
+	if (wain_running) wain_thread_has_started = 1;
 	while (wain_running) {
 		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, &sa_other, &other_socklen);
 		if (recvf_len == -1) {
@@ -803,7 +858,7 @@ void *wain_thread_routine(void *arg) {
 		}
 		free(buf_sa);
 	}
-
+	wain_thread_has_started = 0;
 	pthread_exit("wain_thread exited normally");
 }
 
