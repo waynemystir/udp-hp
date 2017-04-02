@@ -87,6 +87,13 @@ typedef struct authn_node {
 
 typedef authn_node_t *authn_hashtable_t[AUTHN_HASHSIZE];
 
+typedef struct token_node {
+	unsigned char authn_token[AUTHEN_TOKEN_LEN];
+	struct token_node *next;
+} token_node_t;
+
+typedef token_node_t *token_hashtable_t[AUTHN_HASHSIZE];
+
 typedef enum CHAT_STATUS {
 	CHAT_STATUS_INIT = 0,
 	CHAT_STATUS_NEW = 1,
@@ -117,6 +124,11 @@ char *chat_status_to_str(CHAT_STATUS cs);
 char *authn_addr_info_to_key(sa_family_t family, char *ip_str, in_port_t port);
 authn_node_t *add_authn_node(authn_hashtable_t *ahtbl, AUTHN_STATUS status, char *key);
 authn_node_t *lookup_authn_node(authn_hashtable_t *ahtbl, char *key);
+void remove_authn_node(authn_hashtable_t *ahtbl, char *key);
+
+token_node_t *add_token_node(token_hashtable_t *thtbl, unsigned char *authn_token);
+token_node_t *lookup_token_node(token_hashtable_t *thtbl, unsigned char *authn_token);
+void remove_token_node(token_hashtable_t *thtbl, unsigned char *authn_token);
 
 int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr);
 
@@ -124,6 +136,7 @@ int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr);
 #define SZ_CH_BF sizeof(chat_buf_t)
 #define SZ_AUN_ND sizeof(authn_node_t)
 #define SZ_AUN_TBL sizeof(authn_hashtable_t)
+#define SZ_TKN_ND sizeof(token_node_t)
 
 typedef struct authn_buf_encrypted {
 	AUTHN_STATUS status;

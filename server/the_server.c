@@ -40,6 +40,7 @@ socklen_t main_slen = SZ_SOCKADDR;
 socklen_t authn_slen = SZ_SOCKADDR;
 hashtable_t hashtbl;
 authn_hashtable_t authn_tbl;
+token_hashtable_t token_tbl;
 
 void pfail(char *s) {
 	perror(s);
@@ -437,6 +438,8 @@ start_switch:
 						break;
 					}
 					memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+					add_token_node(&token_tbl, authentication_token);
+					remove_authn_node(&authn_tbl, key);
 				}
 
 				sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, authn_slen);
@@ -511,11 +514,17 @@ void *main_server_endpoint(void *arg) {
 		// so that the next recvfrom isn't blocked by the below code
 		switch(buf.status) {
 			case STATUS_INIT_NODE: {
-				printf("New node %s %s %d\n", buf.id, ip_str, port);
+				printf("STATUS_INIT_NODE %s %s %d\n", buf.id, ip_str, port);
+				token_node_t * tn = lookup_token_node(&token_tbl, buf.authn_token);
+				if (!tn) {
+					// TODO handle this
+					printf("STATUS_INIT_NODE No token node found\n");
+					break;
+				}
 				hash_node_t *hn = lookup_user(&hashtbl, buf.id);
 				if (!hn) {
 					// TODO handle this
-					printf("No hashnode found for (%s)\n", buf.id);
+					printf("STATUS_INIT_NODE No hashnode found for (%s)\n", buf.id);
 					break;
 				}
 				// TODO We must add a check here to see if this new node
@@ -529,6 +538,8 @@ void *main_server_endpoint(void *arg) {
 				// it will probably get the most use and hence should
 				// be the head
 				get_new_tail(hn->nodes, &new_tail);
+				memset(new_tail->authn_token, '\0', AUTHEN_TOKEN_LEN);
+				memcpy(new_tail->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN);
 				new_tail->status = STATUS_NEW_NODE;
 				switch (si_other.sa_family) {
 					case AF_INET: {

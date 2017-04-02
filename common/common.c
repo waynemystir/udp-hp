@@ -113,6 +113,10 @@ authn_node_t *lookup_authn_node(authn_hashtable_t *ahtbl, char *key) {
 	return NULL; /* not found */
 }
 
+void remove_authn_node(authn_hashtable_t *ahtbl, char *key) {
+	// TODO
+}
+
 authn_node_t *add_authn_node(authn_hashtable_t *ahtbl, AUTHN_STATUS status, char *key) {
 
 	if (!ahtbl) return NULL;
@@ -132,6 +136,44 @@ authn_node_t *add_authn_node(authn_hashtable_t *ahtbl, AUTHN_STATUS status, char
 
 	// TODO what should we do if lookup_user returns non-NULL?
 	return np;
+}
+
+unsigned token_hash(unsigned char *s) {
+	unsigned hashval;
+	for (hashval = 0; *s != '\0'; s++)
+		hashval = *s + 31 * hashval;
+	return hashval % AUTHN_HASHSIZE;
+}
+
+token_node_t *add_token_node(token_hashtable_t *thtbl, unsigned char *authn_token) {
+
+	if (!thtbl) return NULL;
+	token_node_t *np;
+	unsigned hashval;
+	if ((np = lookup_token_node(thtbl, authn_token)) == NULL) {
+		np = malloc(SZ_TKN_ND);
+		memset(np, '\0', SZ_TKN_ND);
+		if (np == NULL) return NULL;
+		memcpy(np->authn_token, authn_token, AUTHEN_TOKEN_LEN);
+
+		hashval = token_hash(authn_token);
+		printf("AAAAAAAAAAAAAAAAAAAAAAAAAA(%d)\n", hashval);
+		np->next = (*thtbl)[hashval];
+		(*thtbl)[hashval] = np;
+	}
+
+	return np;
+}
+
+token_node_t *lookup_token_node(token_hashtable_t *thtbl, unsigned char *authn_token) {
+
+	if (!thtbl) return NULL;
+	printf("LLLLLLLLLLLLLLLLLLLLLL(%d)\n", token_hash(authn_token));
+	token_node_t *np;
+	for (np = (*thtbl)[token_hash(authn_token)]; np != NULL; np = np->next)
+		if (memcmp(np->authn_token, authn_token, AUTHEN_TOKEN_LEN) == 0)
+			return np;
+	return NULL;
 }
 
 int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr) {
