@@ -173,7 +173,12 @@ int send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 			return -1;
 		}
 	}
-	
+
+	memset(buf.id, '\0', MAX_CHARS_USERNAME);
+	memset(buf.pw, '\0', MAX_CHARS_PASSWORD);
+	memset(username, '\0', MAX_CHARS_USERNAME);
+	memset(password, '\0', MAX_CHARS_PASSWORD);
+
 	memcpy(buf.id, usernm, strlen(usernm));
 	memcpy(buf.pw, pw, strlen(pw));
 	memcpy(username, usernm, strlen(usernm));
