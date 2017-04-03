@@ -860,6 +860,10 @@ void *wain_thread_routine(void *arg) {
 					printf("STATUS_SIGN_OUT ping\n");
 					break;
 				}
+				case STATUS_SEARCH_USERNAMES: {
+					printf("STATUS_SEARCH_USERNAMES ping\n");
+					break;
+				}
 				default: {
 					sprintf(conf_stat, "Illogical state {%s}", status_to_str(existing_node->status));
 					break;

@@ -27,7 +27,8 @@ typedef enum STATUS_TYPE {
     STATUS_ACQUIRED_CHAT_PORT = 8,
     STATUS_PROCEED_CHAT_HP = 9,
     STATUS_CONFIRMED_CHAT_PEER = 10,
-    STATUS_SIGN_OUT = 11,
+    STATUS_SEARCH_USERNAMES = 11,
+    STATUS_SIGN_OUT = 12,
 } STATUS_TYPE;
 
 typedef struct node_buf {
@@ -89,6 +90,13 @@ typedef struct LinkedList {
 	node_t *tail;
 	unsigned int node_count;
 } LinkedList_t;
+
+typedef struct search_buf {
+	STATUS_TYPE status;
+	char id[MAX_CHARS_USERNAME];
+	unsigned char authn_token[AUTHEN_TOKEN_LEN];
+	char search_text[MAX_CHARS_SEARCH];
+} search_buf_t;
 
 extern const unsigned short INTERNAL_ADDR;
 extern const unsigned short EXTERNAL_ADDR;

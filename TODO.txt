@@ -1,5 +1,21 @@
 
+new functionality:
+	search for and add new contact + accept contact request
+
 authentication
+	when a user signs out
+		a- the server should check if user's hashnode->nodes->node_count == 0 (i.e. user offline)
+		b- if this is true, then the server should notify the user's contacts
+		c- and the app should reflect updated online/offline status in the user's contacts list
+		d- larger picture: each node should report changes in its status (online/asleep/busy/DoNotDisturb/Offline) to the server
+		e- and the server should record that status in the hashnode->nodes->node
+		f- and then notify the user's contacts' nodes of the status change
+
+	remove node_t (from server->self-hashnode->nodes) when stay-in-touch hasn't been received after x time
+
+	delete "stale" authn_nodes from authn hashtable
+	delete "stale" token_nodes from token hashtable
+
 	why isn't AES key being retrieved properly in ios app? something wrong in - (id)objectForKey:(id)key
 	save server's RSA pub key in ios keychain? or is that not even necessary, since we should ping the authn server every session start anyway?
 	encrypt AES key with RSA key
@@ -12,12 +28,7 @@ authentication
 		3-if existing user, add node to corresponding hashnode (with authn token, ip, port, fam)
 		4-for 2 & 3, move big chunk of code from main-server->STATUS_INIT_NODE to authn-server, yeah?
 	strlen + 1?
-	delete items from keychain on app delete
-	delete "stale" authn_nodes from authn hashtable
-	delete "stale" token_nodes from token hashtable
-	sign-out
-		isn't always working right
-		should notify contacts' nodes that it signed out... more exactly... the server should decide to notify the contacts' nodes if the user's hashnode->nodes->node_count == 0
+	delete items from keychain on app delete		
 
 	do we even need an AuthN token? I guess it verifies to the main server that we're authenticated, right? If the main server doesn't find a matching AuthN token in the corresponding hashnode->node, then it rejects that node, right? Answer: copy AuthN key (concated fam, ip, port) and token to node_t and node_buf_t, and match key and token from node_t with incoming data. Ywah?
 
@@ -26,9 +37,7 @@ change authN server to TCP to avoid packet loss, ordering problems?
 
 self <=> get internal hole punching working
 stay-in-touch with peers (and self nodes?)
-remove node_t's and token_node_t's when stay-in-touch hasn't occurred after x time
-new functionality:
-	search for and add new contact + accept contact request
+
 new ios functionality:
 	messageTextField should move up and down with keyboard
 	chatHistoryTextView should shrink and grow with keyboard + messageTextField
@@ -37,7 +46,12 @@ new ios functionality:
 	show chat history in textview
 
 network encryption
+	finish node-to-authn-server
+		1- when the server responds to AUTHN_STATUS_NEW_USER
+		2- when the server responds to AUTHN_STATUS_EXISTING_USER
+		3- when the clients sends the user data to the server: udp_client->send_user()
 	node-to-main-server (I think we can just encrypt and decrypt the entire struct node_buf_t)
+	node-to-chat-server
 	peer-to-peer (I think we can just encrypt and decrypt the entire struct node_buf_t)
 	ACTUALLY, we can get rid of server-generated AES key: time-based reset of server AES IV... and notification to all nodes... once a day?
 	ensure RSA swap request comes from Sup app (ie not from a fisher): maybe some sort of time-dependent key to pass with RSA swap
