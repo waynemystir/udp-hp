@@ -362,7 +362,11 @@ void *authn_thread_routine(void *arg) {
 			case AUTHN_STATUS_AES_SWAP_RESPONSE: {
 				// printf("The server's AES key (%s)\n", buf.aes_key);
 				// printf("The server's AES iv (%s)\n", buf.aes_iv);
-				send_user(node_user_status, username, password);
+				char un[MAX_CHARS_USERNAME] = {0};
+				char pw[MAX_CHARS_PASSWORD] = {0};
+				strcpy(un, username);
+				strcpy(pw, password);
+				send_user(node_user_status, un, pw);
 				break;
 			}
 			case AUTHN_STATUS_NEW_USER_RESPONSE: {
@@ -814,7 +818,7 @@ void *wain_thread_routine(void *arg) {
 				continue;
 			}
 
-			char conf_stat[40];
+			char conf_stat[40] ;
 			switch (existing_node->status) {
 				case STATUS_INIT_NODE:
 				case STATUS_NEW_NODE:
@@ -846,6 +850,14 @@ void *wain_thread_routine(void *arg) {
 							'else' would never occur, theoretically.
 						*/ 
 					}
+					break;
+				}
+				case STATUS_CONFIRMED_CHAT_PEER: {
+					printf("STATUS_CONFIRMED_CHAT_PEER ping\n");
+					break;
+				}
+				case STATUS_SIGN_OUT: {
+					printf("STATUS_SIGN_OUT ping\n");
 					break;
 				}
 				default: {
