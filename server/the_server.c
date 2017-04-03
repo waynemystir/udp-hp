@@ -551,6 +551,8 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_INIT_NODE No token node found\n");
 					break;
 				}
+				free(tn);
+				remove_token_node(&token_tbl, buf.authn_token);
 				hash_node_t *hn = lookup_user(&hashtbl, buf.id);
 				if (!hn) {
 					// TODO handle this
@@ -616,15 +618,14 @@ void *main_server_endpoint(void *arg) {
 			case STATUS_STAY_IN_TOUCH: {
 				printf("STATUS_STAY_IN_TOUCH from %s port%d %d %d\n", ip_str, port,
 					family, STATUS_STAY_IN_TOUCH_RESPONSE);
-				token_node_t *tn = lookup_token_node(&token_tbl, buf.authn_token);
-				if (!tn) {
-					// TODO handle this
-					printf("STATUS_STAY_IN_TOUCH No token node found\n");
-					break;
-				}
 				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
 				if (!hn) {
 					printf("STATUS_STAY_IN_TOUCH no hn for user (%s)\n", buf.id);
+					break;
+				}
+				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				if (memcmp(n->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN) != 0) {
+					printf("STATUS_STAY_IN_TOUCH with non-matching authn_token\n");
 					break;
 				}
 				buf.status = STATUS_STAY_IN_TOUCH_RESPONSE;
@@ -636,15 +637,15 @@ void *main_server_endpoint(void *arg) {
 			}
 			case STATUS_ACQUIRED_CHAT_PORT: {
 				printf("STATUS_ACQUIRED_CHAT_PORT from %s %s port%d %d\n", buf.id, ip_str, port, family);
-				token_node_t *tn = lookup_token_node(&token_tbl, buf.authn_token);
-				if (!tn) {
-					// TODO handle this
-					printf("STATUS_ACQUIRED_CHAT_PORT No token node found\n");
-					break;
-				}
+
 				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
 				if (!hn) {
 					printf("STATUS_ACQUIRED_CHAT_PORT no hn for user (%s)\n", buf.id);
+					break;
+				}
+				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				if (memcmp(n->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN) != 0) {
+					printf("STATUS_ACQUIRED_CHAT_PORT with non-matching authn_token\n");
 					break;
 				}
 
@@ -663,25 +664,23 @@ void *main_server_endpoint(void *arg) {
 			}
 			case STATUS_SIGN_OUT: {
 				printf("STATUS_SIGN_OUT from %s %s port%d %d\n", buf.id, ip_str, port, family);
-				token_node_t *tn = lookup_token_node(&token_tbl, buf.authn_token);
-				if (!tn) {
-					// TODO handle this
-					printf("STATUS_SIGN_OUT No token node found\n");
-					break;
-				}
 				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
 				if (!hn) {
 					printf("STATUS_SIGN_OUT no hn for user (%s)\n", buf.id);
 					break;
 				}
+				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				if (memcmp(n->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN) != 0) {
+					printf("STATUS_SIGN_OUT with non-matching authn_token\n");
+					break;
+				}
 
-				remove_token_node(&token_tbl, buf.authn_token);
 				printf("STATUS_SIGN_OUT before(%d)\n", hn->nodes->node_count);
-				for (node_t *n = hn->nodes->head; n!=NULL; n=n->next) printf("(%d)", n->external_ip4);
+				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
 				printf("\n");
 				remove_node_with_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
 				printf("STATUS_SIGN_OUT after(%d)\n", hn->nodes->node_count);
-				for (node_t *n = hn->nodes->head; n!=NULL; n=n->next) printf("(%d)", n->external_ip4);
+				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
 				printf("\n");
 				break;
 			}
