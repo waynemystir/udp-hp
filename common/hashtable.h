@@ -43,6 +43,7 @@ typedef hash_node_t *hashtable_t[HASHSIZE];
 
 unsigned hash(char *s);
 hash_node_t *lookup_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]);
+hash_node_t *search_for_user(hashtable_t *hashtbl, char *search_text, int *number_of_results);
 // void username_from_id(ID id, char username[MAX_CHARS_USERNAME]);
 // void id_from_username(char username[MAX_CHARS_USERNAME], ID id);
 hash_node_t *lookup_user_from_id(hashtable_t *hashtbl, char id[MAX_CHARS_USERNAME]);

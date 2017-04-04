@@ -527,9 +527,10 @@ void *main_server_endpoint(void *arg) {
 	if ( br == -1 ) pfail("bind");
 	printf("main_server_endpoint 3 %d\n", br);
 
+	size_t max_buf = MAX(size_t, SZ_NODE_BF, SZ_SRCH_BF);
+	printf("Starting MAIN server (%lu)\n", max_buf);
 	while (main_server_running) {
-		// printf("main -: 3\n");
-		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, &main_slen);
+		recvf_len = recvfrom(sock_fd, &buf, max_buf, 0, &si_other, &main_slen);
 		if ( recvf_len == -1) pfail("recvfrom");
 
 		char ip_str[INET6_ADDRSTRLEN];
@@ -689,7 +690,22 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_SEARCH_USERNAMES with non-matching authn_token\n");
 					break;
 				}
-
+				search_buf_t *sbuf = (search_buf_t *)&buf;
+				int number_of_search_results = 0;
+				char *search_text = malloc(MAX_CHARS_SEARCH);
+				memset(search_text, '\0', MAX_CHARS_SEARCH);
+				strcpy(search_text, sbuf->search_text);
+				memset(sbuf->search_text, '\0', MAX_CHARS_SEARCH);
+				memset(sbuf->search_results, '\0', MAX_SEARCH_RESULTS * MAX_CHARS_USERNAME);
+				hash_node_t *search_results = search_for_user(&hashtbl, search_text, &number_of_search_results);
+				for (int j = 0; j < number_of_search_results; j++) {
+					strcpy(sbuf->search_results[j], search_results->username);
+					search_results++;
+				}
+				sendto_len = sendto(sock_fd, &buf, SZ_SRCH_BF, 0, &si_other, main_slen);
+				if (sendto_len == -1) {
+					pfail("sendto");
+				}
 				break;
 			}
 			case STATUS_SIGN_OUT: {

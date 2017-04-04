@@ -682,7 +682,8 @@ void *wain_thread_routine(void *arg) {
 
 	if (wain_running) wain_thread_has_started = 1;
 	while (wain_running) {
-		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, &sa_other, &other_socklen);
+		size_t max_buf = MAX(size_t, SZ_NODE_BF, SZ_SRCH_BF);
+		recvf_len = recvfrom(sock_fd, &buf, max_buf, 0, &sa_other, &other_socklen);
 		if (recvf_len == -1) {
 			char w[256];
 			sprintf(w, "recvfrom failed with %zu", recvf_len);

@@ -95,7 +95,10 @@ typedef struct search_buf {
 	STATUS_TYPE status;
 	char id[MAX_CHARS_USERNAME];
 	unsigned char authn_token[AUTHEN_TOKEN_LEN];
-	char search_text[MAX_CHARS_SEARCH];
+	union {
+		char search_text[MAX_CHARS_SEARCH];
+		char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME];
+	};
 } search_buf_t;
 
 extern const unsigned short INTERNAL_ADDR;
@@ -106,6 +109,7 @@ extern const unsigned short EXTERNAL_ADDR;
 #define SZ_NODE sizeof(node_t)
 #define SZ_LINK_LIST_MN sizeof(LinkedList_min_t)
 #define SZ_LINK_LIST sizeof(LinkedList_t)
+#define SZ_SRCH_BF sizeof(search_buf_t)
 #define SZ_SOCKADDR sizeof(struct sockaddr)
 #define SZ_SOCKADDR_IN sizeof(struct sockaddr_in)
 #define SZ_SOCKADDR_IN6 sizeof(struct sockaddr_in6)

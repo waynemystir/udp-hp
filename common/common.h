@@ -14,6 +14,7 @@
 #define MAX_CHARS_USERNAME 47
 #define MAX_CHARS_PASSWORD 28
 #define MAX_CHARS_SEARCH 40
+#define MAX_SEARCH_RESULTS 20
 #define RSA_PUBLIC_KEY_LEN 512
 #define NUM_BITS_AES_KEY 256
 #define NUM_BITS_IV_KEY 128
@@ -139,6 +140,15 @@ int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr);
 #define SZ_AUN_ND sizeof(authn_node_t)
 #define SZ_AUN_TBL sizeof(authn_hashtable_t)
 #define SZ_TKN_ND sizeof(token_node_t)
+
+#define GENERIC_MAX(x, y) ((x) > (y) ? (x) : (y))
+
+#define ENSURE_int(i)   _Generic((i), int:   (i))
+#define ENSURE_float(f) _Generic((f), float: (f))
+#define ENSURE_size_t(s) _Generic((s), size_t: (s))
+
+#define MAX(type, x, y) \
+  (type)GENERIC_MAX(ENSURE_##type(x), ENSURE_##type(y))
 
 typedef struct authn_buf_encrypted {
 	AUTHN_STATUS status;

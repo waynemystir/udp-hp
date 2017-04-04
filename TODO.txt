@@ -1,3 +1,4 @@
+email
 
 new functionality:
 	search for and add new contact + accept contact request

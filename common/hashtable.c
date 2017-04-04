@@ -34,6 +34,11 @@ hash_node_t *lookup_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]
 	return NULL; /* not found */
 }
 
+hash_node_t *search_for_user(hashtable_t *hashtbl, char *search_text, int *number_of_results) {
+	// TODO
+	return NULL;
+}
+
 // void username_from_id(ID id, char username[MAX_CHARS_USERNAME]) {
 // 	strcpy(username, id);
 // }
