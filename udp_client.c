@@ -680,9 +680,10 @@ void *wain_thread_routine(void *arg) {
 	self.nodes = malloc(SZ_LINK_LIST);
 	self.contacts = malloc(SZ_CONTACT_LIST);
 
+	size_t max_buf = MAX(size_t, SZ_NODE_BF, SZ_SRCH_BF);
+	printf("Start MAIN (%lu)\n", max_buf);
 	if (wain_running) wain_thread_has_started = 1;
 	while (wain_running) {
-		size_t max_buf = MAX(size_t, SZ_NODE_BF, SZ_SRCH_BF);
 		recvf_len = recvfrom(sock_fd, &buf, max_buf, 0, &sa_other, &other_socklen);
 		if (recvf_len == -1) {
 			char w[256];
@@ -794,6 +795,11 @@ void *wain_thread_routine(void *arg) {
 						cn->external_chat_port = buf.chat_port;
 						punch_hole_in_peer(SERVER_CHAT, cn);
 					}
+					break;
+				}
+				case STATUS_SEARCH_USERNAMES: {
+					search_buf_t *sbuf = (search_buf_t *)&buf;
+
 					break;
 				}
                     
@@ -1220,6 +1226,11 @@ void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3
 
 	if (sendto(chat_sock_fd, &wcb, SZ_CH_BF, 0, peer_addr, peer_socklen) == -1)
 		pfail("send_message_to_peer sendto");
+}
+
+void search_username(const char *username,
+	void(*username_results)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results)) {
+
 }
 
 void list_contacts(contact_list_t **contacts) {
