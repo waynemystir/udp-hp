@@ -1228,9 +1228,21 @@ void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3
 		pfail("send_message_to_peer sendto");
 }
 
-void search_username(const char *username,
+void search_username(const char *searchname,
 	void(*username_results)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results)) {
 
+	search_buf_t buf;
+	memset(&buf, '\0', SZ_SRCH_BF);
+	buf.status = STATUS_SEARCH_USERNAMES;
+	strcpy(buf.id, username);
+	memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+	memcpy(buf.search_text, searchname, MAX_CHARS_USERNAME);
+	size_t sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, sa_server, server_socklen);
+	if (sendto_len == -1) {
+		char w[256];
+		sprintf(w, "sendto failed with %zu", sendto_len);
+		pfail(w);
+	} else if (sendto_succeeded_cb) sendto_succeeded_cb(sendto_len);
 }
 
 void list_contacts(contact_list_t **contacts) {

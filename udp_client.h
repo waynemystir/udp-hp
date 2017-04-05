@@ -47,7 +47,7 @@ int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port
 	void (*whilew)(int),
 	void (*end_while)(void));
 
-void search_username(const char *username,
+void search_username(const char *searchname,
 	void(*username_results)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results));
 
 void ping_all_peers();
