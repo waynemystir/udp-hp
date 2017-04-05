@@ -36,7 +36,15 @@ hash_node_t *lookup_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]
 
 hash_node_t *search_for_user(hashtable_t *hashtbl, char *search_text, int *number_of_results) {
 	// TODO
-	return NULL;
+	hash_node_t joe_doe = {0};
+	strcpy(joe_doe.username, "joe_doe");
+	hash_node_t phil_conners = {0};
+	strcpy(phil_conners.username, "phil_conners");
+	hash_node_t search_results[2] = {joe_doe, phil_conners};
+	hash_node_t *sr = malloc(sizeof(search_results));
+	memcpy(sr, search_results, sizeof(search_results));
+	if (number_of_results) *number_of_results = 2;
+	return sr;
 }
 
 // void username_from_id(ID id, char username[MAX_CHARS_USERNAME]) {

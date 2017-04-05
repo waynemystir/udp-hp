@@ -695,14 +695,17 @@ void *main_server_endpoint(void *arg) {
 				char *search_text = malloc(MAX_CHARS_SEARCH);
 				memset(search_text, '\0', MAX_CHARS_SEARCH);
 				strcpy(search_text, sbuf->search_text);
-				memset(sbuf->search_text, '\0', MAX_CHARS_SEARCH);
-				memset(sbuf->search_results, '\0', MAX_SEARCH_RESULTS * MAX_CHARS_USERNAME);
+				// memset(sbuf->search_text, '\0', MAX_CHARS_SEARCH);
+				// memset(sbuf->search_results, '\0', MAX_SEARCH_RESULTS * MAX_CHARS_USERNAME);
+				search_buf_t rbuf = {0};
+				rbuf.status = STATUS_SEARCH_USERNAMES;
 				hash_node_t *search_results = search_for_user(&hashtbl, search_text, &number_of_search_results);
 				for (int j = 0; j < number_of_search_results; j++) {
-					strcpy(sbuf->search_results[j], search_results->username);
+					strcpy(rbuf.search_results[j], search_results->username);
 					search_results++;
 				}
-				sendto_len = sendto(sock_fd, &buf, SZ_SRCH_BF, 0, &si_other, main_slen);
+				rbuf.number_of_search_results = number_of_search_results;
+				sendto_len = sendto(sock_fd, &rbuf, SZ_SRCH_BF, 0, &si_other, main_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
