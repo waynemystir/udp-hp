@@ -344,6 +344,7 @@ int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr, SERVER_TYPE st)
 	if (node->external_family != addr->sa_family) return 0;
 	in_port_t aport;
 	switch (st) {
+		case SERVER_SEARCH:
 		case SERVER_MAIN: {
 			aport = node->external_port;
 			break;

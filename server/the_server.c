@@ -28,13 +28,16 @@ unsigned char *aes_iv;
 pthread_t main_server_thread;
 pthread_t authentication_server_thread;
 pthread_t chat_thread;
+pthread_t search_server_thread;
 
 int main_server_running = 1;
 int authentication_server_running = 1;
+int search_server_running = 1;
 int chat_running = 1;
 
 int sock_fd;
 int authn_sock_fd;
+int search_sock_fd;
 int chat_sock_fd;
 
 struct sockaddr si_other;
@@ -497,6 +500,95 @@ start_switch:
 	pthread_exit("authentication_server_thread exited normally");
 }
 
+void *search_server_routine(void *arg) {
+	printf("search_endpoint 0 %s\n", (char *)arg);
+
+	size_t recvf_len, sendto_len;
+	struct sockaddr_in *si_me;
+	search_buf_t buf;
+	struct sockaddr si_search_other;
+	socklen_t search_slen = sizeof(struct sockaddr);
+
+	search_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if ( search_sock_fd == -1 ) pfail("socket");
+	printf("search_endpoint 1 %d\n", search_sock_fd);
+
+	// si_me stores our local endpoint. Remember that this program
+	// has to be run in a network with UDP endpoint previously known
+	// and directly accessible by all clients. In simpler terms, the
+	// server cannot be behind a NAT.
+	char search_port[10];
+	sprintf(search_port, "%d", SEARCH_PORT);
+	str_to_addr((struct sockaddr**)&si_me, NULL, search_port, AF_INET, SOCK_DGRAM, AI_PASSIVE);
+	char me_ip_str[256];
+	char me_port[20];
+	char me_fam[5];
+	addr_to_str( (struct sockaddr*)si_me, me_ip_str, me_port, me_fam );
+	printf("search_endpoint 2 %s %s %s %zu\n", me_ip_str, me_port, me_fam, sizeof(*si_me));
+
+	int br = bind(search_sock_fd, (struct sockaddr*)si_me, sizeof(*si_me));
+	if ( br == -1 ) pfail("bind");
+	printf("search_endpoint 3 %d\n", br);
+
+	while (search_server_running) {
+		recvf_len = recvfrom(search_sock_fd, &buf, SZ_SRCH_BF, 0, &si_search_other, &search_slen);
+		if ( recvf_len == -1) pfail("recvfrom");
+
+		char ip_str[INET6_ADDRSTRLEN];
+		unsigned short port;
+		unsigned short family;
+		// void *addr = &(si_chat_other.sin_addr);
+		// inet_ntop( AF_INET, &(si_chat_other.sin_addr), ip_str, sizeof(ip_str) );
+		addr_to_str_short( &si_search_other, ip_str, &port, &family );
+		printf("Received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
+
+		// TODO we should probably handle packets with a thread pool
+		// so that the next recvfrom isn't blocked by the below code
+		switch(buf.status) {
+			case STATUS_SEARCH_USERNAMES: {
+				printf("STATUS_SEARCH_USERNAMES from %s %s port%d %d\n", buf.id, ip_str, port, family);
+				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
+				if (!hn) {
+					printf("STATUS_SEARCH_USERNAMES no hn for user (%s)\n", buf.id);
+					break;
+				}
+				node_t *n = find_node_from_sockaddr(hn->nodes, &si_search_other, SERVER_SEARCH);
+				if (!n) {
+					printf("STATUS_SEARCH_USERNAMES No node found for addr %s %s port%d %d\n",
+						buf.id, ip_str, port, family);
+					break;
+				}
+				if (memcmp(n->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN) != 0) {
+					printf("STATUS_SEARCH_USERNAMES with non-matching authn_token\n");
+					break;
+				}
+				int number_of_search_results = 0;
+				char *search_text = malloc(MAX_CHARS_SEARCH);
+				memset(search_text, '\0', MAX_CHARS_SEARCH);
+				strcpy(search_text, buf.search_text);
+				search_buf_t rbuf = {0};
+				rbuf.status = STATUS_SEARCH_USERNAMES;
+				hash_node_t *search_results = search_for_user(&hashtbl, search_text, &number_of_search_results);
+				for (int j = 0; j < number_of_search_results; j++) {
+					strcpy(rbuf.search_results[j], search_results->username);
+					search_results++;
+				}
+				rbuf.number_of_search_results = number_of_search_results;
+				sendto_len = sendto(search_sock_fd, &rbuf, SZ_SRCH_BF, 0, &si_search_other, search_slen);
+				if (sendto_len == -1) {
+					pfail("sendto");
+				}
+				break;
+			}
+			default: {
+				break;
+			}
+		}
+	}
+
+	pthread_exit("search_server_routine exited normally");
+}
+
 void *main_server_endpoint(void *arg) {
 	printf("main_server_endpoint 0 %s %zu %zu %zu %zu\n", (char *)arg,
 		SZ_NODE, sizeof(node_t),
@@ -527,10 +619,8 @@ void *main_server_endpoint(void *arg) {
 	if ( br == -1 ) pfail("bind");
 	printf("main_server_endpoint 3 %d\n", br);
 
-	size_t max_buf = MAX(size_t, SZ_NODE_BF, SZ_SRCH_BF);
-	printf("Starting MAIN server (%lu)\n", max_buf);
 	while (main_server_running) {
-		recvf_len = recvfrom(sock_fd, &buf, max_buf, 0, &si_other, &main_slen);
+		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, &main_slen);
 		if ( recvf_len == -1) pfail("recvfrom");
 
 		char ip_str[INET6_ADDRSTRLEN];
@@ -673,44 +763,6 @@ void *main_server_endpoint(void *arg) {
 				}
 				break;
 			}
-			case STATUS_SEARCH_USERNAMES: {
-				printf("STATUS_SEARCH_USERNAMES from %s %s port%d %d\n", buf.id, ip_str, port, family);
-				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
-				if (!hn) {
-					printf("STATUS_SEARCH_USERNAMES no hn for user (%s)\n", buf.id);
-					break;
-				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
-				if (!n) {
-					printf("STATUS_SEARCH_USERNAMES No node found for addr %s %s port%d %d\n",
-						buf.id, ip_str, port, family);
-					break;
-				}
-				if (memcmp(n->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN) != 0) {
-					printf("STATUS_SEARCH_USERNAMES with non-matching authn_token\n");
-					break;
-				}
-				search_buf_t *sbuf = (search_buf_t *)&buf;
-				int number_of_search_results = 0;
-				char *search_text = malloc(MAX_CHARS_SEARCH);
-				memset(search_text, '\0', MAX_CHARS_SEARCH);
-				strcpy(search_text, sbuf->search_text);
-				// memset(sbuf->search_text, '\0', MAX_CHARS_SEARCH);
-				// memset(sbuf->search_results, '\0', MAX_SEARCH_RESULTS * MAX_CHARS_USERNAME);
-				search_buf_t rbuf = {0};
-				rbuf.status = STATUS_SEARCH_USERNAMES;
-				hash_node_t *search_results = search_for_user(&hashtbl, search_text, &number_of_search_results);
-				for (int j = 0; j < number_of_search_results; j++) {
-					strcpy(rbuf.search_results[j], search_results->username);
-					search_results++;
-				}
-				rbuf.number_of_search_results = number_of_search_results;
-				sendto_len = sendto(sock_fd, &rbuf, SZ_SRCH_BF, 0, &si_other, main_slen);
-				if (sendto_len == -1) {
-					pfail("sendto");
-				}
-				break;
-			}
 			case STATUS_SIGN_OUT: {
 				printf("STATUS_SIGN_OUT from %s %s port%d %d\n", buf.id, ip_str, port, family);
 				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
@@ -763,8 +815,8 @@ void *chat_endpoint(void *msg) {
 	size_t recvf_len, sendto_len;
 	struct sockaddr_in *si_me;
 	chat_buf_t buf;
-	struct sockaddr si_other;
-	socklen_t slen = sizeof(struct sockaddr);
+	struct sockaddr si_chat_other;
+	socklen_t chat_slen = sizeof(struct sockaddr);
 
 	chat_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if ( chat_sock_fd == -1 ) pfail("socket");
@@ -786,15 +838,15 @@ void *chat_endpoint(void *msg) {
 	printf("chat_endpoint 3 %d\n", br);
 
 	while (chat_running) {
-		recvf_len = recvfrom(chat_sock_fd, &buf, sizeof(buf), 0, &si_other, &slen);
+		recvf_len = recvfrom(chat_sock_fd, &buf, sizeof(buf), 0, &si_chat_other, &chat_slen);
 		if ( recvf_len == -1) pfail("recvfrom");
 
 		char ip_str[INET6_ADDRSTRLEN];
 		unsigned short port;
 		unsigned short family;
-		// void *addr = &(si_other.sin_addr);
-		// inet_ntop( AF_INET, &(si_other.sin_addr), ip_str, sizeof(ip_str) );
-		addr_to_str_short( &si_other, ip_str, &port, &family );
+		// void *addr = &(si_chat_other.sin_addr);
+		// inet_ntop( AF_INET, &(si_chat_other.sin_addr), ip_str, sizeof(ip_str) );
+		addr_to_str_short( &si_chat_other, ip_str, &port, &family );
 		printf("Received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
 
 		// TODO we should probably handle packets with a thread pool
@@ -803,26 +855,26 @@ void *chat_endpoint(void *msg) {
 			case CHAT_STATUS_INIT: {
 				printf("CHAT_STATUS_INIT from %s port%d %d\n", ip_str, port, family);
 				buf.status = CHAT_STATUS_NEW;
-				buf.family = si_other.sa_family;
-				switch (si_other.sa_family) {
+				buf.family = si_chat_other.sa_family;
+				switch (si_chat_other.sa_family) {
 					case AF_INET: {
-						buf.ip4 = ((struct sockaddr_in *)&si_other)->sin_addr.s_addr;
-						buf.port = ((struct sockaddr_in *)&si_other)->sin_port;
+						buf.ip4 = ((struct sockaddr_in *)&si_chat_other)->sin_addr.s_addr;
+						buf.port = ((struct sockaddr_in *)&si_chat_other)->sin_port;
 						break;
 					}
 					case AF_INET6: {
-						memcpy(buf.ip6, ((struct sockaddr_in6 *)&si_other)->sin6_addr.s6_addr,
+						memcpy(buf.ip6, ((struct sockaddr_in6 *)&si_chat_other)->sin6_addr.s6_addr,
 							sizeof(unsigned char[16]));
-						buf.port = ((struct sockaddr_in6 *)&si_other)->sin6_port;
+						buf.port = ((struct sockaddr_in6 *)&si_chat_other)->sin6_port;
 						break;
 					}
 					default: {
-						printf("CHAT_STATUS_INIT si_other.sa_family is not good %d\n",
-							si_other.sa_family);
+						printf("CHAT_STATUS_INIT si_chat_other.sa_family is not good %d\n",
+							si_chat_other.sa_family);
 						continue;
 					}
 				}
-				sendto_len = sendto(chat_sock_fd, &buf, sizeof(buf), 0, &si_other, slen);
+				sendto_len = sendto(chat_sock_fd, &buf, sizeof(buf), 0, &si_chat_other, chat_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
@@ -832,7 +884,7 @@ void *chat_endpoint(void *msg) {
 			case CHAT_STATUS_STAY_IN_TOUCH: {
 				printf("CHAT_STATUS_STAY_IN_TOUCH from %s port%d %d\n", ip_str, port, family);
 				buf.status = CHAT_STATUS_STAY_IN_TOUCH_RESPONSE;
-				sendto_len = sendto(chat_sock_fd, &buf, sizeof(buf), 0, &si_other, slen);
+				sendto_len = sendto(chat_sock_fd, &buf, sizeof(buf), 0, &si_chat_other, chat_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
@@ -875,6 +927,13 @@ int main() {
 		exit(-1);
 	}
 
+	char *search_exit_msg;
+	int stcr = pthread_create(&search_server_thread, NULL, search_server_routine, "");
+	if (stcr) {
+		printf("ERROR starting search_server_thread: %d\n", stcr);
+		exit(-1);
+	}
+
 	char *thread_exit_msg;
 	int pcr = pthread_create(&main_server_thread, NULL, main_server_endpoint, (void *)"main_server_thread");
 	if (pcr) {
@@ -890,6 +949,7 @@ int main() {
 	}
 
 	pthread_join(authentication_server_thread, (void**)&authn_exit_msg);
+	pthread_join(search_server_thread, (void**)&search_exit_msg);
 	pthread_join(main_server_thread,(void**)&thread_exit_msg);
 	pthread_join(chat_thread,(void**)&chat_thread_exit_msg);
 

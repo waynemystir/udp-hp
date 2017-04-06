@@ -5,6 +5,7 @@
 #include "common.h"
 
 const unsigned short AUTHENTICATION_PORT = 9929;
+const unsigned short SEARCH_PORT = 9932;
 
 char *authn_status_to_str(AUTHN_STATUS as) {
 	switch (as) {
@@ -37,6 +38,7 @@ char *creds_check_result_to_str(AUTHN_CREDS_CHECK_RESULT r) {
 char *str_from_server_type(SERVER_TYPE st) {
 	switch (st) {
 		case SERVER_AUTHN: return "SERVER_AUTHN";
+		case SERVER_SEARCH: return "SERVER_SEARCH";
 		case SERVER_MAIN: return "SERVER_MAIN";
 		case SERVER_CHAT: return "SERVER_CHAT";
 		default: return "SERVER_UNKNOWN";

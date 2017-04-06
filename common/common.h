@@ -28,6 +28,7 @@
 
 typedef enum SERVER_TYPE {
 	SERVER_AUTHN,
+	SERVER_SEARCH,
 	SERVER_MAIN,
 	SERVER_CHAT,
 } SERVER_TYPE;
@@ -118,6 +119,7 @@ typedef struct chat_buf {
 } chat_buf_t;
 
 extern const unsigned short AUTHENTICATION_PORT;
+extern const unsigned short SEARCH_PORT;
 
 char *authn_status_to_str(AUTHN_STATUS as);
 char *creds_check_result_to_str(AUTHN_CREDS_CHECK_RESULT r);
