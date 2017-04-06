@@ -64,6 +64,11 @@ struct sockaddr *sa_authn_server;
 socklen_t authn_server_socklen = 0;
 size_t authn_sendto_len, authn_recvf_len;
 
+// The search server
+struct sockaddr *sa_search_server;
+socklen_t search_server_socklen = 0;
+size_t search_sendto_len, search_recvf_len;
+
 // The chat server
 struct sockaddr *sa_chat_server;
 char chat_server_internal_ip[INET6_ADDRSTRLEN];
@@ -75,10 +80,12 @@ socklen_t chat_server_socklen = 0;
 int authn_sock_fd;
 int sock_fd;
 int chat_sock_fd;
+int search_sock_fd;
 
 // Threads
 pthread_t wain_thread;
 pthread_t authn_thread;
+pthread_t search_thread;
 
 // Runnings
 int wain_running = 1;
@@ -86,10 +93,12 @@ int authn_running = 1;
 int stay_in_touch_running = 1;
 int chat_stay_in_touch_running = 1;
 int chat_server_conn_running = 1;
+int search_running = 0;
 
 // Misc
 int authn_thread_has_started = 0;
 int wain_thread_has_started = 0;
+int search_thread_has_started = 0;
 
 // function pointers
 void (*rsakeypair_generated_cb)(const char *rsa_pub_key, const char *rsa_pri_key) = NULL;
@@ -797,11 +806,6 @@ void *wain_thread_routine(void *arg) {
 					}
 					break;
 				}
-				case STATUS_SEARCH_USERNAMES: {
-					search_buf_t *sbuf = (search_buf_t *)&buf;
-
-					break;
-				}
                     
 				default: {
 					if (unhandled_response_from_server_cb)
@@ -865,10 +869,6 @@ void *wain_thread_routine(void *arg) {
 				}
 				case STATUS_SIGN_OUT: {
 					printf("STATUS_SIGN_OUT ping\n");
-					break;
-				}
-				case STATUS_SEARCH_USERNAMES: {
-					printf("STATUS_SEARCH_USERNAMES ping\n");
 					break;
 				}
 				default: {
@@ -1174,6 +1174,113 @@ void send_chat_hole_punch(node_t *peer) {
 	if (hole_punch_sent_cb) hole_punch_sent_cb(spf, ++chpc);
 }
 
+void *search_thread_routine(void *arg) {
+	printf("search_thread_routine %s\n", (char *)arg);
+	char wayne[256];
+
+	// Setup self
+	// str_to_addr((struct sockaddr**)&sa_me_chat, NULL, "12001", AF_INET, SOCK_DGRAM, AI_PASSIVE);
+	// addr_to_str((struct sockaddr*)sa_me_chat, me_chat_ip, me_chat_port, me_chat_family);
+	// sprintf(sprintf, "Chat moi %s port%s %s", me_chat_ip, me_chat_port, me_chat_family);
+	// if (self_info_cb) self_info_cb(sprintf);
+	struct sockaddr_in si_me;
+	memset((char *) &si_me, 0, SZ_SOCKADDR_IN);
+	si_me.sin_family = AF_INET;
+	si_me.sin_port = htons(0);
+	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	// Setup search server
+	char search_port[10];
+	sprintf(search_port, "%d", SEARCH_PORT);
+	str_to_addr(&sa_search_server, "142.105.56.124", search_port, AF_INET, SOCK_DGRAM, 0);
+	search_server_socklen = sa_search_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
+	addr_to_str(sa_search_server, server_internal_ip, server_internal_port, server_internal_family);
+	sprintf(wayne, "The search server %s port%s %s %u",
+		server_internal_ip,
+		server_internal_port,
+		server_internal_family,
+		chat_server_socklen);
+	if (server_info_cb) server_info_cb(SERVER_SEARCH, wayne);
+
+	// Setup sa_search_other
+	struct sockaddr sa_search_other;
+	char search_other_ip[INET6_ADDRSTRLEN];
+	char search_other_port[20];
+	char search_other_family[20];
+	socklen_t search_other_socklen = DEFAULT_OTHER_ADDR_LEN;
+
+	search_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (search_sock_fd == -1) {
+		printf("There was a problem creating the socket\n");
+	} else if (socket_created_cb) socket_created_cb(search_sock_fd);
+
+	search_buf_t buf;
+	memset(&buf, '\0', SZ_SRCH_BF);
+	char buf_ip[INET6_ADDRSTRLEN];
+
+	if (search_running) search_thread_has_started = 1;
+	else search_thread_has_started = 0;
+	while (search_running) {
+		search_recvf_len = recvfrom(search_sock_fd, &buf, SZ_SRCH_BF, 0, &sa_search_other, &search_other_socklen);
+		printf("#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$\n");
+		if (search_recvf_len == -1) {
+			char w[256];
+			sprintf(w, "search recvfrom failed with %zu", search_recvf_len);
+			pfail(w);
+		}
+
+		addr_to_str(&sa_search_other, search_other_ip, search_other_port, search_other_family);
+		sprintf(wayne, "(%s) %s port%s %s", search_status_to_str(buf.status),
+			search_other_ip, search_other_port, search_other_family);
+		if (recd_cb) recd_cb(SERVER_SEARCH, search_recvf_len, search_other_socklen, wayne);
+		search_other_socklen = DEFAULT_OTHER_ADDR_LEN;
+
+		switch (buf.status) {
+			case SEARCH_STATUS_USERNAME_RESPONSE: {
+				// TODO
+				break;
+			}
+			case SEARCH_STATUS_USERNAME: {
+				printf("SEARCH_STATUS_USERNAME This should never occur\n");
+				break;
+			}
+		}
+	}
+	search_thread_has_started = 0;
+	pthread_exit("search_thread_routine exited normally");
+}
+
+int search_start() {
+	search_running = 1;
+	int stc = pthread_create(&search_thread, NULL, search_thread_routine, "");
+	if (stc) {
+		printf("ERROR in search_thread creation; return code from pthread_create() is %d\n", stc);
+		return -1;
+	}
+	return 0;
+}
+
+void search_username(const char *searchname,
+	void(*username_results)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results)) {
+
+	while (!search_thread_has_started) {
+		search_start();
+		usleep(10*1000); // 10 milliseconds
+	}
+	search_buf_t buf;
+	memset(&buf, '\0', SZ_SRCH_BF);
+	buf.status = SEARCH_STATUS_USERNAME;
+	strcpy(buf.id, username);
+	memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+	memcpy(buf.search_text, searchname, MAX_CHARS_USERNAME);
+	size_t sendto_len = sendto(search_sock_fd, &buf, SZ_NODE_BF, 0, sa_search_server, search_server_socklen);
+	if (sendto_len == -1) {
+		char w[256];
+		sprintf(w, "sendto failed with %zu", sendto_len);
+		pfail(w);
+	} else if (sendto_succeeded_cb) sendto_succeeded_cb(sendto_len);
+}
+
 void send_message_to_all_nodes_in_contact(contact_t *contact, void *msg, void *arg2_unused, void *arg3_unused) {
 	if (!contact || !contact->hn || !contact->hn->nodes) return;
 	nodes_perform(contact->hn->nodes, send_message_to_peer, msg, NULL, NULL);
@@ -1226,23 +1333,6 @@ void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3
 
 	if (sendto(chat_sock_fd, &wcb, SZ_CH_BF, 0, peer_addr, peer_socklen) == -1)
 		pfail("send_message_to_peer sendto");
-}
-
-void search_username(const char *searchname,
-	void(*username_results)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results)) {
-
-	search_buf_t buf;
-	memset(&buf, '\0', SZ_SRCH_BF);
-	buf.status = STATUS_SEARCH_USERNAMES;
-	strcpy(buf.id, username);
-	memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
-	memcpy(buf.search_text, searchname, MAX_CHARS_USERNAME);
-	size_t sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, sa_server, server_socklen);
-	if (sendto_len == -1) {
-		char w[256];
-		sprintf(w, "sendto failed with %zu", sendto_len);
-		pfail(w);
-	} else if (sendto_succeeded_cb) sendto_succeeded_cb(sendto_len);
 }
 
 void list_contacts(contact_list_t **contacts) {
