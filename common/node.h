@@ -104,6 +104,7 @@ typedef struct search_buf {
 		char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME];
 	};
 	int number_of_search_results;
+	in_port_t main_port;
 } search_buf_t;
 
 extern const unsigned short INTERNAL_ADDR;

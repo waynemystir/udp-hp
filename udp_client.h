@@ -30,6 +30,7 @@ int authn(NODE_USER_STATUS user_stat,
 int send_user(NODE_USER_STATUS nus, char *usernm, char *pw);
 
 int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port, unsigned short family),
+	void (*server_info_cb)(SERVER_TYPE, char *),
 	void (*socket_created)(int sock_fd),
 	void (*socket_bound)(void),
 	void (*sendto_succeeded)(size_t bytes_sent),

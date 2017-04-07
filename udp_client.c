@@ -891,6 +891,7 @@ void *wain_thread_routine(void *arg) {
 }
 
 int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned short),
+	void (*server_info)(SERVER_TYPE, char *),
 	void (*socket_created)(int),
 	void (*socket_bound)(void),
 	void (*sendto_succeeded)(size_t),
@@ -910,6 +911,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 
 	printf("main 0 %lu\n", DEFAULT_OTHER_ADDR_LEN);
 	self_info_cb = self_info;
+	server_info_cb = server_info;
 	socket_created_cb = socket_created;
 	socket_bound_cb = socket_bound;
 	sendto_succeeded_cb = sendto_succeeded;
@@ -1199,7 +1201,7 @@ void *search_thread_routine(void *arg) {
 		server_internal_ip,
 		server_internal_port,
 		server_internal_family,
-		chat_server_socklen);
+		search_server_socklen);
 	if (server_info_cb) server_info_cb(SERVER_SEARCH, wayne);
 
 	// Setup sa_search_other
@@ -1222,7 +1224,6 @@ void *search_thread_routine(void *arg) {
 	else search_thread_has_started = 0;
 	while (search_running) {
 		search_recvf_len = recvfrom(search_sock_fd, &buf, SZ_SRCH_BF, 0, &sa_search_other, &search_other_socklen);
-		printf("#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$#$\n");
 		if (search_recvf_len == -1) {
 			char w[256];
 			sprintf(w, "search recvfrom failed with %zu", search_recvf_len);
@@ -1273,7 +1274,7 @@ void search_username(const char *searchname,
 	strcpy(buf.id, username);
 	memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
 	memcpy(buf.search_text, searchname, MAX_CHARS_USERNAME);
-	size_t sendto_len = sendto(search_sock_fd, &buf, SZ_NODE_BF, 0, sa_search_server, search_server_socklen);
+	size_t sendto_len = sendto(search_sock_fd, &buf, SZ_SRCH_BF, 0, sa_search_server, search_server_socklen);
 	if (sendto_len == -1) {
 		char w[256];
 		sprintf(w, "sendto failed with %zu", sendto_len);
