@@ -540,26 +540,45 @@ void *search_server_routine(void *arg) {
 		// void *addr = &(si_chat_other.sin_addr);
 		// inet_ntop( AF_INET, &(si_chat_other.sin_addr), ip_str, sizeof(ip_str) );
 		addr_to_str_short( &si_search_other, ip_str, &port, &family );
-		printf("Received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
+		printf("Search Server received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
 
 		// TODO we should probably handle packets with a thread pool
 		// so that the next recvfrom isn't blocked by the below code
+start_switch:
 		switch(buf.status) {
-			case STATUS_SEARCH_USERNAMES: {
-				printf("STATUS_SEARCH_USERNAMES from %s %s port%d %d\n", buf.id, ip_str, port, family);
+			case SEARCH_STATUS_USERNAME: {
+				printf("SEARCH_STATUS_USERNAME from %s %s port%d %d\n", buf.id, ip_str, port, family);
 				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
 				if (!hn) {
-					printf("STATUS_SEARCH_USERNAMES no hn for user (%s)\n", buf.id);
+					printf("SEARCH_STATUS_USERNAME no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_search_other, SERVER_SEARCH);
+				struct sockaddr si_search_other_copy = si_search_other;
+				switch (si_search_other.sa_family) {
+					case AF_INET: {
+						struct sockaddr_in *sa4 = (struct sockaddr_in*)&si_search_other_copy;
+						sa4->sin_port = buf.main_port;
+						break;
+					}
+					case AF_INET6: {
+						struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)&si_search_other_copy;
+						sa6->sin6_port = buf.main_port;
+						break;
+					}
+					default: {
+						printf("SEARCH_STATUS_USERNAME: A problem occurred:"
+							" si_search_other.sa_family is neither AF_INET nor AF_INET6\n");
+						goto start_switch;
+					}
+				}
+				node_t *n = find_node_from_sockaddr(hn->nodes, &si_search_other_copy, SERVER_SEARCH);
 				if (!n) {
-					printf("STATUS_SEARCH_USERNAMES No node found for addr %s %s port%d %d\n",
+					printf("SEARCH_STATUS_USERNAME No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
 					break;
 				}
 				if (memcmp(n->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN) != 0) {
-					printf("STATUS_SEARCH_USERNAMES with non-matching authn_token\n");
+					printf("SEARCH_STATUS_USERNAME with non-matching authn_token\n");
 					break;
 				}
 				int number_of_search_results = 0;
@@ -567,7 +586,7 @@ void *search_server_routine(void *arg) {
 				memset(search_text, '\0', MAX_CHARS_SEARCH);
 				strcpy(search_text, buf.search_text);
 				search_buf_t rbuf = {0};
-				rbuf.status = STATUS_SEARCH_USERNAMES;
+				rbuf.status = SEARCH_STATUS_USERNAME_RESPONSE;
 				hash_node_t *search_results = search_for_user(&hashtbl, search_text, &number_of_search_results);
 				for (int j = 0; j < number_of_search_results; j++) {
 					strcpy(rbuf.search_results[j], search_results->username);
