@@ -122,6 +122,7 @@ void (*confirmed_peer_while_punching_cb)(SERVER_TYPE) = NULL;
 void (*from_peer_cb)(SERVER_TYPE, char *) = NULL;
 void (*chat_msg_cb)(char *) = NULL;
 void (*unhandled_response_from_server_cb)(int) = NULL;
+void (*username_results_cb)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results) = NULL;
 
 void pfail(char *w) {
 	printf("pfail 0\n");
@@ -1238,7 +1239,8 @@ void *search_thread_routine(void *arg) {
 
 		switch (buf.status) {
 			case SEARCH_STATUS_USERNAME_RESPONSE: {
-				// TODO
+				if (username_results_cb)
+					username_results_cb(buf.search_results, buf.number_of_search_results);
 				break;
 			}
 			case SEARCH_STATUS_USERNAME: {
@@ -1262,18 +1264,34 @@ int search_start() {
 }
 
 void search_username(const char *searchname,
-	void(*username_results)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results)) {
+	void (*username_results)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results)) {
 
 	while (!search_thread_has_started) {
 		search_start();
 		usleep(10*1000); // 10 milliseconds
 	}
+	username_results_cb = username_results;
 	search_buf_t buf;
 	memset(&buf, '\0', SZ_SRCH_BF);
 	buf.status = SEARCH_STATUS_USERNAME;
 	strcpy(buf.id, username);
 	memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
 	memcpy(buf.search_text, searchname, MAX_CHARS_USERNAME);
+	switch (sa_me_external->sa_family) {
+		case AF_INET: {
+			struct sockaddr_in *sa4 = (struct sockaddr_in*)sa_me_external;
+			buf.main_port = sa4->sin_port;
+			break;
+		}
+		case AF_INET6: {
+			struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)sa_me_external;
+			buf.main_port = sa6->sin6_port;
+			break;
+		}
+		default: {
+			return;
+		}
+	}
 	size_t sendto_len = sendto(search_sock_fd, &buf, SZ_SRCH_BF, 0, sa_search_server, search_server_socklen);
 	if (sendto_len == -1) {
 		char w[256];
