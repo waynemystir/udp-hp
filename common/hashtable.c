@@ -24,6 +24,9 @@ typedef struct searchname_hashnode {
 
 typedef searchname_hashnode_t *search_hashtable_t[SEARCHNAME_HASHSIZE];
 
+#define SZ_SRCH_ND sizeof(searchname_node_t)
+#define SZ_SRCH_LS sizeof(searchname_list_t)
+#define SZ_SRCH_HN sizeof(searchname_hashnode_t)
 #define SZ_SRCH_HTBL sizeof(search_hashtable_t)
 
 search_hashtable_t search_hshtbl;
@@ -75,15 +78,32 @@ searchname_hashnode_t *lookup_search_user(char searchname[MAX_CHARS_SEARCH]) {
 }
 
 hash_node_t *search_for_user(hashtable_t *hashtbl, char *search_text, int *number_of_results) {
-	// TODO
-	hash_node_t joe_doe = {0};
-	strcpy(joe_doe.username, "joe_doe");
-	hash_node_t phil_conners = {0};
-	strcpy(phil_conners.username, "phil_conners");
-	hash_node_t search_results[2] = {joe_doe, phil_conners};
+	// First get the list of usernames 'starting with' 'search_text'
+	searchname_hashnode_t *snhn = lookup_search_user(search_text);
+	if (!snhn) return NULL;
+	searchname_list_t *snl = snhn->searchnames;
+	if (!snl) return NULL;
+
+	// The populate 
+	hash_node_t search_results[snl->count];
+	memset(search_results, '\0', sizeof(search_results));
+
+	int j = 0;
+	for (searchname_node_t *n = snl->head; n != NULL; n = n->next) {
+		memcpy(&search_results[j++], n->username, MAX_CHARS_USERNAME);
+	}
+
+	// hash_node_t joe_doe = {0};
+	// strcpy(joe_doe.username, "joe_doe");
+	// hash_node_t phil_conners = {0};
+	// strcpy(phil_conners.username, "phil_conners");
+	// hash_node_t search_results[2] = {joe_doe, phil_conners};
+
+
 	hash_node_t *sr = malloc(sizeof(search_results));
+	memset(sr, '\0', sizeof(search_results));
 	memcpy(sr, search_results, sizeof(search_results));
-	if (number_of_results) *number_of_results = 2;
+	if (number_of_results) *number_of_results = snl->count;
 	return sr;
 }
 
@@ -102,12 +122,56 @@ hash_node_t *lookup_user_from_id(hashtable_t *hashtbl, char id[MAX_CHARS_USERNAM
 	return lookup_user(hashtbl, id);
 }
 
+searchname_node_t *add_searchname_node(searchname_list_t *list, char username[MAX_CHARS_USERNAME]) {
+	searchname_node_t *nn;
+	nn = malloc(SZ_SRCH_ND);
+	memset(nn, '\0', SZ_SRCH_ND);
+	memcpy(nn->username, username, MAX_CHARS_USERNAME);
+	nn->next = NULL;
+
+	if (!list->head) {
+		list->head = nn;
+		list->tail = nn;
+	} else {
+		nn->next = list->head;
+		list->head = nn;
+	}
+
+	list->count++;
+	return nn;
+}
+
 void add_search_user(char username[MAX_CHARS_USERNAME]) {
 	// TODO put this on separate thread so that add_user can return quickly
 	char *sub_strs = NULL;
 	unsigned int numb_sub_strs;
 	unsigned int max_len;
 	get_substrings_from_beginning(username, &sub_strs, &numb_sub_strs, &max_len);
+	char *s = sub_strs;
+	for (int j = 0; j < numb_sub_strs; j++) {
+		printf("ZZZZZZZZZZZZZZZ (%d)(%s)\n", j, s);
+
+		searchname_hashnode_t *np;
+		unsigned hashval;
+		if ((np = lookup_search_user(s)) == NULL) {
+			np = malloc(SZ_SRCH_HN);
+			memset(np, '\0', SZ_SRCH_HN);
+			if (np == NULL) return;
+			strcpy(np->key, s);
+			hashval = search_hash(s);
+			np->next = search_hshtbl[hashval];
+			search_hshtbl[hashval] = np;
+			searchname_list_t *snl = malloc(SZ_SRCH_LS);
+			memset(snl, '\0', SZ_SRCH_LS);
+			np->searchnames = snl;
+			add_searchname_node(np->searchnames, username);
+		} else {
+			add_searchname_node(np->searchnames, username);
+		}
+
+		s+=max_len;
+	}
+	free(sub_strs);
 }
 
 hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char *password) {
@@ -129,6 +193,7 @@ hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], c
 		LinkedList_t *nodes = malloc(SZ_LINK_LIST);
 		memset(nodes, '\0', SZ_LINK_LIST);
 		np->nodes = nodes;
+		add_search_user(username);
 	}
 
 	// TODO what should we do if lookup_user returns non-NULL?
