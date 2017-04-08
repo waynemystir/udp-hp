@@ -157,6 +157,34 @@ void load_hashtbl_from_db() {
 	add_contact_to_hashtbl(&hashtbl, "waynemystir", "mike_schmidt");
 	add_contact_to_hashtbl(&hashtbl, "waynemystir", "pete_rose");
 	add_contact_to_hashtbl(&hashtbl, "waynemystir", "julius_erving");
+
+	add_user(&hashtbl, "abigail", "ab");
+	add_user(&hashtbl, "barbara", "ba");
+	add_user(&hashtbl, "charlie", "ch");
+	add_user(&hashtbl, "david", "da");
+	add_user(&hashtbl, "edward", "ed");
+	add_user(&hashtbl, "frank", "fr");
+	add_user(&hashtbl, "gretchen", "gr");
+	add_user(&hashtbl, "henry", "he");
+	add_user(&hashtbl, "isabel", "is");
+	add_user(&hashtbl, "jonathan", "jo");
+	add_user(&hashtbl, "keith", "ke");
+	add_user(&hashtbl, "laura", "la");
+	add_user(&hashtbl, "michael", "mi");
+	add_user(&hashtbl, "nathan", "na");
+	add_user(&hashtbl, "oliver", "ol");
+	add_user(&hashtbl, "peter", "pe");
+	add_user(&hashtbl, "pauline", "pa");
+	add_user(&hashtbl, "rachel", "ra");
+	add_user(&hashtbl, "sharon", "sh");
+	add_user(&hashtbl, "thomas", "th");
+	add_user(&hashtbl, "ulysese", "ul");
+	add_user(&hashtbl, "vincent", "vi");
+	add_user(&hashtbl, "walter", "wa");
+	add_user(&hashtbl, "william", "wi");
+	add_user(&hashtbl, "amy", "am");
+	add_user(&hashtbl, "bernard", "be");
+	add_user(&hashtbl, "dorothy", "do");
 }
 
 void notify_existing_peer_of_new_node(node_t *existing_peer, void *arg1, void *arg2, void *arg3) {
@@ -582,12 +610,9 @@ start_switch:
 					break;
 				}
 				int number_of_search_results = 0;
-				char *search_text = malloc(MAX_CHARS_SEARCH);
-				memset(search_text, '\0', MAX_CHARS_SEARCH);
-				strcpy(search_text, buf.search_text);
 				search_buf_t rbuf = {0};
 				rbuf.status = SEARCH_STATUS_USERNAME_RESPONSE;
-				hash_node_t *search_results = search_for_user(&hashtbl, search_text, &number_of_search_results);
+				hash_node_t *search_results = search_for_user(&hashtbl, buf.search_text, &number_of_search_results);
 				for (int j = 0; j < number_of_search_results; j++) {
 					strcpy(rbuf.search_results[j], search_results->username);
 					search_results++;
@@ -597,6 +622,7 @@ start_switch:
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
+				// TODO free(search_results);
 				break;
 			}
 			default: {

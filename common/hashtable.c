@@ -3,11 +3,43 @@
 #include <string.h>
 #include "hashtable.h"
 
+#define SEARCHNAME_HASHSIZE 100*1000
+
+typedef struct searchname_node {
+	char username[MAX_CHARS_USERNAME];
+	struct searchname_node *next;
+} searchname_node_t;
+
+typedef struct searchname_list {
+	searchname_node_t *head;
+	searchname_node_t *tail;
+	int count;
+} searchname_list_t;
+
+typedef struct searchname_hashnode {
+	char key[MAX_CHARS_SEARCH];
+	searchname_list_t *searchnames;
+	struct searchname_hashnode *next;
+} searchname_hashnode_t;
+
+typedef searchname_hashnode_t *search_hashtable_t[SEARCHNAME_HASHSIZE];
+
+#define SZ_SRCH_HTBL sizeof(search_hashtable_t)
+
+search_hashtable_t search_hshtbl;
+
 unsigned hash(char *s) {
 	unsigned hashval;
 	for (hashval = 0; *s != '\0'; s++)
 		hashval = *s + 31 * hashval;
 	return hashval % HASHSIZE;
+}
+
+unsigned search_hash(char *s) {
+	unsigned hashval;
+	for (hashval = 0; *s != '\0'; s++)
+		hashval = *s + 31 * hashval;
+	return hashval % SEARCHNAME_HASHSIZE;
 }
 
 int hash_nodes_equal(hash_node_t *h1, hash_node_t *h2) {
@@ -32,6 +64,14 @@ hash_node_t *lookup_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME]
 		if (strcmp(username, np->username) == 0)
 			return np; /* found */
 	return NULL; /* not found */
+}
+
+searchname_hashnode_t *lookup_search_user(char searchname[MAX_CHARS_SEARCH]) {
+	searchname_hashnode_t *np;
+	for (np = search_hshtbl[search_hash(searchname)]; np != NULL; np = np->next)
+		if (strcmp(searchname, np->key) == 0)
+			return np;
+	return NULL;
 }
 
 hash_node_t *search_for_user(hashtable_t *hashtbl, char *search_text, int *number_of_results) {
@@ -60,6 +100,14 @@ hash_node_t *lookup_user_from_id(hashtable_t *hashtbl, char id[MAX_CHARS_USERNAM
 //	char username[MAX_CHARS_USERNAME];
 //	username_from_id(id, username);
 	return lookup_user(hashtbl, id);
+}
+
+void add_search_user(char username[MAX_CHARS_USERNAME]) {
+	// TODO put this on separate thread so that add_user can return quickly
+	char *sub_strs = NULL;
+	unsigned int numb_sub_strs;
+	unsigned int max_len;
+	get_substrings_from_beginning(username, &sub_strs, &numb_sub_strs, &max_len);
 }
 
 hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char *password) {

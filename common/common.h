@@ -13,7 +13,7 @@
 
 #define MAX_CHARS_USERNAME 47
 #define MAX_CHARS_PASSWORD 28
-#define MAX_CHARS_SEARCH 40
+#define MAX_CHARS_SEARCH 30
 #define MAX_SEARCH_RESULTS 20
 #define RSA_PUBLIC_KEY_LEN 512
 #define NUM_BITS_AES_KEY 256
@@ -25,6 +25,8 @@
 #define AUTHN_HASHSIZE 10001
 #define AUTHN_NODE_KEY_LENGTH INET6_ADDRSTRLEN + 20 + 20
 #define AES_PADDING 16
+
+extern const char USERNAME_ALLOWED_CHARS[65];
 
 typedef enum SERVER_TYPE {
 	SERVER_AUTHN,
@@ -159,5 +161,11 @@ typedef struct authn_buf_encrypted {
 } authn_buf_encrypted_t;
 
 #define SZ_AE_BUF sizeof(authn_buf_encrypted_t)
+
+unsigned int calc_triangular_numbr(unsigned int x);
+
+void get_all_substrings(char *str, char **sub_strs, unsigned int *numb_sub_strs, unsigned int *max_len);
+
+void get_substrings_from_beginning(char *str, char **sub_strs, unsigned int *numb_sub_strs, unsigned int *max_len);
 
 #endif /* common_h */

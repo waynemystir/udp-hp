@@ -4,6 +4,11 @@
 
 #include "common.h"
 
+const char USERNAME_ALLOWED_CHARS[65] = {'_', '.', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+					'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+					'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+					'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+					'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',};
 const unsigned short AUTHENTICATION_PORT = 9929;
 const unsigned short SEARCH_PORT = 9932;
 
@@ -209,4 +214,55 @@ int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr) {
 	}
 
 	return 0;
+}
+
+unsigned int calc_triangular_numbr(unsigned int x) {
+	if (x >= 2) return x + calc_triangular_numbr(x-1);
+	return 1;
+}
+
+void get_all_substrings(char *str, char **sub_strs, unsigned int *numb_sub_strs, unsigned int *max_len) {
+	unsigned int nss = calc_triangular_numbr(strlen(str));
+	if (numb_sub_strs) *numb_sub_strs = nss;
+	unsigned int ml = strlen(str)+1;
+	if (max_len) *max_len = ml;
+
+	char w[nss][ml];
+	memset(w, '\0', nss*ml);
+
+	int q = 0;
+	for (int j = 0; j < ml; j++) {
+		for (int k = j+1; k < ml; k++) {
+			memcpy(w[q++], &str[j], k-j);
+			w[q][k-j+1] = '\0';
+		}
+	}
+
+	if (sub_strs) {
+		*sub_strs = malloc(nss*ml);
+		memset(*sub_strs, '\0', nss*ml);
+		memcpy(*sub_strs, w, nss*ml);
+	}
+}
+
+void get_substrings_from_beginning(char *str, char **sub_strs, unsigned int *numb_sub_strs, unsigned int *max_len) {
+	unsigned int ml = strlen(str)+1;
+	if (max_len) *max_len = ml;
+	unsigned int nss = ml - 1;
+	if (numb_sub_strs) *numb_sub_strs = nss; 
+
+	char w[nss][ml];
+	memset(w, '\0', nss*ml);
+
+	int q = 0;
+	for (int k = 1; k < ml; k++) {
+		memcpy(w[q++], &str[0], k);
+		w[q][k+1] = '\0';
+	}
+
+	if (sub_strs) {
+		*sub_strs = malloc(nss*ml);
+		memset(*sub_strs, '\0', nss*ml);
+		memcpy(*sub_strs, w, nss*ml);
+	}
 }
