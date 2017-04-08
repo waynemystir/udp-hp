@@ -1,5 +1,8 @@
 email
 
+lowercase letters only for username including
+	search hashtbl keys
+
 new functionality:
 	search for and add new contact + accept contact request
 

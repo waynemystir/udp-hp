@@ -51,6 +51,7 @@ hash_node_t *add_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], c
 hash_node_t *add_ip_to_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], node_t *ip);
 contact_t *add_contact_to_list(contact_list_t *contacts, char contactname[MAX_CHARS_USERNAME]);
 void add_contact_to_hashtbl(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char contactname[MAX_CHARS_USERNAME]);
+void request_to_add_contact(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char contactname[MAX_CHARS_USERNAME]);
 contact_t *lookup_contact(contact_list_t *cl, char contactname[MAX_CHARS_USERNAME]);
 contact_t *lookup_contact_and_node_from_node_buf(contact_list_t *cl, node_buf_t *nb, node_t **contact_node);
 contact_t *lookup_contact_and_node_from_sockaddr(contact_list_t *cl, struct sockaddr *addr, SERVER_TYPE st, node_t **contact_node);

@@ -16,18 +16,21 @@
 #define ID_LEN 20
 
 typedef enum STATUS_TYPE {
-    STATUS_INIT_NODE = 0,
-    STATUS_NEW_NODE = 1,
-    STATUS_NOTIFY_EXISTING_CONTACT = 2,
-    STATUS_STAY_IN_TOUCH = 3,
-    STATUS_STAY_IN_TOUCH_RESPONSE = 4,
-    STATUS_CONFIRMED_NODE = 5,
-    STATUS_NEW_PEER = 6, // A peer is any client other than self
-    STATUS_CONFIRMED_PEER = 7,
-    STATUS_ACQUIRED_CHAT_PORT = 8,
-    STATUS_PROCEED_CHAT_HP = 9,
-    STATUS_CONFIRMED_CHAT_PEER = 10,
-    STATUS_SIGN_OUT = 11,
+	STATUS_INIT_NODE = 0,
+	STATUS_NEW_NODE = 1,
+	STATUS_NOTIFY_EXISTING_CONTACT = 2,
+	STATUS_STAY_IN_TOUCH = 3,
+	STATUS_STAY_IN_TOUCH_RESPONSE = 4,
+	STATUS_CONFIRMED_NODE = 5,
+	STATUS_REQUEST_ADD_CONTACT_REQUEST = 6,
+	STATUS_REQUEST_ADD_CONTACT_ACCEPT = 7,
+	STATUS_REQUEST_ADD_CONTACT_DENIED = 8,
+	STATUS_NEW_PEER = 9, // A peer is any client other than self
+	STATUS_CONFIRMED_PEER = 10,
+	STATUS_ACQUIRED_CHAT_PORT = 11,
+	STATUS_PROCEED_CHAT_HP = 12,
+	STATUS_CONFIRMED_CHAT_PEER = 13,
+	STATUS_SIGN_OUT = 14,
 } STATUS_TYPE;
 
 typedef enum SEARCH_STATUS {
@@ -43,6 +46,7 @@ typedef struct node_buf {
 	union {
 		in_addr_t ip4;
 		unsigned char ip6[16];
+		char other_id[MAX_CHARS_USERNAME];
 	};
 	in_port_t port;
 	in_port_t chat_port;
@@ -174,6 +178,8 @@ int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr, SERVER_TYPE st)
 node_t *find_node_from_sockaddr(LinkedList_t *list, struct sockaddr *addr, SERVER_TYPE st);
 
 void node_to_internal_addr(node_t *node, struct sockaddr **addr);
+
+void node_to_external_addr(node_t *node, struct sockaddr **addr);
 
 void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf, char id[MAX_CHARS_USERNAME]);
 

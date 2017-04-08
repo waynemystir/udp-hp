@@ -776,6 +776,44 @@ void *main_server_endpoint(void *arg) {
 				}
 				break;
 			}
+			case STATUS_REQUEST_ADD_CONTACT_REQUEST: {
+				printf("SEARCH_STATUS_USERNAME from %s %s port%d %d\n", buf.id, ip_str, port, family);
+				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
+				if (!hn) {
+					printf("STATUS_STAY_IN_TOUCH no hn for user (%s)\n", buf.id);
+					break;
+				}
+				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				if (!n) {
+					printf("STATUS_STAY_IN_TOUCH No node found for addr %s %s port%d %d\n",
+						buf.id, ip_str, port, family);
+					break;
+				}
+				if (memcmp(n->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN) != 0) {
+					printf("STATUS_STAY_IN_TOUCH with non-matching authn_token\n");
+					break;
+				}
+
+				hash_node_t *hn_request_to = lookup_user(&hashtbl, buf.other_id);
+				if (!hn_request_to) break;
+				if (!hn_request_to->nodes) request_to_add_contact(&hashtbl, hn->username, hn_request_to->username);
+
+				for (node_t *n = hn_request_to->nodes->head; n != NULL; n = n->next) {
+					struct sockaddr *n_addr = NULL;
+					node_to_external_addr(n, &n_addr);
+
+					node_buf_t nb = {0};
+					nb.status = STATUS_REQUEST_ADD_CONTACT_REQUEST;
+					strcpy(nb.other_id, hn->username);
+					
+					sendto_len = sendto(sock_fd, &nb, SZ_NODE_BF, 0, n_addr, main_slen);
+					if (sendto_len == -1) {
+						pfail("sendto");
+					}
+				}
+				
+				break;
+			}
 			case STATUS_ACQUIRED_CHAT_PORT: {
 				printf("STATUS_ACQUIRED_CHAT_PORT from %s %s port%d %d\n", buf.id, ip_str, port, family);
 

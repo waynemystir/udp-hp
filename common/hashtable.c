@@ -84,21 +84,13 @@ hash_node_t *search_for_user(hashtable_t *hashtbl, char *search_text, int *numbe
 	searchname_list_t *snl = snhn->searchnames;
 	if (!snl) return NULL;
 
-	// The populate 
+	// Then populate an array of hash nodes
 	hash_node_t search_results[snl->count];
 	memset(search_results, '\0', sizeof(search_results));
-
 	int j = 0;
 	for (searchname_node_t *n = snl->head; n != NULL; n = n->next) {
 		memcpy(&search_results[j++], n->username, MAX_CHARS_USERNAME);
 	}
-
-	// hash_node_t joe_doe = {0};
-	// strcpy(joe_doe.username, "joe_doe");
-	// hash_node_t phil_conners = {0};
-	// strcpy(phil_conners.username, "phil_conners");
-	// hash_node_t search_results[2] = {joe_doe, phil_conners};
-
 
 	hash_node_t *sr = malloc(sizeof(search_results));
 	memset(sr, '\0', sizeof(search_results));
@@ -149,7 +141,6 @@ void add_search_user(char username[MAX_CHARS_USERNAME]) {
 	get_substrings_from_beginning(username, &sub_strs, &numb_sub_strs, &max_len);
 	char *s = sub_strs;
 	for (int j = 0; j < numb_sub_strs; j++) {
-		printf("ZZZZZZZZZZZZZZZ (%d)(%s)\n", j, s);
 
 		searchname_hashnode_t *np;
 		unsigned hashval;
@@ -248,6 +239,12 @@ void add_contact_to_hashtbl(hashtable_t *hashtbl, char username[MAX_CHARS_USERNA
 		user->contacts->tail->next = new_contact;
 		user->contacts->tail = new_contact;
 	}
+}
+
+void request_to_add_contact(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char contactname[MAX_CHARS_USERNAME]) {
+	// TODO
+	// This function should store contact requests for offline users
+	// When the users come online, some mechanism should send the request
 }
 
 contact_t *lookup_contact(contact_list_t *cl, char contactname[MAX_CHARS_USERNAME]) {

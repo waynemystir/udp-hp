@@ -12,9 +12,13 @@ char *status_to_str(STATUS_TYPE st) {
 	switch (st) {
 		case STATUS_INIT_NODE: return "STATUS_INIT_NODE";
 		case STATUS_NEW_NODE: return "STATUS_NEW_NODE";
+		case STATUS_NOTIFY_EXISTING_CONTACT: return "STATUS_NOTIFY_EXISTING_CONTACT";
 		case STATUS_STAY_IN_TOUCH: return "STATUS_STAY_IN_TOUCH";
 		case STATUS_STAY_IN_TOUCH_RESPONSE: return "STATUS_STAY_IN_TOUCH_RESPONSE";
 		case STATUS_CONFIRMED_NODE: return "STATUS_CONFIRMED_NODE";
+		case STATUS_REQUEST_ADD_CONTACT_REQUEST: return "STATUS_REQUEST_ADD_CONTACT_REQUEST";
+		case STATUS_REQUEST_ADD_CONTACT_ACCEPT: return "STATUS_REQUEST_ADD_CONTACT_ACCEPT";
+		case STATUS_REQUEST_ADD_CONTACT_DENIED: return "STATUS_REQUEST_ADD_CONTACT_DENIED";
 		case STATUS_NEW_PEER: return "STATUS_NEW_PEER";
 		case STATUS_CONFIRMED_PEER: return "STATUS_CONFIRMED_PEER";
 		case STATUS_ACQUIRED_CHAT_PORT: return "STATUS_ACQUIRED_CHAT_PORT";
@@ -406,6 +410,34 @@ void node_to_internal_addr(node_t *node, struct sockaddr **addr) {
 			struct sockaddr_in6 *sai = malloc(SZ_SOCKADDR_IN6);
 			memcpy(sai->sin6_addr.s6_addr, node->internal_ip6, sizeof(unsigned char[16]));
 			sai->sin6_port = node->internal_port;
+			sai->sin6_family = AF_INET;
+			*addr = (struct sockaddr*)&sai;
+			(*addr)->sa_family = AF_INET6;
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+}
+
+void node_to_external_addr(node_t *node, struct sockaddr **addr) {
+	if (!node || !addr) return;
+
+	switch (node->external_family) {
+		case AF_INET: {
+			struct sockaddr_in *sai = malloc(SZ_SOCKADDR_IN);
+			sai->sin_addr.s_addr = node->external_ip4;
+			sai->sin_port = node->external_port;
+			sai->sin_family = AF_INET;
+			*addr = (struct sockaddr*)sai;
+			(*addr)->sa_family = AF_INET;
+			break;
+		}
+		case AF_INET6: {
+			struct sockaddr_in6 *sai = malloc(SZ_SOCKADDR_IN6);
+			memcpy(sai->sin6_addr.s6_addr, node->external_ip6, sizeof(unsigned char[16]));
+			sai->sin6_port = node->external_port;
 			sai->sin6_family = AF_INET;
 			*addr = (struct sockaddr*)&sai;
 			(*addr)->sa_family = AF_INET6;
