@@ -117,6 +117,7 @@ void (*coll_buf_cb)(char *) = NULL;
 void (*new_client_cb)(SERVER_TYPE, char *) = NULL;
 void (*confirmed_client_cb)(void) = NULL;
 void (*hole_punch_sent_cb)(char *, int) = NULL;
+void (*add_contact_request_cb)(char *) = NULL;
 void (*new_peer_cb)(char *) = NULL;
 void (*confirmed_peer_while_punching_cb)(SERVER_TYPE) = NULL;
 void (*from_peer_cb)(SERVER_TYPE, char *) = NULL;
@@ -753,6 +754,10 @@ void *wain_thread_routine(void *arg) {
 					if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_MAIN);
 					break;
 				}
+				case STATUS_REQUEST_ADD_CONTACT_REQUEST: {
+					if (add_contact_request_cb) add_contact_request_cb(buf.other_id);
+					break;
+				}
 				case STATUS_CONFIRMED_NODE: {
 					if (confirmed_client_cb) confirmed_client_cb();
 					break;
@@ -901,6 +906,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	void (*confirmed_client)(void),
 	void (*notify_existing_contact)(char *),
 	void (*stay_touch_recd)(SERVER_TYPE),
+	void (*add_contact_request)(char *),
 	void (*new_peer)(char *),
 	void (*hole_punch_sent)(char *, int),
 	void (*confirmed_peer_while_punching)(SERVER_TYPE),
@@ -922,6 +928,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	new_client_cb = new_client;
 	confirmed_client_cb = confirmed_client;
 	hole_punch_sent_cb = hole_punch_sent;
+	add_contact_request_cb = add_contact_request;
 	new_peer_cb = new_peer;
 	confirmed_peer_while_punching_cb = confirmed_peer_while_punching;
 	from_peer_cb = from_peer;
@@ -1357,6 +1364,48 @@ void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3
 void list_contacts(contact_list_t **contacts) {
 	if (!contacts) return;
 	*contacts = self.contacts;
+}
+
+void client_request_to_add_contact(char *contact_username) {
+	node_buf_t buf = {0};
+	buf.status = STATUS_REQUEST_ADD_CONTACT_REQUEST;
+	strcpy(buf.id, username);
+	memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+	strcpy(buf.other_id, contact_username);
+	size_t sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, sa_server, server_socklen);
+	if (sendto_len == -1) {
+		char w[256];
+		sprintf(w, "sendto failed with %zu", sendto_len);
+		pfail(w);
+	} else if (sendto_succeeded_cb) sendto_succeeded_cb(sendto_len);	
+}
+
+void accept_contact_request(char *contact_username) {
+	node_buf_t buf = {0};
+	buf.status = STATUS_REQUEST_ADD_CONTACT_ACCEPT;
+	strcpy(buf.id, username);
+	memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+	strcpy(buf.other_id, contact_username);
+	size_t sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, sa_server, server_socklen);
+	if (sendto_len == -1) {
+		char w[256];
+		sprintf(w, "sendto failed with %zu", sendto_len);
+		pfail(w);
+	} else if (sendto_succeeded_cb) sendto_succeeded_cb(sendto_len);
+}
+
+void decline_contact_request(char *contact_username) {
+	node_buf_t buf = {0};
+	buf.status = STATUS_REQUEST_ADD_CONTACT_DENIED;
+	strcpy(buf.id, username);
+	memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+	strcpy(buf.other_id, contact_username);
+	size_t sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, sa_server, server_socklen);
+	if (sendto_len == -1) {
+		char w[256];
+		sprintf(w, "sendto failed with %zu", sendto_len);
+		pfail(w);
+	} else if (sendto_succeeded_cb) sendto_succeeded_cb(sendto_len);
 }
 
 void signout() {

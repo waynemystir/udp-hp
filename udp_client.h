@@ -39,6 +39,7 @@ int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port
 	void (*confirmed_client)(void),
 	void (*notify_existing_contact)(char *),
 	void (*stay_touch_recd)(SERVER_TYPE),
+	void (*add_contact_request)(char *),
 	void (*new_peer)(char *),
 	void (*hole_punch_sent)(char *, int),
 	void (*confirmed_peer_while_punching)(SERVER_TYPE),
@@ -60,6 +61,12 @@ void send_message_to_all_peers(char *);
 void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3_unused);
 
 void list_contacts(contact_list_t **contacts);
+
+void client_request_to_add_contact(char *contact_username);
+
+void accept_contact_request(char *contact_username);
+
+void decline_contact_request(char *contact_username);
 
 void signout();
 
