@@ -356,11 +356,13 @@ start_switch:
 
 				unsigned char decrypted_buf[SZ_AUN_BF + AES_PADDING];
 				memset(decrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
-				// printf("Lets AES descrypt with (%s)\n", );
+				printf("Lets AES descrypt with (%s)(%s)(%s)\n", be ? "GOD" : "BAD",
+					an->aes_key ? "GOD" : "BAD", an->aes_iv ? "GOD" : "BAD");
 				int dl = aes_decrypt(be->encrypted_buf, be->encrypted_len, an->aes_key, an->aes_iv, decrypted_buf);
+				printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
 				memset(&buf, '\0', sizeof(buf));
 				memcpy(&buf, decrypted_buf, dl);
-				// printf("aes_decrypt copied (%s)\n", buf.id);
+				printf("aes_decrypt copied (%s)\n", buf.id);
 				goto start_switch;
 			}
 			case AUTHN_STATUS_RSA_SWAP: {
@@ -777,20 +779,20 @@ void *main_server_endpoint(void *arg) {
 				break;
 			}
 			case STATUS_REQUEST_ADD_CONTACT_REQUEST: {
-				printf("SEARCH_STATUS_USERNAME from %s %s port%d %d\n", buf.id, ip_str, port, family);
+				printf("STATUS_REQUEST_ADD_CONTACT_REQUEST from %s %s port%d %d\n", buf.id, ip_str, port, family);
 				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
 				if (!hn) {
-					printf("STATUS_STAY_IN_TOUCH no hn for user (%s)\n", buf.id);
+					printf("STATUS_REQUEST_ADD_CONTACT_REQUEST no hn for user (%s)\n", buf.id);
 					break;
 				}
 				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
 				if (!n) {
-					printf("STATUS_STAY_IN_TOUCH No node found for addr %s %s port%d %d\n",
+					printf("STATUS_REQUEST_ADD_CONTACT_REQUEST No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
 					break;
 				}
 				if (memcmp(n->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN) != 0) {
-					printf("STATUS_STAY_IN_TOUCH with non-matching authn_token\n");
+					printf("STATUS_REQUEST_ADD_CONTACT_REQUEST with non-matching authn_token\n");
 					break;
 				}
 
@@ -812,6 +814,44 @@ void *main_server_endpoint(void *arg) {
 					}
 				}
 				
+				break;
+			}
+			case STATUS_REQUEST_ADD_CONTACT_ACCEPT: {
+				printf("STATUS_REQUEST_ADD_CONTACT_ACCEPT from %s %s port%d %d\n", buf.id, ip_str, port, family);
+				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
+				if (!hn) {
+					printf("STATUS_REQUEST_ADD_CONTACT_ACCEPT no hn for user (%s)\n", buf.id);
+					break;
+				}
+				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				if (!n) {
+					printf("STATUS_REQUEST_ADD_CONTACT_ACCEPT No node found for addr %s %s port%d %d\n",
+						buf.id, ip_str, port, family);
+					break;
+				}
+				if (memcmp(n->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN) != 0) {
+					printf("STATUS_REQUEST_ADD_CONTACT_ACCEPT with non-matching authn_token\n");
+					break;
+				}
+				break;
+			}
+			case STATUS_REQUEST_ADD_CONTACT_DENIED: {
+				printf("STATUS_REQUEST_ADD_CONTACT_DENIED from %s %s port%d %d\n", buf.id, ip_str, port, family);
+				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
+				if (!hn) {
+					printf("STATUS_REQUEST_ADD_CONTACT_DENIED no hn for user (%s)\n", buf.id);
+					break;
+				}
+				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				if (!n) {
+					printf("STATUS_REQUEST_ADD_CONTACT_DENIED No node found for addr %s %s port%d %d\n",
+						buf.id, ip_str, port, family);
+					break;
+				}
+				if (memcmp(n->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN) != 0) {
+					printf("STATUS_REQUEST_ADD_CONTACT_DENIED with non-matching authn_token\n");
+					break;
+				}
 				break;
 			}
 			case STATUS_ACQUIRED_CHAT_PORT: {
