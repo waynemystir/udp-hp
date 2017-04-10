@@ -1323,7 +1323,7 @@ void search_username(const char *searchname,
 
 void send_message_to_all_nodes_in_contact(contact_t *contact, void *msg, void *arg2_unused, void *arg3_unused) {
 	if (!contact || !contact->hn || !contact->hn->nodes) return;
-	nodes_perform(contact->hn->nodes, send_message_to_peer, msg, NULL, NULL);
+	nodes_perform(contact->hn->nodes, send_message_to_peer, msg, NULL, NULL, NULL);
 }
 
 void send_message_to_contact(contact_t *c, char *msg) {
@@ -1335,7 +1335,7 @@ void send_message_to_all_peers(char *msg) {
 	contacts_perform(self.contacts, send_message_to_all_nodes_in_contact, msg, NULL, NULL);
 }
 
-void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3_unused) {
+void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3_unused, void *arg4_unused) {
 	if (!peer) return;
 	struct sockaddr *peer_addr;
 	socklen_t peer_socklen = 0;

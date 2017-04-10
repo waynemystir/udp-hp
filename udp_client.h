@@ -60,7 +60,7 @@ void send_message_to_contact(contact_t *c, char *msg);
 
 void send_message_to_all_peers(char *);
 
-void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3_unused);
+void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3_unused, void *arg4_unused);
 
 void list_contacts(contact_list_t **contacts);
 
