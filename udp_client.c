@@ -118,6 +118,8 @@ void (*new_client_cb)(SERVER_TYPE, char *) = NULL;
 void (*confirmed_client_cb)(void) = NULL;
 void (*hole_punch_sent_cb)(char *, int) = NULL;
 void (*add_contact_request_cb)(char *) = NULL;
+void (*contact_request_accepted_cb)(char *) = NULL;
+void (*contact_request_declined_cb)(char *) = NULL;
 void (*new_peer_cb)(char *) = NULL;
 void (*confirmed_peer_while_punching_cb)(SERVER_TYPE) = NULL;
 void (*from_peer_cb)(SERVER_TYPE, char *) = NULL;
@@ -758,6 +760,14 @@ void *wain_thread_routine(void *arg) {
 					if (add_contact_request_cb) add_contact_request_cb(buf.other_id);
 					break;
 				}
+				case STATUS_REQUEST_ADD_CONTACT_ACCEPT: {
+					if (contact_request_accepted_cb) contact_request_accepted_cb(buf.other_id);
+					break;
+				}
+				case STATUS_REQUEST_ADD_CONTACT_DENIED: {
+					if (contact_request_declined_cb) contact_request_declined_cb(buf.other_id);
+					break;
+				}
 				case STATUS_CONFIRMED_NODE: {
 					if (confirmed_client_cb) confirmed_client_cb();
 					break;
@@ -907,6 +917,8 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	void (*notify_existing_contact)(char *),
 	void (*stay_touch_recd)(SERVER_TYPE),
 	void (*add_contact_request)(char *),
+	void (*contact_request_accepted)(char *),
+	void (*contact_request_declined)(char *),
 	void (*new_peer)(char *),
 	void (*hole_punch_sent)(char *, int),
 	void (*confirmed_peer_while_punching)(SERVER_TYPE),
@@ -929,6 +941,8 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	confirmed_client_cb = confirmed_client;
 	hole_punch_sent_cb = hole_punch_sent;
 	add_contact_request_cb = add_contact_request;
+	contact_request_accepted_cb = contact_request_accepted;
+	contact_request_declined_cb = contact_request_declined;
 	new_peer_cb = new_peer;
 	confirmed_peer_while_punching_cb = confirmed_peer_while_punching;
 	from_peer_cb = from_peer;
