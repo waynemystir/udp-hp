@@ -196,10 +196,11 @@ void get_new_tail(LinkedList_t *list, node_t **new_tail);
 void get_new_head(LinkedList_t *list, node_t **new_head);
 
 void nodes_perform(LinkedList_t *list,
-		void (*perform)(node_t *node, void *arg1, void *arg2, void *arg3),
+		void (*perform)(node_t *node, void *arg1, void *arg2, void *arg3, void *arg4),
 		void *arg1,
 		void *arg2,
-		void *arg3);
+		void *arg3,
+		void *arg4);
 
 void remove_node_with_sockaddr(LinkedList_t *list, struct sockaddr *addr, SERVER_TYPE st);
 

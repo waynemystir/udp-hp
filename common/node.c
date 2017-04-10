@@ -612,15 +612,17 @@ void get_new_head(LinkedList_t *list, node_t **new_head) {
 }
 
 void nodes_perform(LinkedList_t *list,
-		void (*perform)(node_t *node, void *arg1, void *arg2, void *arg3),
+		void (*perform)(node_t *node, void *arg1, void *arg2, void *arg3, void *arg4),
 		void *arg1,
 		void *arg2,
-		void *arg3) {
+		void *arg3,
+		void *arg4) {
+
 	if (!list || !list->head) return;
 
 	node_t *p = list->head;
 	while (p) {
-		perform(p, arg1, arg2, arg3);
+		perform(p, arg1, arg2, arg3, arg4);
 		p = p->next;
 	}
 }

@@ -212,20 +212,20 @@ contact_t *add_contact_to_list(contact_list_t *contacts, char contactname[MAX_CH
 	return new_contact;
 }
 
-void add_contact_to_hashtbl(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char contactname[MAX_CHARS_USERNAME]) {
+contact_t *add_contact_to_hashtbl(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char contactname[MAX_CHARS_USERNAME]) {
 	printf("lets add contact %s to user %s\n", contactname, username);
-	if (!hashtbl) return;
+	if (!hashtbl) return NULL;
 	hash_node_t *user = lookup_user(hashtbl, username);
-	if (!user) return;
+	if (!user) return NULL;
 	hash_node_t *contact_hn = lookup_user(hashtbl, contactname);
-	if (!contact_hn) return;
+	if (!contact_hn) return NULL;
 	if (strcmp(user->username, contact_hn->username) == 0) {
 		printf("Failed attempt to add contact %s to user %s\n", contact_hn->username, user->username);
-		return;
+		return NULL;
 	}
 	if (hash_node_in_contacts_list(contact_hn, user->contacts)) {
 		printf("Not adding contact %s to contacts list. It already exists.\n", contact_hn->username);
-		return;
+		return NULL;
 	}
 
 	contact_t *new_contact = malloc(SZ_CONTACT);
@@ -239,12 +239,18 @@ void add_contact_to_hashtbl(hashtable_t *hashtbl, char username[MAX_CHARS_USERNA
 		user->contacts->tail->next = new_contact;
 		user->contacts->tail = new_contact;
 	}
+
+	return new_contact;
 }
 
 void request_to_add_contact(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char contactname[MAX_CHARS_USERNAME]) {
 	// TODO
 	// This function should store contact requests for offline users
 	// When the users come online, some mechanism should send the request
+}
+
+void add_accepted_contact_later(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char contactname[MAX_CHARS_USERNAME]) {
+	// TODO
 }
 
 contact_t *lookup_contact(contact_list_t *cl, char contactname[MAX_CHARS_USERNAME]) {

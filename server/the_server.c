@@ -187,7 +187,12 @@ void load_hashtbl_from_db() {
 	add_user(&hashtbl, "dorothy", "do");
 }
 
-void notify_existing_peer_of_new_node(node_t *existing_peer, void *arg1, void *arg2, void *arg3) {
+void notify_existing_peer_of_new_node(node_t *existing_peer,
+	void *arg1, // the new node
+	void *arg2, // the username of the existing node/peer
+	void *arg3, // the username of the new node
+	void *arg4) // the sockaddr of the new node
+{
 	if (!existing_peer || !arg1) return;
 	node_t *new_node = arg1;
 	char id_ep[MAX_CHARS_USERNAME];
@@ -217,20 +222,27 @@ void notify_existing_peer_of_new_node(node_t *existing_peer, void *arg1, void *a
 
 	node_buf_t *exip_node_buf, *new_node_buf;
 	get_approp_node_bufs(existing_peer, new_node, &exip_node_buf, &new_node_buf, id_ep, id_nn);
+	exip_node_buf->status = STATUS_NEW_PEER;
+	new_node_buf->status = STATUS_NEW_PEER;
 
 	// And now we notify existing peer of new tail
 	if (sendto(sock_fd, new_node_buf, SZ_NODE_BF, 0, &ep_addr, main_slen)==-1)
 		pfail("sendto");
 
 	// And notify new tail (i.e. si_other) of existing peer
-	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, &si_other, main_slen)==-1)
+	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, (struct sockaddr*)arg4, main_slen)==-1)
 		pfail("sendto");
 
 	free(exip_node_buf);
 	free(new_node_buf);
 }
 
-void notify_existing_peer_of_new_chat_port(node_t *existing_peer, void *arg1, void *arg2, void *arg3) {
+void notify_existing_peer_of_new_chat_port(node_t *existing_peer,
+	void *arg1, // node/peer with the new chat port
+	void *arg2, // the username of the existing node/peer
+	void *arg3, // the username of the node with new port
+	void *arg4) // the sockaddr of the node with new port
+{
 	node_t *peer_with_new_port = arg1;
 	printf("notify_existing_peer_of_new_chat_port\n");
 	if (nodes_equal(existing_peer, peer_with_new_port)) return;
@@ -269,30 +281,35 @@ void notify_existing_peer_of_new_chat_port(node_t *existing_peer, void *arg1, vo
 		pfail("sendto");
 
 	// And notify peer_with_new_port (i.e. si_other) of existing peer
-	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, &si_other, main_slen)==-1)
+	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, (struct sockaddr*)arg4, main_slen)==-1)
 		pfail("sendto");
 
 	free(exip_node_buf);
 	free(pwnp_buf);
 }
 
-void notify_contact_of_new_node(contact_t *contact, void *arg1, void *arg2, void *arg3) {
+void notify_contact_of_new_node(contact_t *contact,
+	void *arg1, // the new node
+	void *arg2, // the username of the new node
+	void *arg3) // the sockaddr of the new node
+{
+
 	if (!contact || !contact->hn) return;
 	// And notify peer_with_new_port (i.e. si_other) of existing peer
 	node_buf_t contact_nb;
 	contact_nb.status = STATUS_NOTIFY_EXISTING_CONTACT;
 	strcpy(contact_nb.id, contact->hn->username);
-	if (sendto(sock_fd, &contact_nb, SZ_NODE_BF, 0, &si_other, main_slen)==-1)
+	if (sendto(sock_fd, &contact_nb, SZ_NODE_BF, 0, (struct sockaddr*)arg3, main_slen)==-1)
 		pfail("sendto");
 
 	if (!arg1 || !contact->hn->nodes) return;
-	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_node, arg1, contact->hn->username, arg2);
+	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_node, arg1, contact->hn->username, arg2, arg3);
 }
 
 void notify_contact_of_new_chat_port(contact_t *contact, void *arg1, void *arg2, void *arg3) {
 	printf("notify_contact_of_new_chat_port\n");
 	if (!arg1 || !contact || !contact->hn || !contact->hn->nodes) return;
-	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_chat_port, arg1, contact->hn->username, arg2);
+	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_chat_port, arg1, contact->hn->username, arg2, arg3);
 }
 
 void *authentication_server_endpoint(void *arg) {
@@ -749,7 +766,7 @@ void *main_server_endpoint(void *arg) {
 				new_tail->status = STATUS_NEW_PEER;
 				// And now we notify all peers of new peer as
 				// well as notify new peer of existing peers
-				contacts_perform(hn->contacts, notify_contact_of_new_node, new_tail, hn->username, NULL);
+				contacts_perform(hn->contacts, notify_contact_of_new_node, new_tail, hn->username, &si_other);
 				// TODO notify new_node of itself i.e. the other nodes in hn->nodes
 				break;
 			}
@@ -798,7 +815,11 @@ void *main_server_endpoint(void *arg) {
 
 				hash_node_t *hn_request_to = lookup_user(&hashtbl, buf.other_id);
 				if (!hn_request_to) break;
-				if (!hn_request_to->nodes) request_to_add_contact(&hashtbl, hn->username, hn_request_to->username);
+				if (!hn_request_to->nodes) {
+					// TODO handle this better
+					request_to_add_contact(&hashtbl, hn->username, hn_request_to->username);
+					break;
+				}
 
 				for (node_t *n = hn_request_to->nodes->head; n != NULL; n = n->next) {
 					struct sockaddr *n_addr = NULL;
@@ -833,6 +854,60 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_REQUEST_ADD_CONTACT_ACCEPT with non-matching authn_token\n");
 					break;
 				}
+
+				hash_node_t *hn_request_to = lookup_user(&hashtbl, buf.other_id);
+				if (!hn_request_to) break;
+
+				contact_t *c1 = add_contact_to_hashtbl(&hashtbl, hn->username, hn_request_to->username);
+				contact_t *c2 = add_contact_to_hashtbl(&hashtbl, hn_request_to->username, hn->username);
+
+				if (!c1 || !c2) {
+					// TODO handle this better
+					break;
+				}
+
+				if (!hn_request_to->nodes) {
+					// TODO handle this better
+					add_accepted_contact_later(&hashtbl, hn->username, hn_request_to->username);
+					break;
+				}
+
+				for (node_t *n2 = hn->nodes->head; n2 != NULL; n2 = n2->next) {
+					struct sockaddr *n_addr = NULL;
+					node_to_external_addr(n2, &n_addr);
+
+					node_buf_t nb = {0};
+					nb.status = STATUS_REQUEST_ADD_CONTACT_ACCEPT;
+					strcpy(nb.other_id, hn_request_to->username);
+
+					sendto_len = sendto(sock_fd, &nb, SZ_NODE_BF, 0, n_addr, main_slen);
+					if (sendto_len == -1) {
+						pfail("sendto");
+					}
+
+					node_buf_t contact_nb;
+					contact_nb.status = STATUS_NOTIFY_EXISTING_CONTACT;
+					strcpy(contact_nb.id, hn_request_to->username);
+					if (sendto(sock_fd, &contact_nb, SZ_NODE_BF, 0, n_addr, main_slen)==-1)
+						pfail("sendto");
+				}
+
+				for (node_t *n1 = hn_request_to->nodes->head; n1 != NULL; n1 = n1->next) {
+					struct sockaddr *n_addr = NULL;
+					node_to_external_addr(n1, &n_addr);
+
+					node_buf_t nb = {0};
+					nb.status = STATUS_REQUEST_ADD_CONTACT_ACCEPT;
+					strcpy(nb.other_id, hn->username);
+
+					sendto_len = sendto(sock_fd, &nb, SZ_NODE_BF, 0, n_addr, main_slen);
+					if (sendto_len == -1) {
+						pfail("sendto");
+					}
+
+					notify_contact_of_new_node(c2, n1, hn_request_to->username, n_addr);
+					notify_contact_of_new_chat_port(c2, n1, hn_request_to->username, n_addr);
+				}
 				break;
 			}
 			case STATUS_REQUEST_ADD_CONTACT_DENIED: {
@@ -851,6 +926,24 @@ void *main_server_endpoint(void *arg) {
 				if (memcmp(n->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN) != 0) {
 					printf("STATUS_REQUEST_ADD_CONTACT_DENIED with non-matching authn_token\n");
 					break;
+				}
+
+				hash_node_t *hn_request_to = lookup_user(&hashtbl, buf.other_id);
+				if (!hn_request_to) break;
+				if (!hn_request_to->nodes) break;
+
+				for (node_t *n = hn_request_to->nodes->head; n != NULL; n = n->next) {
+					struct sockaddr *n_addr = NULL;
+					node_to_external_addr(n, &n_addr);
+
+					node_buf_t nb = {0};
+					nb.status = STATUS_REQUEST_ADD_CONTACT_DENIED;
+					strcpy(nb.other_id, hn->username);
+
+					sendto_len = sendto(sock_fd, &nb, SZ_NODE_BF, 0, n_addr, main_slen);
+					if (sendto_len == -1) {
+						pfail("sendto");
+					}
 				}
 				break;
 			}
@@ -873,6 +966,7 @@ void *main_server_endpoint(void *arg) {
 					break;
 				}
 
+				// TODO we are duplicating calls to find_node_from_sockaddr
 				node_t *peer_with_new_chat_port = find_node_from_sockaddr(hn->nodes,
 					&si_other,
 					SERVER_MAIN);
@@ -882,7 +976,7 @@ void *main_server_endpoint(void *arg) {
 					// Just use buf.int_or_ext?
 					contacts_perform(hn->contacts,
 						notify_contact_of_new_chat_port,
-						peer_with_new_chat_port, hn->username, NULL);
+						peer_with_new_chat_port, hn->username, &si_other);
 				}
 				break;
 			}

@@ -1,10 +1,29 @@
+
+
+new functionality:
+	search for and add new contact + accept contact request
+
+FIX-ALL-BUGS
+------------
+	fix bug where confirming chat port doesn't always work... possibly due to packet loss or unordered receipt of packets?
+	change authN server to TCP to avoid packet loss, ordering problems?
+
+To reduce endpoints (i.e. remove search-endpoint), can we stuff a struct of arbitrary size into the last member of type unsigned char*?
+
+self <=> get internal hole punching working
+stay-in-touch with peers (and self nodes?)
+
+new ios functionality:
+	messageTextField should move up and down with keyboard
+	chatHistoryTextView should shrink and grow with keyboard + messageTextField
+	recv msg in textview
+	save chat history locally
+	show chat history in textview
+
 email
 
 lowercase letters only for username including
 	search hashtbl keys
-
-new functionality:
-	search for and add new contact + accept contact request
 
 authentication
 	when a user signs out
@@ -35,19 +54,6 @@ authentication
 	delete items from keychain on app delete		
 
 	do we even need an AuthN token? I guess it verifies to the main server that we're authenticated, right? If the main server doesn't find a matching AuthN token in the corresponding hashnode->node, then it rejects that node, right? Answer: copy AuthN key (concated fam, ip, port) and token to node_t and node_buf_t, and match key and token from node_t with incoming data. Ywah?
-
-fix bug where confirming chat port doesn't always work... possibly due to packet loss or unordered receipt of packets?
-change authN server to TCP to avoid packet loss, ordering problems?
-
-self <=> get internal hole punching working
-stay-in-touch with peers (and self nodes?)
-
-new ios functionality:
-	messageTextField should move up and down with keyboard
-	chatHistoryTextView should shrink and grow with keyboard + messageTextField
-	recv msg in textview
-	save chat history locally
-	show chat history in textview
 
 network encryption
 	finish node-to-authn-server
