@@ -39,6 +39,7 @@ int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port
 	void (*confirmed_client)(void),
 	void (*notify_existing_contact)(char *),
 	void (*stay_touch_recd)(SERVER_TYPE),
+	void (*contact_deinit_node)(char *),
 	void (*add_contact_request)(char *),
 	void (*contact_request_accepted)(char *),
 	void (*contact_request_declined)(char *),

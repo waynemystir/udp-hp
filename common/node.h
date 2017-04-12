@@ -205,6 +205,8 @@ void nodes_perform(LinkedList_t *list,
 
 void remove_node_with_sockaddr(LinkedList_t *list, struct sockaddr *addr, SERVER_TYPE st);
 
+void remove_node_with_node_buf(LinkedList_t *list, node_buf_t *nb);
+
 void free_list(LinkedList_t *list);
 
 #endif /* node_h */

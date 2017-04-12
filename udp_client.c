@@ -117,6 +117,7 @@ void (*coll_buf_cb)(char *) = NULL;
 void (*new_client_cb)(SERVER_TYPE, char *) = NULL;
 void (*confirmed_client_cb)(void) = NULL;
 void (*hole_punch_sent_cb)(char *, int) = NULL;
+void (*contact_deinit_node_cb)(char *) = NULL;
 void (*add_contact_request_cb)(char *) = NULL;
 void (*contact_request_accepted_cb)(char *) = NULL;
 void (*contact_request_declined_cb)(char *) = NULL;
@@ -762,6 +763,11 @@ void *wain_thread_routine(void *arg) {
 					if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_MAIN);
 					break;
 				}
+				case STATUS_DEINIT_NODE: {
+					remove_node_from_contact(self.contacts, &buf);
+					if (contact_deinit_node_cb) contact_deinit_node_cb(buf.id);
+					break;
+				}
 				case STATUS_REQUEST_ADD_CONTACT_REQUEST: {
 					if (add_contact_request_cb) add_contact_request_cb(buf.other_id);
 					break;
@@ -922,6 +928,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	void (*confirmed_client)(void),
 	void (*notify_existing_contact)(char *),
 	void (*stay_touch_recd)(SERVER_TYPE),
+	void (*contact_deinit_node)(char *),
 	void (*add_contact_request)(char *),
 	void (*contact_request_accepted)(char *),
 	void (*contact_request_declined)(char *),
@@ -946,6 +953,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	new_client_cb = new_client;
 	confirmed_client_cb = confirmed_client;
 	hole_punch_sent_cb = hole_punch_sent;
+	contact_deinit_node_cb = contact_deinit_node;
 	add_contact_request_cb = add_contact_request;
 	contact_request_accepted_cb = contact_request_accepted;
 	contact_request_declined_cb = contact_request_declined;

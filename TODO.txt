@@ -1,6 +1,8 @@
 
 FIX-ALL-BUGS
 ------------
+stay-in-touch with peers (and self nodes?)
+
 	second login (i.e. without cntrl-c'ing the-server) is broken
 		-after add/accept contact request
 		-chatting with existing contact
@@ -8,7 +10,6 @@ FIX-ALL-BUGS
 		-all time time? 
 
 self <=> get internal hole punching working
-stay-in-touch with peers (and self nodes?)
 
 new ios functionality:
 	messageTextField should move up and down with keyboard

@@ -678,6 +678,56 @@ void remove_node_with_sockaddr(LinkedList_t *list, struct sockaddr *addr, SERVER
 	list->node_count = list->node_count - num_nodes_removed;
 }
 
+// curtesy of https://www.cs.bu.edu/teaching/c/linked-list/delete/
+node_t *remove_node_with_node_buf_internal(node_t *currP, node_buf_t *nb, int *num_nodes_removed) {
+	/* See if we are at end of list. */
+	if (currP == NULL) return NULL;
+
+	/*
+	* Check to see if current node is one
+	* to be deleted.
+	*/
+	if (node_and_node_buf_equal(currP, nb)) {
+		node_t *tempNextP;
+
+		/* Save the next pointer in the node. */
+		tempNextP = currP->next;
+
+		/* Deallocate the node. */
+		free(currP);
+		if (num_nodes_removed) (*num_nodes_removed)++;
+
+		/*
+		* Return the NEW pointer to where we
+		* were called from.  I.e., the pointer
+		* the previous call will use to "skip
+		* over" the removed node.
+		*/
+		return tempNextP;
+	}
+
+	/*
+	* Check the rest of the list, fixing the next
+	* pointer in case the next node is the one
+	* removed.
+	*/
+	currP->next = remove_node_with_node_buf_internal(currP->next, nb, num_nodes_removed);
+
+	/*
+	* Return the pointer to where we were called
+	* from.  Since we did not remove this node it
+	* will be the same.
+	*/
+	return currP;
+}
+
+void remove_node_with_node_buf(LinkedList_t *list, node_buf_t *nb) {
+	if (!list || !nb) return;
+	int num_nodes_removed = 0;
+	list->head = remove_node_with_node_buf_internal(list->head, nb, &num_nodes_removed);
+	list->node_count = list->node_count - num_nodes_removed;
+}
+
 void free_list(LinkedList_t *list) {
 	if (!list || !list->head) return;
 	node_t *tmp;

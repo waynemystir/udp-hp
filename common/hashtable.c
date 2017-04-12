@@ -318,6 +318,15 @@ void add_node_to_contacts(hash_node_t *hn, node_buf_t *nb, node_t **new_node) {
 	contact->hn->nodes->node_count++;
 }
 
+void remove_node_from_contact(contact_list_t *cl, node_buf_t *nb) {
+	if (!nb || !strlen(nb->id)) return;
+
+	contact_t *c = lookup_contact(cl, nb->id);
+	if (!c || !c->hn || !c->hn->nodes || !c->hn->nodes->head || !c->hn->nodes->node_count) return;
+
+	remove_node_with_node_buf(c->hn->nodes, nb);
+}
+
 void contacts_perform(contact_list_t *contacts,
 		void (*perform)(contact_t *contact, void *arg1, void *arg2, void *arg3),
 		void *arg1,
