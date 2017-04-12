@@ -160,7 +160,6 @@ void create_aes_key_iv() {
 		ERR_print_errors_fp(stdout);
 	}
 
-	printf("create_aes_key_iv (%s)(%lu)\n", symmetric_key, strlen(symmetric_key));
 	aes_key = malloc(NUM_BYTES_AES_KEY);
 	memset(aes_key, '\0', NUM_BYTES_AES_KEY);
 	memcpy(aes_key, symmetric_key, NUM_BYTES_AES_KEY);
@@ -448,6 +447,13 @@ int authn(NODE_USER_STATUS user_stat,
 		memset(aes_key, '\0', NUM_BYTES_AES_KEY);
 		memcpy(aes_key, aes_k, NUM_BYTES_AES_KEY);
 	}
+
+	int i;
+	for (i = 0; i < NUM_BYTES_AES_KEY; i++) {
+		if (i > 0) printf(":");
+		printf("(%d)-(%02X)", i, aes_key[i]);
+	}
+	printf("\n");
 
 	rsa_public_key = malloc(strlen(rsa_pub_key)+1);
 	rsa_private_key = malloc(strlen(rsa_pri_key)+1);

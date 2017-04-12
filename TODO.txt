@@ -1,10 +1,10 @@
 
-
-new functionality:
-	search for and add new contact + accept contact request
-
 FIX-ALL-BUGS
 ------------
+	second login (i.e. without cntrl-c'ing the-server) is broken
+		-after add/accept contact request
+		-chatting with existing contact
+		-all time time? 
 	fix bug where confirming chat port doesn't always work... possibly due to packet loss or unordered receipt of packets?
 	change authN server to TCP to avoid packet loss, ordering problems?
 
@@ -24,6 +24,11 @@ email
 
 lowercase letters only for username including
 	search hashtbl keys
+
+ffmpeg encryption or webrtc?
+video_port
+video server
+POC video functionality
 
 authentication
 	when a user signs out
@@ -65,12 +70,6 @@ network encryption
 	peer-to-peer (I think we can just encrypt and decrypt the entire struct node_buf_t)
 	ACTUALLY, we can get rid of server-generated AES key: time-based reset of server AES IV... and notification to all nodes... once a day?
 	ensure RSA swap request comes from Sup app (ie not from a fisher): maybe some sort of time-dependent key to pass with RSA swap
-
-
-ffmpeg encryption or webrtc?
-video_port
-video server
-POC video functionality
 
 device goes to sleep or app is background... will stay-in-touch with servers continue? do we need to re-do hole punching on awake/foregrounding?
 
