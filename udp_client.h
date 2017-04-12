@@ -70,6 +70,8 @@ void accept_contact_request(char *contact_username);
 
 void decline_contact_request(char *contact_username);
 
+void quit();
+
 void signout();
 
 #endif /* udp_client_h */

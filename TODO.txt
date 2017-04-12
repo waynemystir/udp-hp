@@ -4,6 +4,7 @@ FIX-ALL-BUGS
 	second login (i.e. without cntrl-c'ing the-server) is broken
 		-after add/accept contact request
 		-chatting with existing contact
+		-backgrounded?
 		-all time time? 
 
 self <=> get internal hole punching working
@@ -29,6 +30,8 @@ POC video functionality
 database
 
 To reduce endpoints (i.e. remove search-endpoint), can we stuff a struct of arbitrary size into the last member of type unsigned char*?
+
+pretty ios POC app
 
 *******************  POC is done  **********************
 

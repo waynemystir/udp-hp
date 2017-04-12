@@ -1428,6 +1428,19 @@ void decline_contact_request(char *contact_username) {
 	} else if (sendto_succeeded_cb) sendto_succeeded_cb(sendto_len);
 }
 
+void quit() {
+	node_buf_t buf = {0};
+	buf.status = STATUS_DEINIT_NODE;
+	strcpy(buf.id, username);
+	memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+	size_t sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, sa_server, server_socklen);
+	if (sendto_len == -1) {
+		char w[256];
+		sprintf(w, "sendto failed with %zu", sendto_len);
+		pfail(w);
+	} else if (sendto_succeeded_cb) sendto_succeeded_cb(sendto_len);
+}
+
 void signout() {
 	node_buf_t buf;
 	memset(&buf, '\0', SZ_NODE_BF);
