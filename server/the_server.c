@@ -238,10 +238,10 @@ void notify_existing_peer_of_new_node(node_t *existing_peer,
 }
 
 void notify_existing_peer_of_deinit_node(node_t *existing_peer,
-	void *arg1, // the new node
+	void *arg1, // the deinit node
 	void *arg2, // the username of the existing node/peer
-	void *arg3, // the username of the new node
-	void *arg4) // the sockaddr of the new node
+	void *arg3, // the username of the deinit node
+	void *arg4) // the sockaddr of the deinit node
 {
 	if (!existing_peer || !arg1 || !arg2 || !arg3 || !arg4) return;
 	node_t *deinit_node = arg1;
@@ -270,13 +270,13 @@ void notify_existing_peer_of_deinit_node(node_t *existing_peer,
 		default: return;
 	}
 
-	node_buf_t *exip_node_buf, *new_node_buf;
-	get_approp_node_bufs(existing_peer, deinit_node, &exip_node_buf, &new_node_buf, id_ep, id_nn);
+	node_buf_t *exip_node_buf, *deinit_node_buf;
+	get_approp_node_bufs(existing_peer, deinit_node, &exip_node_buf, &deinit_node_buf, id_ep, id_nn);
 	exip_node_buf->status = STATUS_DEINIT_NODE;
-	new_node_buf->status = STATUS_DEINIT_NODE;
+	deinit_node_buf->status = STATUS_DEINIT_NODE;
 
 	// And now we notify existing peer of new tail
-	if (sendto(sock_fd, new_node_buf, SZ_NODE_BF, 0, &ep_addr, main_slen)==-1)
+	if (sendto(sock_fd, deinit_node_buf, SZ_NODE_BF, 0, &ep_addr, main_slen)==-1)
 		pfail("sendto");
 
 	// And notify new tail (i.e. si_other) of existing peer
@@ -284,7 +284,7 @@ void notify_existing_peer_of_deinit_node(node_t *existing_peer,
 		pfail("sendto");
 
 	free(exip_node_buf);
-	free(new_node_buf);
+	free(deinit_node_buf);
 
 }
 
@@ -358,9 +358,9 @@ void notify_contact_of_new_node(contact_t *contact,
 }
 
 void notify_contact_of_deinit_node(contact_t *contact,
-	void *arg1, // the new node
-	void *arg2, // the username of the new node
-	void *arg3) // the sockaddr of the new node
+	void *arg1, // the deinit node
+	void *arg2, // the username of the deinit node
+	void *arg3) // the sockaddr of the deinit node
 {
 	printf("notify_contact_of_deinit_node\n");
 	if (!arg1 || !arg2 || !arg3 || !contact || !contact->hn || !contact->hn->nodes) return;
@@ -878,6 +878,7 @@ void *main_server_endpoint(void *arg) {
 				printf("STATUS_DEINIT_NODE before(%d)\n", hn->nodes->node_count);
 				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
 				printf("\n");
+				// TODO you can just remove (n) since we already have it
 				remove_node_with_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
 				printf("STATUS_DEINIT_NODE after(%d)\n", hn->nodes->node_count);
 				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
