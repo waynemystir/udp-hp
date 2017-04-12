@@ -237,6 +237,57 @@ void notify_existing_peer_of_new_node(node_t *existing_peer,
 	free(new_node_buf);
 }
 
+void notify_existing_peer_of_deinit_node(node_t *existing_peer,
+	void *arg1, // the new node
+	void *arg2, // the username of the existing node/peer
+	void *arg3, // the username of the new node
+	void *arg4) // the sockaddr of the new node
+{
+	if (!existing_peer || !arg1 || !arg2 || !arg3 || !arg4) return;
+	node_t *deinit_node = arg1;
+	char id_ep[MAX_CHARS_USERNAME];
+	char id_nn[MAX_CHARS_USERNAME];
+	strcpy(id_ep, arg2);
+	strcpy(id_nn, arg3);
+
+	// Let's get the sockaddr of existing_peer
+	struct sockaddr ep_addr;
+	switch (existing_peer->external_family) {
+		case AF_INET: {
+			ep_addr.sa_family = AF_INET;
+			((struct sockaddr_in*)&ep_addr)->sin_family = AF_INET;
+			((struct sockaddr_in*)&ep_addr)->sin_port = existing_peer->external_port;
+			((struct sockaddr_in*)&ep_addr)->sin_addr.s_addr = existing_peer->external_ip4;
+			break;
+		}
+		case AF_INET6: {
+			ep_addr.sa_family = AF_INET6;
+			((struct sockaddr_in6*)&ep_addr)->sin6_family = AF_INET6;
+			((struct sockaddr_in6*)&ep_addr)->sin6_port = existing_peer->external_port;
+			memcpy(((struct sockaddr_in6*)&ep_addr)->sin6_addr.s6_addr, existing_peer->external_ip6, 16);
+			break;
+		}
+		default: return;
+	}
+
+	node_buf_t *exip_node_buf, *new_node_buf;
+	get_approp_node_bufs(existing_peer, deinit_node, &exip_node_buf, &new_node_buf, id_ep, id_nn);
+	exip_node_buf->status = STATUS_DEINIT_NODE;
+	new_node_buf->status = STATUS_DEINIT_NODE;
+
+	// And now we notify existing peer of new tail
+	if (sendto(sock_fd, new_node_buf, SZ_NODE_BF, 0, &ep_addr, main_slen)==-1)
+		pfail("sendto");
+
+	// And notify new tail (i.e. si_other) of existing peer
+	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, (struct sockaddr*)arg4, main_slen)==-1)
+		pfail("sendto");
+
+	free(exip_node_buf);
+	free(new_node_buf);
+
+}
+
 void notify_existing_peer_of_new_chat_port(node_t *existing_peer,
 	void *arg1, // node/peer with the new chat port
 	void *arg2, // the username of the existing node/peer
@@ -304,6 +355,16 @@ void notify_contact_of_new_node(contact_t *contact,
 
 	if (!arg1 || !contact->hn->nodes) return;
 	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_node, arg1, contact->hn->username, arg2, arg3);
+}
+
+void notify_contact_of_deinit_node(contact_t *contact,
+	void *arg1, // the new node
+	void *arg2, // the username of the new node
+	void *arg3) // the sockaddr of the new node
+{
+	printf("notify_contact_of_deinit_node\n");
+	if (!arg1 || !arg2 || !arg3 || !contact || !contact->hn || !contact->hn->nodes) return;
+	nodes_perform(contact->hn->nodes, notify_existing_peer_of_deinit_node, arg1, contact->hn->username, arg2, arg3);
 }
 
 void notify_contact_of_new_chat_port(contact_t *contact, void *arg1, void *arg2, void *arg3) {
@@ -812,6 +873,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_DEINIT_NODE with non-matching authn_token\n");
 					break;
 				}
+				contacts_perform(hn->contacts, notify_contact_of_deinit_node, n, hn->username, &si_other);
 
 				printf("STATUS_DEINIT_NODE before(%d)\n", hn->nodes->node_count);
 				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
