@@ -5,10 +5,6 @@ FIX-ALL-BUGS
 		-after add/accept contact request
 		-chatting with existing contact
 		-all time time? 
-	fix bug where confirming chat port doesn't always work... possibly due to packet loss or unordered receipt of packets?
-	change authN server to TCP to avoid packet loss, ordering problems?
-
-To reduce endpoints (i.e. remove search-endpoint), can we stuff a struct of arbitrary size into the last member of type unsigned char*?
 
 self <=> get internal hole punching working
 stay-in-touch with peers (and self nodes?)
@@ -29,6 +25,12 @@ ffmpeg encryption or webrtc?
 video_port
 video server
 POC video functionality
+
+database
+
+To reduce endpoints (i.e. remove search-endpoint), can we stuff a struct of arbitrary size into the last member of type unsigned char*?
+
+*******************  POC is done  **********************
 
 authentication
 	when a user signs out
@@ -80,7 +82,7 @@ thread wain et al
 
 can we possibly put the in-memory structure in another program? if so, then we could stagger the server program and the memory program, which would allow us to change where the memory is run from without causing a disruption in service... i.e. start another memory program, wait for it to load up (copied from current memory program?), stop the server, and repoint the server to the new memory program... this might be a bad idea... but maybe a variation could help?
 
-database
+change authN server to TCP to avoid packet loss, ordering problems?
 
 server host?
 shrink node_buf, auth_buf, etc by converting to base64?

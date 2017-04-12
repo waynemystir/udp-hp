@@ -795,6 +795,33 @@ void *main_server_endpoint(void *arg) {
 				}
 				break;
 			}
+			case STATUS_DEINIT_NODE: {
+				printf("STATUS_DEINIT_NODE from %s %s port%d %d\n", buf.id, ip_str, port, family);
+				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
+				if (!hn) {
+					printf("STATUS_DEINIT_NODE no hn for user (%s)\n", buf.id);
+					break;
+				}
+				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				if (!n) {
+					printf("STATUS_DEINIT_NODE No node found for addr %s %s port%d %d\n",
+						buf.id, ip_str, port, family);
+					break;
+				}
+				if (memcmp(n->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN) != 0) {
+					printf("STATUS_DEINIT_NODE with non-matching authn_token\n");
+					break;
+				}
+
+				printf("STATUS_DEINIT_NODE before(%d)\n", hn->nodes->node_count);
+				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
+				printf("\n");
+				remove_node_with_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				printf("STATUS_DEINIT_NODE after(%d)\n", hn->nodes->node_count);
+				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
+				printf("\n");
+				break;
+			}
 			case STATUS_REQUEST_ADD_CONTACT_REQUEST: {
 				printf("STATUS_REQUEST_ADD_CONTACT_REQUEST from %s %s port%d %d\n", buf.id, ip_str, port, family);
 				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
@@ -989,7 +1016,7 @@ void *main_server_endpoint(void *arg) {
 				}
 				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
 				if (!n) {
-					printf("STATUS_SEARCH_USERNAMES No node found for addr %s %s port%d %d\n",
+					printf("STATUS_SIGN_OUT No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
 					break;
 				}
