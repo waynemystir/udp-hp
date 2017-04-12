@@ -583,7 +583,7 @@ void *stay_in_touch_with_server_thread(void *msg) {
 	while (stay_in_touch_running) {
 		if (sendto(sock_fd, &w, SZ_NODE_BF, 0, sa_server, server_socklen) == -1)
 		 	pfail("stay_in_touch_with_server_thread sendto");
-		sleep(30); // 30 seconds
+		sleep(NUMBER_SECOND_BTWN_STAY_IN_TOUCH);
 	}
 	pthread_exit("stay_in_touch_with_server_thread exited normally");
 }
@@ -597,7 +597,7 @@ void *stay_in_touch_with_chat_server_thread(void *msg) {
 	while (chat_stay_in_touch_running) {
 		if (sendto(chat_sock_fd, &w, sizeof(chat_buf_t), 0, sa_chat_server, chat_server_socklen) == -1)
 		 	pfail("stay_in_touch_with_chat_server_thread sendto");
-		sleep(30); // 30 seconds
+		sleep(NUMBER_SECOND_BTWN_STAY_IN_TOUCH);
 	}
 	pthread_exit("stay_in_touch_with_chat_server_thread exited normally");
 }
