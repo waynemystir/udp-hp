@@ -415,7 +415,7 @@ void *authentication_server_endpoint(void *arg) {
 		// void *addr = &(sa_auth_other.sin_addr);
 		// inet_ntop( AF_INET, &(sa_auth_other.sin_addr), ip_str, sizeof(ip_str) );
 		addr_to_str_short( &sa_auth_other, ip_str, &port, &family );
-		printf("Auth received packet (%d):(%s) (%zu bytes) from %s port%d %d\n", buf.status,
+		printf("AUTH received packet (%d):(%s) (%zu bytes) from %s port%d %d\n", buf.status,
 			authn_status_to_str(buf.status), recvf_len, ip_str, port, family);
 
 start_switch:
@@ -450,13 +450,13 @@ start_switch:
 				printf("And the node was added with key (%s)\n", new_authn_node->key);
 				memset(new_authn_node->rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
 				memcpy(new_authn_node->rsa_pub_key, buf.rsa_pub_key, strlen((char*)buf.rsa_pub_key));
-				printf("The node's RSA pub key (%s)\n", new_authn_node->rsa_pub_key);
+				// printf("The node's RSA pub key (%s)\n", new_authn_node->rsa_pub_key);
 
 				memset(&buf, '\0', SZ_AUN_BF);
 				buf.status = AUTHN_STATUS_RSA_SWAP_RESPONSE;
 				memset(buf.rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
 				memcpy(buf.rsa_pub_key, rsa_public_key_str, RSA_PUBLIC_KEY_LEN);
-				printf("Sending RSA public key (%s) to node\n", buf.rsa_pub_key);
+				// printf("Sending RSA public key (%s) to node\n", buf.rsa_pub_key);
 
 				sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, authn_slen);
 				if (sendto_len == -1) {
@@ -479,8 +479,8 @@ start_switch:
 				memset(rsa_decrypted_aes_key, '\0', 256);
 				int result_len = 0;
 				load_private_key_from_str(&rsa_priv_key, rsa_private_key_str);
-				printf("Lets rsa decrypt with (%lu)(%lu)(%s)\n", sizeof(buf.aes_key),
-					sizeof(rsa_decrypted_aes_key), rsa_private_key_str);
+				// printf("Lets rsa decrypt with (%lu)(%lu)(%s)\n", sizeof(buf.aes_key),
+				// 	sizeof(rsa_decrypted_aes_key), rsa_private_key_str);
 				rsa_decrypt(rsa_priv_key, buf.aes_key, rsa_decrypted_aes_key, &result_len);
 				printf("rsa_decrypted:(%s)(%d)\n", rsa_decrypted_aes_key, result_len);
 
@@ -648,7 +648,7 @@ void *search_server_routine(void *arg) {
 		// void *addr = &(si_chat_other.sin_addr);
 		// inet_ntop( AF_INET, &(si_chat_other.sin_addr), ip_str, sizeof(ip_str) );
 		addr_to_str_short( &si_search_other, ip_str, &port, &family );
-		printf("Search Server received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
+		printf("SEARCH received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
 
 		// TODO we should probably handle packets with a thread pool
 		// so that the next recvfrom isn't blocked by the below code
@@ -754,7 +754,8 @@ void *main_server_endpoint(void *arg) {
 		// void *addr = &(si_other.sin_addr);
 		// inet_ntop( AF_INET, &(si_other.sin_addr), ip_str, sizeof(ip_str) );
 		addr_to_str_short( &si_other, ip_str, &port, &family );
-		printf("Received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
+		if (buf.status != STATUS_STAY_IN_TOUCH)
+			printf("MAIN received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
 
 		// TODO we should probably handle packets with a thread pool
 		// so that the next recvfrom isn't blocked by the below code
@@ -832,8 +833,8 @@ void *main_server_endpoint(void *arg) {
 				break;
 			}
 			case STATUS_STAY_IN_TOUCH: {
-				printf("STATUS_STAY_IN_TOUCH from %s port%d %d %d\n", ip_str, port,
-					family, STATUS_STAY_IN_TOUCH_RESPONSE);
+				// printf("STATUS_STAY_IN_TOUCH from %s port%d %d %d\n", ip_str, port,
+				// 	family, STATUS_STAY_IN_TOUCH_RESPONSE);
 				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
 				if (!hn) {
 					printf("STATUS_STAY_IN_TOUCH no hn for user (%s)\n", buf.id);
@@ -876,13 +877,17 @@ void *main_server_endpoint(void *arg) {
 				contacts_perform(hn->contacts, notify_contact_of_deinit_node, n, hn->username, &si_other);
 
 				printf("STATUS_DEINIT_NODE before(%d)\n", hn->nodes->node_count);
-				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
-				printf("\n");
+				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) {
+					printf("(%d):(%d):(%d)\n", no->external_ip4, no->external_port, no->external_chat_port);
+				}
+
 				// TODO you can just remove (n) since we already have it
 				remove_node_with_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
 				printf("STATUS_DEINIT_NODE after(%d)\n", hn->nodes->node_count);
-				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
-				printf("\n");
+				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) {
+					printf("(%d):(%d):(%d)\n", no->external_ip4, no->external_port, no->external_chat_port);
+				}
+
 				break;
 			}
 			case STATUS_REQUEST_ADD_CONTACT_REQUEST: {
@@ -1038,7 +1043,8 @@ void *main_server_endpoint(void *arg) {
 				break;
 			}
 			case STATUS_ACQUIRED_CHAT_PORT: {
-				printf("STATUS_ACQUIRED_CHAT_PORT from %s %s port%d %d\n", buf.id, ip_str, port, family);
+				printf("STATUS_ACQUIRED_CHAT_PORT (%d) from %s %s port%d %d\n",
+					ntohs(buf.chat_port), buf.id, ip_str, port, family);
 
 				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
 				if (!hn) {
@@ -1154,7 +1160,8 @@ void *chat_endpoint(void *msg) {
 		// void *addr = &(si_chat_other.sin_addr);
 		// inet_ntop( AF_INET, &(si_chat_other.sin_addr), ip_str, sizeof(ip_str) );
 		addr_to_str_short( &si_chat_other, ip_str, &port, &family );
-		printf("Received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
+		if (buf.status != CHAT_STATUS_STAY_IN_TOUCH)
+			printf("CHAT received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
 
 		// TODO we should probably handle packets with a thread pool
 		// so that the next recvfrom isn't blocked by the below code
@@ -1189,7 +1196,7 @@ void *chat_endpoint(void *msg) {
 				break;
 			}
 			case CHAT_STATUS_STAY_IN_TOUCH: {
-				printf("CHAT_STATUS_STAY_IN_TOUCH from %s port%d %d\n", ip_str, port, family);
+				// printf("CHAT_STATUS_STAY_IN_TOUCH from %s port%d %d\n", ip_str, port, family);
 				buf.status = CHAT_STATUS_STAY_IN_TOUCH_RESPONSE;
 				sendto_len = sendto(chat_sock_fd, &buf, sizeof(buf), 0, &si_chat_other, chat_slen);
 				if (sendto_len == -1) {
