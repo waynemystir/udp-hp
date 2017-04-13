@@ -101,6 +101,7 @@ int wain_thread_has_started = 0;
 int search_thread_has_started = 0;
 
 // function pointers
+void (*pfail_cb)(char *) = NULL;
 void (*rsakeypair_generated_cb)(const char *rsa_pub_key, const char *rsa_pri_key) = NULL;
 void (*rsa_response_cb)(char *server_rsa_pub_key) = NULL;
 void (*aes_key_created_cb)(unsigned char[NUM_BYTES_AES_KEY]) = NULL;
@@ -132,7 +133,7 @@ void (*username_results_cb)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_US
 void pfail(char *w) {
 	printf("pfail 0\n");
 	perror(w);
-	exit(1);
+	if (pfail_cb) pfail_cb(w);
 }
 
 void create_aes_iv() {
@@ -217,6 +218,7 @@ int send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 		authn_running = 1;
 		wain_running = 1;
 		authn(nus, usernm, pw, buf.status, rsa_public_key, rsa_private_key, aes_key,
+			pfail_cb,
 			rsakeypair_generated_cb,
 			recd_cb,
 			rsa_response_cb,
@@ -422,6 +424,7 @@ int authn(NODE_USER_STATUS user_stat,
 	const char *rsa_pub_key,
 	const char *rsa_pri_key,
 	unsigned char *aes_k,
+	void (*pfail)(char *),
 	void (*rsakeypair_generated)(const char *rsa_pub_key, const char *rsa_pri_key),
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
 	void (*rsa_response)(char *server_rsa_pub_key),
@@ -430,6 +433,7 @@ int authn(NODE_USER_STATUS user_stat,
 	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, char *username,
 		char *password, unsigned char[AUTHEN_TOKEN_LEN])) {
 
+	pfail_cb = pfail;
 	rsakeypair_generated_cb = rsakeypair_generated;
 	recd_cb = recd;
 	rsa_response_cb = rsa_response;
@@ -501,6 +505,7 @@ void *hole_punch_thread(void *peer_to_hole_punch) {
 		if (peer->status >= STATUS_CONFIRMED_PEER) {
 			if (confirmed_peer_while_punching_cb)
 				confirmed_peer_while_punching_cb(SERVER_MAIN);
+			init_chat_hp();
 			break;
 		}
 		send_hole_punch(peer);
@@ -756,7 +761,7 @@ void *wain_thread_routine(void *arg) {
 						me_external_family);
 					if (new_client_cb) new_client_cb(SERVER_MAIN, sprintf);
 					stay_in_touch_with_server(SERVER_MAIN);
-					init_chat_hp();
+					// init_chat_hp();
 					break;
 				}
 				case STATUS_NOTIFY_EXISTING_CONTACT: {
