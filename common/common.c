@@ -62,6 +62,15 @@ char *chat_status_to_str(CHAT_STATUS cs) {
 	}
 }
 
+char *node_user_status_to_str(NODE_USER_STATUS nus) {
+	switch (nus) {
+		case NODE_USER_STATUS_NEW_USER: return "NODE_USER_STATUS_NEW_USER";
+		case NODE_USER_STATUS_EXISTING_USER: return "NODE_USER_STATUS_EXISTING_USER";
+		case NODE_USER_STATUS_UNKNOWN: return "NODE_USER_STATUS_UNKNOWN";
+		default: return "NODE_USER_STATUS_UNKNOWN_REALLY";
+	}
+}
+
 char *authn_addr_info_to_key(sa_family_t family, char *ip_str, in_port_t port) {
 
 	char *wes = malloc(AUTHN_NODE_KEY_LENGTH);

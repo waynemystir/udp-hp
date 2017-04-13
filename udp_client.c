@@ -104,6 +104,7 @@ int search_thread_has_started = 0;
 void (*rsakeypair_generated_cb)(const char *rsa_pub_key, const char *rsa_pri_key) = NULL;
 void (*rsa_response_cb)(char *server_rsa_pub_key) = NULL;
 void (*aes_key_created_cb)(unsigned char[NUM_BYTES_AES_KEY]) = NULL;
+void (*aes_response_cb)(NODE_USER_STATUS) = NULL;
 void (*creds_check_result_cb)(AUTHN_CREDS_CHECK_RESULT, char *username, char *password, unsigned char[AUTHEN_TOKEN_LEN]) = NULL;
 void (*self_info_cb)(char *, unsigned short, unsigned short, unsigned short) = NULL;
 void (*server_info_cb)(SERVER_TYPE, char *) = NULL;
@@ -220,12 +221,13 @@ int send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 			recd_cb,
 			rsa_response_cb,
 			aes_key_created_cb,
+			aes_response_cb,
 			creds_check_result_cb);
 
 		int authn_retries = 0;
 		while (!authn_thread_has_started || !wain_thread_has_started) {
-			usleep(10*1000); // 10 milliseconds
-			if (++authn_retries >= 100) {
+			usleep(MICROSECONDS_TO_WAIT_BTWN_AUTHN_ATTEMPTS);
+			if (++authn_retries >= AUTHN_RETRY_ATTEMPTS) {
 				printf("Couldn't restart authn_thread\n");
 				return -1;
 			}
@@ -375,6 +377,7 @@ void *authn_thread_routine(void *arg) {
 			case AUTHN_STATUS_AES_SWAP_RESPONSE: {
 				// printf("The server's AES key (%s)\n", buf.aes_key);
 				// printf("The server's AES iv (%s)\n", buf.aes_iv);
+				if (aes_response_cb) aes_response_cb(node_user_status);
 				char un[MAX_CHARS_USERNAME] = {0};
 				char pw[MAX_CHARS_PASSWORD] = {0};
 				strcpy(un, username);
@@ -423,6 +426,7 @@ int authn(NODE_USER_STATUS user_stat,
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
 	void (*rsa_response)(char *server_rsa_pub_key),
 	void (*aes_key_created)(unsigned char[NUM_BYTES_AES_KEY]),
+	void (*aes_response)(NODE_USER_STATUS),
 	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, char *username,
 		char *password, unsigned char[AUTHEN_TOKEN_LEN])) {
 
@@ -430,6 +434,7 @@ int authn(NODE_USER_STATUS user_stat,
 	recd_cb = recd;
 	rsa_response_cb = rsa_response;
 	aes_key_created_cb = aes_key_created;
+	aes_response_cb = aes_response;
 	creds_check_result_cb = creds_check_result;
 	node_user_status = user_stat;
 
@@ -490,8 +495,8 @@ int authn(NODE_USER_STATUS user_stat,
 
 void *hole_punch_thread(void *peer_to_hole_punch) {
 	node_t *peer = (node_t *)peer_to_hole_punch;
-	for (int j = 0; j < 1000; j++) {
-		// Send 1000 datagrams, or until the peer
+	for (int j = 0; j < HOLE_PUNCH_RETRY_ATTEMPTS; j++) {
+		// Send (HOLE_PUNCH_RETRY_ATTEMPTS) datagrams, or until the peer
 		// is confirmed, whichever occurs first.
 		if (peer->status >= STATUS_CONFIRMED_PEER) {
 			if (confirmed_peer_while_punching_cb)
@@ -499,7 +504,7 @@ void *hole_punch_thread(void *peer_to_hole_punch) {
 			break;
 		}
 		send_hole_punch(peer);
-		usleep(10*1000); // 10 milliseconds
+		usleep(MICROSECONDS_TO_WAIT_BTWN_HOLE_PUNCH_ATTEMPTS);
 	}
 	pthread_exit("hole_punch_thread exiting normally");
 }
@@ -712,8 +717,9 @@ void *wain_thread_routine(void *arg) {
 		}
 
 		addr_to_str(&sa_other, other_ip, other_port, other_family);
-		sprintf(sprintf, "%s port%s %s", other_ip, other_port, other_family);
-		if (recd_cb) recd_cb(SERVER_MAIN, recvf_len, other_socklen, sprintf);
+		sprintf(sprintf, "WAIN-RCV-FROM %s port%s %s", other_ip, other_port, other_family);
+		if (buf.status != STATUS_STAY_IN_TOUCH_RESPONSE && recd_cb)
+			recd_cb(SERVER_MAIN, recvf_len, other_socklen, sprintf);
 		other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
 		struct sockaddr *buf_sa = NULL;
@@ -721,7 +727,7 @@ void *wain_thread_routine(void *arg) {
 		char bp[20];
 		char bf[20];
 		addr_to_str(buf_sa, buf_ip, bp, bf);
-		sprintf(sprintf, "coll_buf id:%s sz:%zu st:%d ip:%s p:%u cp:%u f:%u",
+		sprintf(sprintf, "coll_buf id:%s sz:%zu st:%d ip:%s p:%u CHAT_PORT:%u f:%u",
 			buf.id,
 			sizeof(buf),
 			buf.status,
@@ -729,7 +735,7 @@ void *wain_thread_routine(void *arg) {
 			ntohs(buf.port),
 			ntohs(buf.chat_port),
 			buf.family);
-		if (coll_buf_cb) coll_buf_cb(sprintf);
+		if (buf.status != STATUS_STAY_IN_TOUCH_RESPONSE && coll_buf_cb) coll_buf_cb(sprintf);
 
 		if (addr_equals(sa_server, &sa_other)) {
 			// The datagram came from the server.
@@ -760,7 +766,7 @@ void *wain_thread_routine(void *arg) {
 				}
 				// TODO add status to populate self->nodes
 				case STATUS_STAY_IN_TOUCH_RESPONSE: {
-					if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_MAIN);
+					// if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_MAIN);
 					break;
 				}
 				case STATUS_DEINIT_NODE: {
@@ -1046,7 +1052,8 @@ void *chat_hp_server(void *w) {
 
 		addr_to_str(&sa_chat_other, chat_other_ip, chat_other_port, chat_other_family);
 		sprintf(sprintf, "CHAT-RECV-FRM %s port%s %s", chat_other_ip, chat_other_port, chat_other_family);
-		if (recd_cb) recd_cb(SERVER_CHAT, recvf_len, chat_other_socklen, sprintf);
+		if (buf.status != CHAT_STATUS_STAY_IN_TOUCH_RESPONSE && recd_cb)
+			recd_cb(SERVER_CHAT, recvf_len, chat_other_socklen, sprintf);
 		chat_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
 		struct sockaddr *buf_sa = NULL;
@@ -1060,7 +1067,7 @@ void *chat_hp_server(void *w) {
 			buf_ip,
 			ntohs(buf.port),
 			buf.family);
-		if (coll_buf_cb) coll_buf_cb(sprintf);
+		if (buf.status != CHAT_STATUS_STAY_IN_TOUCH_RESPONSE && coll_buf_cb) coll_buf_cb(sprintf);
 
 		if (addr_equals(sa_chat_server, &sa_chat_other)) {
 
@@ -1076,14 +1083,13 @@ void *chat_hp_server(void *w) {
 						pfail(w);
 					}
 					// TODO make function ip4 and port to str
-					sprintf(sprintf, "Chat Moi aussie %s cport%s %s", chat_other_ip,
-						chat_other_port, chat_other_family);
+					sprintf(sprintf, "Chat Moi aussie chat_port(%d)", ntohs(buf.port));
 					if (new_client_cb) new_client_cb(SERVER_CHAT, sprintf);
 					stay_in_touch_with_server(SERVER_CHAT);
 					break;
 				}
 				case CHAT_STATUS_STAY_IN_TOUCH_RESPONSE: {
-					if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_CHAT);
+					// if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_CHAT);
 					break;
 				}
 				default: printf("&-&-&-&-&-&-&-&-&-&-&-& chat server\n");
@@ -1149,8 +1155,8 @@ void *chat_hp_server(void *w) {
 
 void *chat_hole_punch_thread(void *peer_to_hole_punch) {
 	node_t *peer = (node_t *)peer_to_hole_punch;
-	for (int j = 0; j < 1000; j++) {
-		// Send 1000 datagrams, or until the peer
+	for (int j = 0; j < HOLE_PUNCH_RETRY_ATTEMPTS; j++) {
+		// Send (HOLE_PUNCH_RETRY_ATTEMPTS) datagrams, or until the peer
 		// is confirmed, whichever occurs first.
 		if (peer->status >= STATUS_CONFIRMED_CHAT_PEER) {
 			if (confirmed_peer_while_punching_cb)
@@ -1158,7 +1164,7 @@ void *chat_hole_punch_thread(void *peer_to_hole_punch) {
 			break;
 		}
 		send_chat_hole_punch(peer);
-		usleep(10*1000); // 10 milliseconds
+		usleep(MICROSECONDS_TO_WAIT_BTWN_HOLE_PUNCH_ATTEMPTS);
 	}
 	pthread_exit("hole_punch_thread exiting normally");
 }

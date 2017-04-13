@@ -26,6 +26,10 @@
 #define AUTHN_NODE_KEY_LENGTH INET6_ADDRSTRLEN + 20 + 20
 #define AES_PADDING 16
 #define NUMBER_SECOND_BTWN_STAY_IN_TOUCH 3
+#define HOLE_PUNCH_RETRY_ATTEMPTS 200
+#define MICROSECONDS_TO_WAIT_BTWN_HOLE_PUNCH_ATTEMPTS 10 * 1000
+#define AUTHN_RETRY_ATTEMPTS 100
+#define MICROSECONDS_TO_WAIT_BTWN_AUTHN_ATTEMPTS 10 * 1000
 
 extern const char USERNAME_ALLOWED_CHARS[65];
 
@@ -128,6 +132,7 @@ char *authn_status_to_str(AUTHN_STATUS as);
 char *creds_check_result_to_str(AUTHN_CREDS_CHECK_RESULT r);
 char *str_from_server_type(SERVER_TYPE st);
 char *chat_status_to_str(CHAT_STATUS cs);
+char *node_user_status_to_str(NODE_USER_STATUS nus);
 
 char *authn_addr_info_to_key(sa_family_t family, char *ip_str, in_port_t port);
 authn_node_t *add_authn_node(authn_hashtable_t *ahtbl, AUTHN_STATUS status, char *key);

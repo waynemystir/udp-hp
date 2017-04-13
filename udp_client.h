@@ -24,6 +24,7 @@ int authn(NODE_USER_STATUS user_stat,
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
 	void (*rsa_response)(char *server_rsa_pub_key),
 	void (*aes_key_created)(unsigned char[NUM_BYTES_AES_KEY]),
+	void (*aes_response)(NODE_USER_STATUS),
 	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, char *username,
 		char *password, unsigned char[AUTHEN_TOKEN_LEN]));
 
