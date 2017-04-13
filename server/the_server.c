@@ -49,8 +49,9 @@ authn_hashtable_t authn_tbl;
 token_hashtable_t token_tbl;
 
 void pfail(char *s) {
+	printf("PPPPPPPPPPFFFFFFFFAAAAAAAAAIIIIIIIIILLLLLLLL\n");
 	perror(s);
-	exit(1);
+	// exit(1);
 }
 
 int collect_rsa_keys() {
@@ -280,8 +281,8 @@ void notify_existing_peer_of_deinit_node(node_t *existing_peer,
 		pfail("sendto");
 
 	// And notify new tail (i.e. si_other) of existing peer
-	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, (struct sockaddr*)arg4, main_slen)==-1)
-		pfail("sendto");
+	// if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, (struct sockaddr*)arg4, main_slen)==-1)
+	// 	pfail("sendto");
 
 	free(exip_node_buf);
 	free(deinit_node_buf);
@@ -482,7 +483,7 @@ start_switch:
 				// printf("Lets rsa decrypt with (%lu)(%lu)(%s)\n", sizeof(buf.aes_key),
 				// 	sizeof(rsa_decrypted_aes_key), rsa_private_key_str);
 				rsa_decrypt(rsa_priv_key, buf.aes_key, rsa_decrypted_aes_key, &result_len);
-				printf("rsa_decrypted:(%s)(%d)\n", rsa_decrypted_aes_key, result_len);
+				// printf("rsa_decrypted:(%s)(%d)\n", rsa_decrypted_aes_key, result_len);
 
 				memset(an->aes_key, '\0', NUM_BYTES_AES_KEY);
 				memcpy(an->aes_key, rsa_decrypted_aes_key, result_len);
@@ -490,8 +491,9 @@ start_switch:
 				// http://stackoverflow.com/questions/8804574/aes-encryption-how-to-transport-iv
 				memset(an->aes_iv, '\0', NUM_BYTES_AES_IV);
 				memcpy(an->aes_iv, buf.aes_iv, NUM_BYTES_AES_IV);
-				printf("The node's AES key (%s)\n", an->aes_key);
-				printf("The node's AES iv (%s)\n", an->aes_iv);
+				// printf("The node's AES key (%s)\n", an->aes_key);
+				// printf("The node's AES iv (%s)\n", an->aes_iv);
+				printf("AUTHN_STATUS_AES_SWAP GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG (%s)\n", key);
 
 				memset(&buf, '\0', SZ_AUN_BF);
 				buf.status = AUTHN_STATUS_AES_SWAP_RESPONSE;

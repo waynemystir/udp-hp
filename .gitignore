@@ -5,6 +5,7 @@ server_sign_in
 server_chat
 common/network
 common/crypto_wrapper
+local
 SUP_RSA_PRI_KEY
 SUP_RSA_PUB_KEY
 SUP_AES_KEY
