@@ -129,6 +129,7 @@ void (*from_peer_cb)(SERVER_TYPE, char *) = NULL;
 void (*chat_msg_cb)(char *) = NULL;
 void (*unhandled_response_from_server_cb)(int) = NULL;
 void (*username_results_cb)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results) = NULL;
+void (*general_cb)(char*) = NULL;
 
 void pfail(char *w) {
 	printf("pfail 0\n");
@@ -199,16 +200,16 @@ int send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 	memcpy(username, usernm, strlen(usernm));
 	memcpy(password, pw, strlen(pw));
 
-	unsigned char cipherbuf[SZ_AUN_BF + AES_PADDING];
-	memset(cipherbuf, '\0', SZ_AUN_BF + AES_PADDING);
-	int cipherbuf_len = aes_encrypt((unsigned char*)&buf, SZ_AUN_BF, aes_key, aes_iv, cipherbuf);
+	// unsigned char cipherbuf[SZ_AUN_BF + AES_PADDING];
+	// memset(cipherbuf, '\0', SZ_AUN_BF + AES_PADDING);
+	// int cipherbuf_len = aes_encrypt((unsigned char*)&buf, SZ_AUN_BF, aes_key, aes_iv, cipherbuf);
 
-	authn_buf_encrypted_t buf_enc;
-	memset(&buf_enc, '\0', SZ_AE_BUF);
-	buf_enc.status = AUTHN_STATUS_ENCRYPTED;
-	memset(buf_enc.encrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
-	memcpy(buf_enc.encrypted_buf, cipherbuf, cipherbuf_len);
-	buf_enc.encrypted_len = cipherbuf_len;
+	// authn_buf_encrypted_t buf_enc;
+	// memset(&buf_enc, '\0', SZ_AE_BUF);
+	// buf_enc.status = AUTHN_STATUS_ENCRYPTED;
+	// memset(buf_enc.encrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
+	// memcpy(buf_enc.encrypted_buf, cipherbuf, cipherbuf_len);
+	// buf_enc.encrypted_len = cipherbuf_len;
 
 	stay_in_touch_running = 1;
 	chat_stay_in_touch_running = 1;
@@ -224,7 +225,8 @@ int send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 			rsa_response_cb,
 			aes_key_created_cb,
 			aes_response_cb,
-			creds_check_result_cb);
+			creds_check_result_cb,
+			general_cb);
 
 		int authn_retries = 0;
 		while (!authn_thread_has_started || !wain_thread_has_started) {
@@ -266,7 +268,7 @@ int send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 	// 	}
 	// }
 
-	authn_sendto_len = sendto(authn_sock_fd, &buf_enc, SZ_AE_BUF, 0,
+	authn_sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0,
 		sa_authn_server, authn_server_socklen);
 	if (authn_sendto_len == -1) {
 		char w[256];
@@ -351,12 +353,16 @@ void *authn_thread_routine(void *arg) {
 
 				create_aes_key_iv();
 				RSA *rsa_pub_key;
+				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE TRY load_public_key_from_str");
 				load_public_key_from_str(&rsa_pub_key, server_rsa_pub_key);
+				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE DONE load_public_key_from_str");
 				int result_len = 0;
 				unsigned char rsa_encrypted_aes_key[NUM_BYTES_RSA_ENCRYPTED_DATA];
 				memset(rsa_encrypted_aes_key, '\0', NUM_BYTES_RSA_ENCRYPTED_DATA);
 				printf("Attempting to encrypt (%d) bytes\n", NUM_BYTES_AES_KEY);
+				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE TRY rsa_encrypt");
 				rsa_encrypt(rsa_pub_key, aes_key, NUM_BYTES_AES_KEY, rsa_encrypted_aes_key, &result_len);
+				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE DONE rsa_encrypt");
 				printf("rsa_encrypted:(%s)(%d)\n", rsa_encrypted_aes_key, result_len);
 
 				memset(&buf, '\0', SZ_AUN_BF);
@@ -374,17 +380,18 @@ void *authn_thread_routine(void *arg) {
 					sprintf(w, "authn sendto failed with %zu", authn_sendto_len);
 					pfail(w);
 				}
+				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE SENT");
 				break;
 			}
 			case AUTHN_STATUS_AES_SWAP_RESPONSE: {
 				// printf("The server's AES key (%s)\n", buf.aes_key);
 				// printf("The server's AES iv (%s)\n", buf.aes_iv);
 				if (aes_response_cb) aes_response_cb(node_user_status);
-				char un[MAX_CHARS_USERNAME] = {0};
-				char pw[MAX_CHARS_PASSWORD] = {0};
-				strcpy(un, username);
-				strcpy(pw, password);
-				send_user(node_user_status, un, pw);
+				// char un[MAX_CHARS_USERNAME] = {0};
+				// char pw[MAX_CHARS_PASSWORD] = {0};
+				// strcpy(un, username);
+				// strcpy(pw, password);
+				// send_user(node_user_status, un, pw);
 				break;
 			}
 			case AUTHN_STATUS_NEW_USER_RESPONSE: {
@@ -431,7 +438,8 @@ int authn(NODE_USER_STATUS user_stat,
 	void (*aes_key_created)(unsigned char[NUM_BYTES_AES_KEY]),
 	void (*aes_response)(NODE_USER_STATUS),
 	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, char *username,
-		char *password, unsigned char[AUTHEN_TOKEN_LEN])) {
+		char *password, unsigned char[AUTHEN_TOKEN_LEN]),
+	void (*general)(char*)) {
 
 	pfail_cb = pfail;
 	rsakeypair_generated_cb = rsakeypair_generated;
@@ -440,6 +448,7 @@ int authn(NODE_USER_STATUS user_stat,
 	aes_key_created_cb = aes_key_created;
 	aes_response_cb = aes_response;
 	creds_check_result_cb = creds_check_result;
+	general_cb = general;
 	node_user_status = user_stat;
 
 	memset(username, '\0', MAX_CHARS_USERNAME);
@@ -488,6 +497,9 @@ int authn(NODE_USER_STATUS user_stat,
 
 	AUTHN_STATUS *as = malloc(sizeof(int));
 	if (as) *as = auth_status;
+
+	authn_running = 1;
+	wain_running = 1;
 
 	int atr = pthread_create(&authn_thread, NULL, authn_thread_routine, as);
 	if (atr) {
@@ -948,9 +960,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	void (*confirmed_peer_while_punching)(SERVER_TYPE),
 	void (*from_peer)(SERVER_TYPE, char *),
 	void (*chat_msg)(char *),
-	void (*unhandled_response_from_server)(int),
-	void (*whilew)(int),
-	void (*end_while)(void)) {
+	void (*unhandled_response_from_server)(int)) {
 
 	printf("main 0 %lu\n", DEFAULT_OTHER_ADDR_LEN);
 	self_info_cb = self_info;
@@ -1458,6 +1468,12 @@ void quit() {
 		sprintf(w, "sendto failed with %zu", sendto_len);
 		pfail(w);
 	} else if (sendto_succeeded_cb) sendto_succeeded_cb(sendto_len);
+
+	wain_running = 0;
+	authn_running = 0;
+	stay_in_touch_running = 0;
+	chat_stay_in_touch_running = 0;
+	chat_server_conn_running = 0;
 }
 
 void signout() {

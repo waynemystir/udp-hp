@@ -27,7 +27,8 @@ int authn(NODE_USER_STATUS user_stat,
 	void (*aes_key_created)(unsigned char[NUM_BYTES_AES_KEY]),
 	void (*aes_response)(NODE_USER_STATUS),
 	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, char *username,
-		char *password, unsigned char[AUTHEN_TOKEN_LEN]));
+		char *password, unsigned char[AUTHEN_TOKEN_LEN]),
+	void (*general)(char*));
 
 int send_user(NODE_USER_STATUS nus, char *usernm, char *pw);
 
@@ -50,9 +51,7 @@ int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port
 	void (*confirmed_peer_while_punching)(SERVER_TYPE),
 	void (*from_peer)(SERVER_TYPE, char *),
 	void (*chat_msg)(char *),
-	void (*unhandled_response_from_server)(int),
-	void (*whilew)(int),
-	void (*end_while)(void));
+	void (*unhandled_response_from_server)(int));
 
 void search_username(const char *searchname,
 	void(*username_results)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results));
