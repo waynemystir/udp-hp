@@ -463,6 +463,7 @@ start_switch:
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
+				printf("AUTHN_STATUS_RSA_SWAP BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB (%s)\n", key);
 				break;
 			}
 			case AUTHN_STATUS_AES_SWAP: {
@@ -508,6 +509,7 @@ start_switch:
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
+				printf("AUTHN_STATUS_AES_SWAP HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH (%s)\n", key);
 				break;
 			}
 			case AUTHN_STATUS_NEW_USER: {
@@ -552,8 +554,8 @@ start_switch:
 				break;
 			}
 			case AUTHN_STATUS_EXISTING_USER: {
+				printf("AUTHN_STATUS_EXISTING_USER username (%s)(%s)\n", buf.id, buf.pw);
 				char *key = authn_addr_info_to_key(family, ip_str, port);
-				printf("The EXISTING USER'S node's key (%s)\n", key);
 				authn_node_t *an = lookup_authn_node(&authn_tbl, key);
 				if (!an) {
 					printf("AUTHN_STATUS_EXISTING_USER: No node was found for key (%s)\n", key);
@@ -880,14 +882,14 @@ void *main_server_endpoint(void *arg) {
 
 				printf("STATUS_DEINIT_NODE before(%d)\n", hn->nodes->node_count);
 				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) {
-					printf("(%d):(%d):(%d)\n", no->external_ip4, no->external_port, no->external_chat_port);
+					printf("(%d):(%d):(%d)\n", no->external_ip4, ntohs(no->external_port), ntohs(no->external_chat_port));
 				}
 
 				// TODO you can just remove (n) since we already have it
 				remove_node_with_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
 				printf("STATUS_DEINIT_NODE after(%d)\n", hn->nodes->node_count);
 				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) {
-					printf("(%d):(%d):(%d)\n", no->external_ip4, no->external_port, no->external_chat_port);
+					printf("(%d):(%d):(%d)\n", no->external_ip4, ntohs(no->external_port), ntohs(no->external_chat_port));
 				}
 
 				break;
