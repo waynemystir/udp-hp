@@ -19,6 +19,7 @@ new ios functionality:
 	show chat history in textview
 
 email
+finish new user
 
 lowercase letters only for username including
 	search hashtbl keys
@@ -29,6 +30,7 @@ video server
 POC video functionality
 
 database
+fork/thread servers
 
 To reduce endpoints (i.e. remove search-endpoint), can we stuff a struct of arbitrary size into the last member of type unsigned char*?
 

@@ -11,6 +11,7 @@
 
 #include <netdb.h>
 
+#define MAX_CONNECTIONS 5
 #define MAX_CHARS_USERNAME 32
 #define MAX_CHARS_PASSWORD 28
 #define MAX_CHARS_SEARCH 24
