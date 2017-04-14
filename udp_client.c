@@ -268,8 +268,7 @@ int send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 	// 	}
 	// }
 
-	authn_sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0,
-		sa_authn_server, authn_server_socklen);
+	authn_sendto_len = send(authn_sock_fd, &buf, SZ_AUN_BF, 0);
 	if (authn_sendto_len == -1) {
 		char w[256];
 		sprintf(w, "authn sendto failed with %zu", authn_sendto_len);
@@ -295,7 +294,7 @@ void *authn_thread_routine(void *arg) {
 	socklen_t authn_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 	char wayne[256];
 
-	authn_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	authn_sock_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (authn_sock_fd == -1) {
 		printf("There was a problem creating the authn socket\n");
 	}
@@ -303,7 +302,7 @@ void *authn_thread_routine(void *arg) {
 	// Setup server
 	char auth_port[10];
 	sprintf(auth_port, "%d", AUTHENTICATION_PORT);
-	str_to_addr(&sa_authn_server, "142.105.56.124", auth_port, AF_INET, SOCK_DGRAM, 0);
+	str_to_addr(&sa_authn_server, "142.105.56.124", auth_port, AF_INET, SOCK_STREAM, 0);
 	authn_server_socklen = sa_authn_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_authn_server, authn_server_ip, authn_server_port, authn_server_family);
 	sprintf(wes, "The authn server %s port%s %s %u",
@@ -318,7 +317,12 @@ void *authn_thread_routine(void *arg) {
 	memset(buf.rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
 	if (rsa_public_key) memcpy(buf.rsa_pub_key, rsa_public_key, strlen(rsa_public_key));
 
-	authn_sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0, sa_authn_server, authn_server_socklen);
+	if (connect(authn_sock_fd, sa_authn_server, authn_server_socklen) == -1) {
+		fprintf(stderr, "Error on connect --> %s\n", strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+
+	authn_sendto_len = send(authn_sock_fd, &buf, SZ_AUN_BF, 0);
 	if (authn_sendto_len == -1) {
 		char w[256];
 		sprintf(w, "authn sendto failed with %zu", authn_sendto_len);
@@ -327,7 +331,7 @@ void *authn_thread_routine(void *arg) {
 
 	if (authn_running) authn_thread_has_started = 1;
 	while (authn_running) {
-		authn_recvf_len = recvfrom(authn_sock_fd, &buf, SZ_AUN_BF, 0, &sa_authn_other, &authn_other_socklen);
+		authn_recvf_len = recv(authn_sock_fd, &buf, SZ_AUN_BF, 0);
 		if (authn_recvf_len == -1) {
 			char w[256];
 			sprintf(w, "authn recvfrom failed with %zu", authn_recvf_len);
@@ -373,8 +377,7 @@ void *authn_thread_routine(void *arg) {
 				memset(buf.aes_iv, '\0', NUM_BYTES_AES_IV);
 				memcpy(buf.aes_iv, aes_iv, NUM_BYTES_AES_IV);
 
-				authn_sendto_len = sendto(authn_sock_fd, &buf, SZ_AUN_BF, 0,
-					sa_authn_server, authn_server_socklen);
+				authn_sendto_len = send(authn_sock_fd, &buf, SZ_AUN_BF, 0);
 				if (authn_sendto_len == -1) {
 					char w[256];
 					sprintf(w, "authn sendto failed with %zu", authn_sendto_len);
@@ -403,8 +406,11 @@ void *authn_thread_routine(void *arg) {
 				break;
 			}
 			case AUTHN_STATUS_CREDS_CHECK_RESULT: {
-				if (buf.authn_result == AUTHN_CREDS_CHECK_RESULT_GOOD)
+				if (buf.authn_result == AUTHN_CREDS_CHECK_RESULT_GOOD) {
 					memcpy(authentication_token, buf.authn_token, AUTHEN_TOKEN_LEN);
+					authn_running = 0;
+					close(authn_sock_fd);
+				}
 				if (creds_check_result_cb)
 					creds_check_result_cb(buf.authn_result, username, password, buf.authn_token);
 				break;
