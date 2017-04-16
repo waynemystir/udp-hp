@@ -1,13 +1,8 @@
 
-FIX-ALL-BUGS
-------------
-stay-in-touch with peers (and self nodes?)
-
-	second login (i.e. without cntrl-c'ing the-server) is broken
-		-after add/accept contact request
-		-chatting with existing contact
-		-backgrounded?
-		-all time time? 
+ffmpeg encryption or webrtc?
+video_port
+video server
+POC video functionality
 
 self <=> get internal hole punching working
 
@@ -18,23 +13,29 @@ new ios functionality:
 	save chat history locally
 	show chat history in textview
 
-email
 finish new user
+does sign-out work?
 
 lowercase letters only for username including
 	search hashtbl keys
 
-ffmpeg encryption or webrtc?
-video_port
-video server
-POC video functionality
+pretty ios POC app
 
+FIX-ALL-BUGS
+------------
+stay-in-touch with peers (and self nodes?)
+
+	second login (i.e. without cntrl-c'ing the-server) is broken
+		-after add/accept contact request
+		-chatting with existing contact
+		-backgrounded?
+		-all time time? 
+
+email
 database
 fork/thread servers
 
 To reduce endpoints (i.e. remove search-endpoint), can we stuff a struct of arbitrary size into the last member of type unsigned char*?
-
-pretty ios POC app
 
 *******************  POC is done  **********************
 

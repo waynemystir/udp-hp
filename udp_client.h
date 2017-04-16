@@ -60,9 +60,9 @@ void ping_all_peers();
 
 void send_message_to_contact(contact_t *c, char *msg);
 
-void send_message_to_all_peers(char *);
+void start_video_with_contact(contact_t *c);
 
-void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3_unused, void *arg4_unused);
+void send_message_to_all_contacts(char *);
 
 void list_contacts(contact_list_t **contacts);
 

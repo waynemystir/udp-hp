@@ -24,6 +24,7 @@ void *chat_hole_punch_thread(void *peer_to_hole_punch);
 void send_chat_hole_punch(node_t *peer);
 void init_chat_hp();
 void *chat_hp_server(void *w);
+void send_message_to_node(node_t *peer, void *msg, void *chat_status, void *arg3_unused, void *arg4_unused);
 
 hash_node_t self;
 char *rsa_public_key, *rsa_private_key, *server_rsa_pub_key;
@@ -1158,6 +1159,9 @@ void *chat_hp_server(void *w) {
 					sprintf(conf_stat, "%s", chat_status_to_str(buf.status));
 					break;
 				}
+				case CHAT_STATUS_VIDEO_START: {
+					break;
+				}
 
 			}
 
@@ -1362,22 +1366,29 @@ void search_username(const char *searchname,
 	} else if (sendto_succeeded_cb) sendto_succeeded_cb(sendto_len);
 }
 
-void send_message_to_all_nodes_in_contact(contact_t *contact, void *msg, void *arg2_unused, void *arg3_unused) {
+void send_message_to_all_nodes_in_contact(contact_t *contact, void *msg, void *chat_status, void *arg3_unused) {
 	if (!contact || !contact->hn || !contact->hn->nodes) return;
-	nodes_perform(contact->hn->nodes, send_message_to_peer, msg, NULL, NULL, NULL);
+	nodes_perform(contact->hn->nodes, send_message_to_node, msg, chat_status, NULL, NULL);
 }
 
 void send_message_to_contact(contact_t *c, char *msg) {
-	send_message_to_all_nodes_in_contact(c, msg, NULL, NULL);
+	CHAT_STATUS cs = CHAT_STATUS_MSG;
+	send_message_to_all_nodes_in_contact(c, msg, &cs, NULL);
 }
 
-void send_message_to_all_peers(char *msg) {
+void start_video_with_contact(contact_t *c) {
+
+}
+
+void send_message_to_all_contacts(char *msg) {
 	if (!self.contacts) return;
-	contacts_perform(self.contacts, send_message_to_all_nodes_in_contact, msg, NULL, NULL);
+	CHAT_STATUS cs = CHAT_STATUS_MSG;
+	contacts_perform(self.contacts, send_message_to_all_nodes_in_contact, msg, &cs, NULL);
 }
 
-void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3_unused, void *arg4_unused) {
-	if (!peer) return;
+void send_message_to_node(node_t *peer, void *msg, void *chat_status, void *arg3_unused, void *arg4_unused) {
+	if (!peer || !chat_status) return;
+	CHAT_STATUS cs = *(CHAT_STATUS*)chat_status;
 	struct sockaddr *peer_addr;
 	socklen_t peer_socklen = 0;
 	// TODO handle int_or_ext
@@ -1406,7 +1417,7 @@ void send_message_to_peer(node_t *peer, void *msg, void *arg2_unused, void *arg3
 		}
 	}
 	chat_buf_t wcb;
-	wcb.status = CHAT_STATUS_MSG;
+	wcb.status = cs;
 	wcb.family = self_external->family;
 	wcb.port = self_external->chat_port;
 	wcb.ip4 = self_external->ip4;
