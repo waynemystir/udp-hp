@@ -51,6 +51,7 @@ int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port
 	void (*confirmed_peer_while_punching)(SERVER_TYPE),
 	void (*from_peer)(SERVER_TYPE, char *),
 	void (*chat_msg)(char *),
+	void (*video_start)(char *server_host_url, char *room_id),
 	void (*unhandled_response_from_server)(int));
 
 void search_username(const char *searchname,
@@ -60,7 +61,7 @@ void ping_all_peers();
 
 void send_message_to_contact(contact_t *c, char *msg);
 
-void start_video_with_contact(contact_t *c);
+void start_video_with_contact(contact_t *c, char **server_host_url, char **room_id);
 
 void send_message_to_all_contacts(char *);
 

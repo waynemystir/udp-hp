@@ -128,6 +128,7 @@ void (*new_peer_cb)(char *) = NULL;
 void (*confirmed_peer_while_punching_cb)(SERVER_TYPE) = NULL;
 void (*from_peer_cb)(SERVER_TYPE, char *) = NULL;
 void (*chat_msg_cb)(char *) = NULL;
+void (*video_start_cb)(char *server_host_url, char *room_id) = NULL;
 void (*unhandled_response_from_server_cb)(int) = NULL;
 void (*username_results_cb)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results) = NULL;
 void (*general_cb)(char*) = NULL;
@@ -967,6 +968,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	void (*confirmed_peer_while_punching)(SERVER_TYPE),
 	void (*from_peer)(SERVER_TYPE, char *),
 	void (*chat_msg)(char *),
+	void (*video_start)(char *server_host_url, char *room_id),
 	void (*unhandled_response_from_server)(int)) {
 
 	printf("main 0 %lu\n", DEFAULT_OTHER_ADDR_LEN);
@@ -989,6 +991,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	confirmed_peer_while_punching_cb = confirmed_peer_while_punching;
 	from_peer_cb = from_peer;
 	chat_msg_cb = chat_msg;
+	video_start_cb = video_start;
 	unhandled_response_from_server_cb = unhandled_response_from_server;
 
 	int wtr = pthread_create(&wain_thread, NULL, wain_thread_routine, "wain_thread");
@@ -1376,8 +1379,14 @@ void send_message_to_contact(contact_t *c, char *msg) {
 	send_message_to_all_nodes_in_contact(c, msg, &cs, NULL);
 }
 
-void start_video_with_contact(contact_t *c) {
-
+void start_video_with_contact(contact_t *c, char **server_host_url, char **room_id) {
+	char *video_room_id = malloc(10);
+	memset(video_room_id, '\0', 10);
+	strcpy(video_room_id, "wayne07");
+	CHAT_STATUS cs = CHAT_STATUS_VIDEO_START;
+	if (room_id) *room_id = video_room_id;
+	if (server_host_url) *server_host_url = VIDEO_SERVER_HOST_URL;
+	send_message_to_all_nodes_in_contact(c, video_room_id, &cs, NULL);
 }
 
 void send_message_to_all_contacts(char *msg) {

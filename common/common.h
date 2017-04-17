@@ -31,6 +31,7 @@
 #define MICROSECONDS_TO_WAIT_BTWN_HOLE_PUNCH_ATTEMPTS 30 * 1000
 #define AUTHN_RETRY_ATTEMPTS 100
 #define MICROSECONDS_TO_WAIT_BTWN_AUTHN_ATTEMPTS 10 * 1000
+#define VIDEO_SERVER_HOST_URL "https://appr.tc"
 
 extern const char USERNAME_ALLOWED_CHARS[65];
 
@@ -118,6 +119,7 @@ typedef enum CHAT_STATUS {
 
 typedef struct chat_buf {
 	CHAT_STATUS status;
+	char id[MAX_CHARS_USERNAME];
 	union {
 		in_addr_t ip4;
 		unsigned char ip6[16];
