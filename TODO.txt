@@ -1,10 +1,9 @@
 
-ffmpeg encryption or webrtc?
-video_port
-video server
-POC video functionality
-
 self <=> get internal hole punching working
+
+generate random string for apprtc roomname...
+	is there a way to first check if there is space avail in the room?
+	OR even better, is there a way to clear all participants from the room?
 
 new ios functionality:
 	messageTextField should move up and down with keyboard
@@ -22,9 +21,16 @@ lowercase letters only for username including
 	search hashtbl keys
 
 pretty ios POC app
+database
+install on server
+make sure server is ALWAYS running
+
+*******************  POC is done  **********************
 
 FIX-ALL-BUGS
 ------------
+************* UDP guarantee (i.e. packet loss check and resend) *************
+
 stay-in-touch with peers (and self nodes?)
 
 	second login (i.e. without cntrl-c'ing the-server) is broken
@@ -34,12 +40,9 @@ stay-in-touch with peers (and self nodes?)
 		-all time time? 
 
 email
-database
 fork/thread servers
 
 To reduce endpoints (i.e. remove search-endpoint), can we stuff a struct of arbitrary size into the last member of type unsigned char*?
-
-*******************  POC is done  **********************
 
 authentication
 	when a user signs out
