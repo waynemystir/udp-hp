@@ -665,9 +665,21 @@ void *wain_thread_routine(void *arg) {
 	socklen_t other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
 	// Self
-	get_if_addr(&sa_self_internal, &sz_sa_self_internal, self_internal_ip);
-	addr_to_node_buf(sa_self_internal, &self_internal, STATUS_INIT_NODE, 0, username);
-	memcpy(self_internal->authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+	sa_self_internal = NULL;
+	self_internal = NULL;
+	get_if_addr_iOS_OSX(IPV4_WIFI, &sa_self_internal, &sz_sa_self_internal, self_internal_ip);
+	if (!sa_self_internal)
+		get_if_addr_iOS_OSX(IPV4_CELLULAR, &sa_self_internal, &sz_sa_self_internal, self_internal_ip);
+
+	if (sa_self_internal) {
+		addr_to_node_buf(sa_self_internal, &self_internal, STATUS_INIT_NODE, 0, username);
+		memcpy(self_internal->authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+	} else {
+		memset(self_internal, '\0', SZ_NODE_BF);
+		self_internal->status = STATUS_INIT_NODE;
+		strcpy(self_internal->id, username);
+		memcpy(self_internal->authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+	}
 
 	// Buffer
 	node_buf_t buf;
@@ -716,7 +728,10 @@ void *wain_thread_routine(void *arg) {
 	addr_to_str_short(sa_me_internal, me_internal_ip, &me_internal_port, &me_internal_family);
 	sprintf(sprintf, "Moi %s %s %s", username, me_internal_ip, self_internal_ip);
 	if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
+
 	self_internal->port = me_internal_port;
+	sprintf(sprintf, "Moi INTERNAL %s %d", self_internal_ip, me_internal_port);
+	if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
 
 	sendto_len = sendto(sock_fd, self_internal, SZ_NODE_BF, 0, sa_server, server_socklen);
 	if (sendto_len == -1) {
