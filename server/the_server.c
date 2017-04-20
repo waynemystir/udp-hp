@@ -814,7 +814,7 @@ void *main_server_endpoint(void *arg) {
 						new_tail->external_ip4 = sai4->sin_addr.s_addr;
 						new_tail->external_port = sai4->sin_port;
 						new_tail->internal_ip4 = buf.ip4;
-						new_tail->internal_port = htons(buf.port);
+						new_tail->internal_port = buf.port;
 						break;
 					}
 					case AF_INET6: {
@@ -822,7 +822,7 @@ void *main_server_endpoint(void *arg) {
 						memcpy(new_tail->external_ip6, sai6->sin6_addr.s6_addr, 16);
 						new_tail->external_port = sai6->sin6_port;
 						memcpy(new_tail->internal_ip6, buf.ip6, 16);
-						new_tail->internal_port = htons(buf.port);
+						new_tail->internal_port = buf.port;
 						break;
 					}
 					default: {
@@ -1091,6 +1091,7 @@ void *main_server_endpoint(void *arg) {
 					SERVER_MAIN);
 				if (peer_with_new_chat_port) {
 					peer_with_new_chat_port->external_chat_port = buf.chat_port;
+					peer_with_new_chat_port->internal_chat_port = buf.chat_port;
 					// TODO how to handle internal_chat_port here?
 					// Just use buf.int_or_ext?
 					contacts_perform(hn->contacts,
