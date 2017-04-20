@@ -607,6 +607,7 @@ void *stay_in_touch_with_server_thread(void *msg) {
 	printf("stay_in_touch_with_server_thread %s\n", (char*)msg);
 	stay_in_touch_running = 1;
 	node_buf_t w;
+	w.int_or_ext = EXTERNAL_ADDR;
 	strcpy(w.id, username);
 	w.status = STATUS_STAY_IN_TOUCH;
 	memcpy(w.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
@@ -783,6 +784,8 @@ void *wain_thread_routine(void *arg) {
 			switch (buf.status) {
 				case STATUS_NEW_NODE: {
 					self_external = malloc(SZ_NODE_BF);
+					memset(self_external, '\0', SZ_NODE_BF);
+					self_external->int_or_ext = EXTERNAL_ADDR;
 					memcpy(self_external, &buf, SZ_NODE_BF);
 					self_external->chat_port = USHRT_MAX;
 					sa_me_external = malloc(SZ_SOCKADDR);
@@ -1116,6 +1119,7 @@ void *chat_hp_server(void *w) {
 				case CHAT_STATUS_NEW: {
 					self_external->chat_port = buf.port;
 					self_external->status = STATUS_ACQUIRED_CHAT_PORT;
+					self_external->int_or_ext = EXTERNAL_ADDR;
 					memcpy(self_external->authn_token, authentication_token, AUTHEN_TOKEN_LEN);
 					size_t stl = sendto(sock_fd, self_external, SZ_NODE_BF, 0, sa_server, server_socklen);
 					if (stl == -1) {
