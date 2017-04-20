@@ -563,12 +563,13 @@ void send_hole_punch(node_t *peer) {
 	struct sockaddr *peer_addr;
 	socklen_t peer_socklen = 0;
 	// TODO handle int_or_ext
-	switch (peer->external_family) {
+	sa_family_t fam = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_family : peer->external_family;
+	switch (fam) {
 		case AF_INET: {
 			struct sockaddr_in sa4;
 			sa4.sin_family = AF_INET;
-			sa4.sin_addr.s_addr = peer->external_ip4;
-			sa4.sin_port = peer->external_port;
+			sa4.sin_addr.s_addr = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip4 : peer->external_ip4;
+			sa4.sin_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_port : peer->external_port;
 			peer_socklen = SZ_SOCKADDR_IN;
 			peer_addr = (struct sockaddr*)&sa4;
 			break;

@@ -287,14 +287,30 @@ int same_nat(node_t *n1, node_t *n2) {
 }
 
 int nodes_equal(node_t *n1, node_t *n2) {
-	// TODO use int_or_ext to handle internal side
 	if (!n1 || !n2) return 0;
-	if (n1->external_family != n2->external_family) return 0;
-	if (n1->external_port != n2->external_port) return 0;
+	if (n1->int_or_ext != n2->int_or_ext) return 0;
 
-	switch (n1->external_family) {
-		case AF_INET: return n1->external_ip4 == n2->external_ip4;
-		case AF_INET6: return n1->external_ip6 == n2->external_ip6;
+	sa_family_t n1_fam = n1->int_or_ext == INTERNAL_ADDR ? n1->internal_family : n1->external_family;
+	sa_family_t n2_fam = n2->int_or_ext == INTERNAL_ADDR ? n2->internal_family : n2->external_family;
+	if (n1_fam != n2_fam) return 0;
+
+	in_port_t n1_port = n1->int_or_ext == INTERNAL_ADDR ? n1->internal_port : n1->external_port;
+	in_port_t n2_port = n2->int_or_ext == INTERNAL_ADDR ? n2->internal_port : n2->external_port;
+	if (n1_port != n2_port) return 0;
+
+	switch (n1_fam) {
+		case AF_INET: {
+			in_addr_t n1_ip4 = n1->int_or_ext == INTERNAL_ADDR ? n1->internal_ip4 : n1->external_ip4;
+			in_addr_t n2_ip4 = n2->int_or_ext == INTERNAL_ADDR ? n2->internal_ip4 : n2->external_ip4;
+			return n1_ip4 == n2_ip4;
+		}
+		case AF_INET6: {
+			unsigned char n1_ip6[16];
+			memcpy(n1_ip6, n1->int_or_ext == INTERNAL_ADDR ? n1->internal_ip6 : n1->external_ip6, 16);
+			unsigned char n2_ip6[16];
+			memcpy(n2_ip6, n2->int_or_ext == INTERNAL_ADDR ? n2->internal_ip6 : n2->external_ip6, 16);
+			return memcmp(n1_ip6, n2_ip6, 16) == 0;
+		}
 		default: return 0;
 	}
 }
@@ -353,16 +369,17 @@ struct node *find_node(LinkedList_t *list, node_t *node) {
 
 int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr, SERVER_TYPE st) {
 	if (!node || !addr) return 0;
-	if (node->external_family != addr->sa_family) return 0;
+	sa_family_t fam = node->int_or_ext == INTERNAL_ADDR ? node->internal_family : node->external_family;
+	if (fam != addr->sa_family) return 0;
 	in_port_t aport;
 	switch (st) {
 		case SERVER_SEARCH:
 		case SERVER_MAIN: {
-			aport = node->external_port;
+			aport = node->int_or_ext == INTERNAL_ADDR ? node->internal_port : node->external_port;
 			break;
 		}
 		case SERVER_CHAT: {
-			aport = node->external_chat_port;
+			aport = node->int_or_ext == INTERNAL_ADDR ? node->internal_chat_port : node->external_chat_port;
 			break;
 		}
 		default: return 0;
@@ -371,12 +388,16 @@ int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr, SERVER_TYPE st)
 	switch (addr->sa_family) {
 		case AF_INET: {
 			struct sockaddr_in *sa4 = (struct sockaddr_in *)addr;
-			return node->external_ip4 == sa4->sin_addr.s_addr &&
+			in_addr_t ip4 = node->int_or_ext == INTERNAL_ADDR ? node->internal_ip4 : node->external_ip4;
+			return ip4 == sa4->sin_addr.s_addr &&
 				aport == sa4->sin_port;
 		}
 		case AF_INET6: {
 			struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)addr;
-			return node->external_ip6 == sa6->sin6_addr.s6_addr &&
+			unsigned char ip6[16] = {0};
+			memcpy(ip6, node->int_or_ext == INTERNAL_ADDR ? node->internal_ip6 : node->external_ip6, 16);
+			// TODO replace with memcmp
+			return ip6 == sa6->sin6_addr.s6_addr &&
 				aport == sa6->sin6_port;
 		}
 		default: return 0;
