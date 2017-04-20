@@ -194,6 +194,7 @@ void notify_existing_peer_of_new_node(node_t *existing_peer,
 	void *arg3, // the username of the new node
 	void *arg4) // the sockaddr of the new node
 {
+	printf("notify_existing_peer_of_new_node\n");
 	if (!existing_peer || !arg1) return;
 	node_t *new_node = arg1;
 	char id_ep[MAX_CHARS_USERNAME];
@@ -297,6 +298,7 @@ void notify_existing_peer_of_new_chat_port(node_t *existing_peer,
 {
 	node_t *peer_with_new_port = arg1;
 	printf("notify_existing_peer_of_new_chat_port\n");
+	// TODO double check this isn't broken after changing nodes_equal implementation for int_or_ext
 	if (nodes_equal(existing_peer, peer_with_new_port)) return;
 	char id_ep[MAX_CHARS_USERNAME];
 	char id_nn[MAX_CHARS_USERNAME];
@@ -345,7 +347,7 @@ void notify_contact_of_new_node(contact_t *contact,
 	void *arg2, // the username of the new node
 	void *arg3) // the sockaddr of the new node
 {
-
+	printf("notify_contact_of_new_node\n");
 	if (!contact || !contact->hn) return;
 	// And notify peer_with_new_port (i.e. si_other) of existing peer
 	node_buf_t contact_nb;
@@ -804,18 +806,23 @@ void *main_server_endpoint(void *arg) {
 				get_new_tail(hn->nodes, &new_tail);
 				memset(new_tail->authn_token, '\0', AUTHEN_TOKEN_LEN);
 				memcpy(new_tail->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN);
+				new_tail->int_or_ext = EXTERNAL_ADDR;
 				new_tail->status = STATUS_NEW_NODE;
 				switch (si_other.sa_family) {
 					case AF_INET: {
 						struct sockaddr_in *sai4 = (struct sockaddr_in*)&si_other;
 						new_tail->external_ip4 = sai4->sin_addr.s_addr;
 						new_tail->external_port = sai4->sin_port;
+						new_tail->internal_ip4 = buf.ip4;
+						new_tail->internal_port = htons(buf.port);
 						break;
 					}
 					case AF_INET6: {
 						struct sockaddr_in6 *sai6 = (struct sockaddr_in6*)&si_other;
 						memcpy(new_tail->external_ip6, sai6->sin6_addr.s6_addr, 16);
 						new_tail->external_port = sai6->sin6_port;
+						memcpy(new_tail->internal_ip6, buf.ip6, 16);
+						new_tail->internal_port = htons(buf.port);
 						break;
 					}
 					default: {
@@ -825,6 +832,7 @@ void *main_server_endpoint(void *arg) {
 					}
 				}
 				new_tail->external_family = si_other.sa_family;
+				new_tail->internal_family = buf.family;
 				node_buf_t *new_tail_buf;
 				node_external_to_node_buf(new_tail, &new_tail_buf, hn->username);
 				sendto_len = sendto(sock_fd, new_tail_buf, SZ_NODE_BF, 0, &si_other, main_slen);
