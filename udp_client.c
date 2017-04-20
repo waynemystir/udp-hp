@@ -562,7 +562,6 @@ void send_hole_punch(node_t *peer) {
 	static int hpc = 0;
 	struct sockaddr *peer_addr;
 	socklen_t peer_socklen = 0;
-	// TODO handle int_or_ext
 	sa_family_t fam = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_family : peer->external_family;
 	switch (fam) {
 		case AF_INET: {
@@ -577,8 +576,9 @@ void send_hole_punch(node_t *peer) {
 		case AF_INET6: {
 			struct sockaddr_in6 sa6;
 			sa6.sin6_family = AF_INET6;
-			memcpy(sa6.sin6_addr.s6_addr, peer->external_ip6, sizeof(unsigned char[16]));
-			sa6.sin6_port = peer->external_port;
+			memcpy(sa6.sin6_addr.s6_addr, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6,
+				sizeof(unsigned char[16]));
+			sa6.sin6_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_port : peer->external_port;
 			peer_socklen = SZ_SOCKADDR_IN6;
 			peer_addr = (struct sockaddr*)&sa6;
 			break;
@@ -588,7 +588,8 @@ void send_hole_punch(node_t *peer) {
 			return;
 		}
 	}
-	if (sendto(sock_fd, self_external, SZ_NODE_BF, 0, peer_addr, peer_socklen) == -1)
+	node_buf_t *hp_buf = peer->int_or_ext == INTERNAL_ADDR ? self_internal : self_external;
+	if (sendto(sock_fd, hp_buf, SZ_NODE_BF, 0, peer_addr, peer_socklen) == -1)
 		pfail("send_hole_punch sendto");
 	char spf[256];
 	char pi[INET6_ADDRSTRLEN];
@@ -731,7 +732,7 @@ void *wain_thread_routine(void *arg) {
 	sprintf(sprintf, "Moi %s %s %s", username, me_internal_ip, self_internal_ip);
 	if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
 
-	self_internal->port = me_internal_port;
+	self_internal->port = si_me.sin_port;
 	sprintf(sprintf, "Moi INTERNAL %s %d", self_internal_ip, me_internal_port);
 	if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
 
@@ -880,6 +881,7 @@ void *wain_thread_routine(void *arg) {
 					if (cn) {
 						// TODO handle ext or int chat_port
 						cn->external_chat_port = buf.chat_port;
+						cn->internal_chat_port = buf.chat_port;
 						punch_hole_in_peer(SERVER_CHAT, cn);
 					}
 					break;
@@ -923,8 +925,8 @@ void *wain_thread_routine(void *arg) {
 				case STATUS_CONFIRMED_PEER: {
 					unsigned short bcp = ntohs(buf.chat_port);
 					if (bcp != USHRT_MAX) {
-						// TODO handle int_or_ext
 						existing_node->external_chat_port = buf.chat_port;
+						existing_node->internal_chat_port = buf.chat_port;
 						sprintf(conf_stat, "CONF'D-CHAT-PORT {%d}", ntohs(existing_node->external_chat_port));
 						// punch_hole_in_peer(SERVER_CHAT, existing_peer);
 					} else {
@@ -1226,13 +1228,13 @@ void send_chat_hole_punch(node_t *peer) {
 	static int chpc = 0;
 	struct sockaddr *peer_addr;
 	socklen_t peer_socklen = 0;
-	// TODO handle int_or_ext
-	switch (peer->external_family) {
+	sa_family_t fam = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_family : peer->external_family;
+	switch (fam) {
 		case AF_INET: {
 			struct sockaddr_in sa4;
 			sa4.sin_family = AF_INET;
-			sa4.sin_addr.s_addr = peer->external_ip4;
-			sa4.sin_port = peer->external_chat_port;
+			sa4.sin_addr.s_addr = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip4 : peer->external_ip4;
+			sa4.sin_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_chat_port : peer->external_chat_port;
 			peer_socklen = SZ_SOCKADDR_IN;
 			peer_addr = (struct sockaddr*)&sa4;
 			break;
@@ -1240,8 +1242,9 @@ void send_chat_hole_punch(node_t *peer) {
 		case AF_INET6: {
 			struct sockaddr_in6 sa6;
 			sa6.sin6_family = AF_INET6;
-			memcpy(sa6.sin6_addr.s6_addr, peer->external_ip6, sizeof(unsigned char[16]));
-			sa6.sin6_port = peer->external_chat_port;
+			memcpy(sa6.sin6_addr.s6_addr, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6,
+				sizeof(unsigned char[16]));
+			sa6.sin6_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_chat_port : peer->external_chat_port;
 			peer_socklen = SZ_SOCKADDR_IN6;
 			peer_addr = (struct sockaddr*)&sa6;
 			break;
@@ -1422,13 +1425,13 @@ void send_message_to_node(node_t *peer, void *msg, void *chat_status, void *arg3
 	CHAT_STATUS cs = *(CHAT_STATUS*)chat_status;
 	struct sockaddr *peer_addr;
 	socklen_t peer_socklen = 0;
-	// TODO handle int_or_ext
-	switch (peer->external_family) {
+	sa_family_t fam = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_family : peer->external_family;
+	switch (fam) {
 		case AF_INET: {
 			struct sockaddr_in sa4;
 			sa4.sin_family = AF_INET;
-			sa4.sin_addr.s_addr = peer->external_ip4;
-			sa4.sin_port = peer->external_chat_port;
+			sa4.sin_addr.s_addr = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip4 : peer->external_ip4;
+			sa4.sin_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_chat_port : peer->external_chat_port;
 			peer_socklen = SZ_SOCKADDR_IN;
 			peer_addr = (struct sockaddr*)&sa4;
 			break;
@@ -1436,8 +1439,9 @@ void send_message_to_node(node_t *peer, void *msg, void *chat_status, void *arg3
 		case AF_INET6: {
 			struct sockaddr_in6 sa6;
 			sa6.sin6_family = AF_INET6;
-			memcpy(sa6.sin6_addr.s6_addr, peer->external_ip6, sizeof(unsigned char[16]));
-			sa6.sin6_port = peer->external_chat_port;
+			memcpy(sa6.sin6_addr.s6_addr, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6,
+				sizeof(unsigned char[16]));
+			sa6.sin6_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_chat_port : peer->external_chat_port;
 			peer_socklen = SZ_SOCKADDR_IN6;
 			peer_addr = (struct sockaddr*)&sa6;
 			break;
