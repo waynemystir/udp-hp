@@ -1,16 +1,7 @@
 
-self <=> get internal hole punching working
-
 generate random string for apprtc roomname...
 	is there a way to first check if there is space avail in the room?
 	OR even better, is there a way to clear all participants from the room?
-
-new ios functionality:
-	messageTextField should move up and down with keyboard
-	chatHistoryTextView should shrink and grow with keyboard + messageTextField
-	recv msg in textview
-	save chat history locally
-	show chat history in textview
 
 chat_buf_t, make msg arbitrarily long by making it a pointer?
 
@@ -19,6 +10,15 @@ does sign-out work?
 
 lowercase letters only for username including
 	search hashtbl keys
+
+!!!! PEER REPORTING OF OTHER PEERS THAT APPEAR OFFLINE
+	- this should fix the biggest bug
+	- implement stay-in-touch between peers (nodes)
+		- when peer A doesn't recv n number of stay-in-touch msgs from peer B, then peer A reports peer B to the server as offline
+		- on the server add a status for reporting other peers offline
+		- you should implement logic for actually removing a node...
+			e.g. if all of its contacts' nodes report the same thing
+			or this might be better: if x% of its contacts' nodes report the same thing
 
 pretty ios POC app
 database
@@ -38,6 +38,11 @@ stay-in-touch with peers (and self nodes?)
 		-chatting with existing contact
 		-backgrounded?
 		-all time time? 
+
+infrequently and seemingly randomly, when performing internal hole punching, it seems a node has an internal ip4 = 0.0.0.0... i see this manifest as "send_chat_hole_punch to 0.0.0.0"... and so the hole punching fails.... to catch this, log the following:
+	- STATUS_INIT_NODE on the server, capture the ip4 from node_buf_t... this is the internal ip of the client... is this 0.0.0.0?
+	- notify_existing_peer_of_new_chat_port on the server... log the ip4 we're sending to each client... is this 0.0.0.0?
+	- on the client, STATUS_PROCEED_CHAT_HP, log the ip4 we receive from the server... is this 0.0.0.0?
 
 backgrpund the app and quickly (less than 3 seconds) foreground the app... on the server, notice the logs: it doesn't recognize the authn token from stay-in-touch ping... this is because backgrounding the app tosses out the authn token and re-authn's... and the reason that the client is still sending stay-in-touch messages with an old authn token is that I don't specifically terminate the thread WHEN the user backgrounds the app... I just set the variable stay_in_touch_running = 0 but that thread is sleeping while stay_in_touch_running = 0... So you need to correctly terminate that thread (and all threads)
 -----------------------------------------------
@@ -89,6 +94,8 @@ network encryption
 	ensure RSA swap request comes from Sup app (ie not from a fisher): maybe some sort of time-dependent key to pass with RSA swap
 
 device goes to sleep or app is background... will stay-in-touch with servers continue? do we need to re-do hole punching on awake/foregrounding?
+
+save chat history locally?
 
 go back and use memcmp to compare all unsigned char arrays (i.e. ip6, etc)
 thread the server

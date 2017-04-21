@@ -226,6 +226,35 @@ int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr) {
 	return 0;
 }
 
+void add_to_chat_history_list(chat_history_list_t *list, chat_history_node_t **chn) {
+	if (!list) {
+		printf("add_to_chat_history_list: given list is NULL, returning NULL\n");
+		return;
+	}
+
+	if (!chn) {
+		printf("add_to_chat_history_list: given chat_history_node_t parameter is NULL\n");
+		return;
+	}
+
+	chat_history_node_t *nn;
+
+	nn = malloc(SZ_CH_HSTRY_ND);
+	*chn = nn;
+	memset(nn, '\0', SZ_CH_HSTRY_ND);
+	nn->next = NULL;
+
+	if (!list->head) {
+		list->head = nn;
+		list->tail = nn;
+	} else {
+		list->tail->next = nn;
+		list->tail = nn;
+	}
+
+	list->count++;
+}
+
 unsigned int calc_triangular_numbr(unsigned int x) {
 	if (x >= 2) return x + calc_triangular_numbr(x-1);
 	return 1;

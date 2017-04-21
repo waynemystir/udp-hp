@@ -128,7 +128,7 @@ void (*contact_request_declined_cb)(char *) = NULL;
 void (*new_peer_cb)(char *) = NULL;
 void (*confirmed_peer_while_punching_cb)(SERVER_TYPE) = NULL;
 void (*from_peer_cb)(SERVER_TYPE, char *) = NULL;
-void (*chat_msg_cb)(char *) = NULL;
+void (*chat_msg_cb)(char *username, char *msg) = NULL;
 void (*video_start_cb)(char *server_host_url, char *room_id) = NULL;
 void (*unhandled_response_from_server_cb)(int) = NULL;
 void (*username_results_cb)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results) = NULL;
@@ -992,7 +992,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	void (*hole_punch_sent)(char *, int),
 	void (*confirmed_peer_while_punching)(SERVER_TYPE),
 	void (*from_peer)(SERVER_TYPE, char *),
-	void (*chat_msg)(char *),
+	void (*chat_msg)(char *username, char *msg),
 	void (*video_start)(char *server_host_url, char *room_id),
 	void (*unhandled_response_from_server)(int)) {
 
@@ -1185,7 +1185,8 @@ void *chat_hp_server(void *w) {
 					break;
 				}
 				case CHAT_STATUS_MSG: {
-					if (chat_msg_cb) chat_msg_cb(buf.msg);
+					add_to_contact_chat_history(self.contacts, buf.id, buf.id, buf.msg);
+					if (chat_msg_cb) chat_msg_cb(buf.id, buf.msg);
 					sprintf(conf_stat, "%s", chat_status_to_str(buf.status));
 					break;
 				}
@@ -1318,7 +1319,6 @@ void *search_thread_routine(void *arg) {
 
 	search_buf_t buf;
 	memset(&buf, '\0', SZ_SRCH_BF);
-	char buf_ip[INET6_ADDRSTRLEN];
 
 	if (search_running) search_thread_has_started = 1;
 	else search_thread_has_started = 0;
@@ -1419,6 +1419,10 @@ void start_video_with_contact(contact_t *c, char **server_host_url, char **room_
 	send_message_to_all_nodes_in_contact(c, video_room_id, &cs, NULL);
 }
 
+void add_self_chat_history(char *contactname, char *msg) {
+	add_to_contact_chat_history(self.contacts, contactname, username, msg);
+}
+
 void send_message_to_all_contacts(char *msg) {
 	if (!self.contacts) return;
 	CHAT_STATUS cs = CHAT_STATUS_MSG;
@@ -1458,6 +1462,7 @@ void send_message_to_node(node_t *peer, void *msg, void *chat_status, void *arg3
 	}
 	chat_buf_t wcb;
 	wcb.status = cs;
+	strcpy(wcb.id, username);
 	wcb.family = self_external->family;
 	wcb.port = self_external->chat_port;
 	wcb.ip4 = self_external->ip4;

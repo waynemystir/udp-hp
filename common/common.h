@@ -33,6 +33,7 @@
 #define AUTHN_RETRY_ATTEMPTS 100
 #define MICROSECONDS_TO_WAIT_BTWN_AUTHN_ATTEMPTS 10 * 1000
 #define VIDEO_SERVER_HOST_URL "https://appr.tc"
+#define MAX_CHAT_MSG_LEN 128
 
 extern const char USERNAME_ALLOWED_CHARS[65];
 
@@ -127,8 +128,21 @@ typedef struct chat_buf {
 	};
 	in_port_t port;
 	sa_family_t family;
-	char msg[64];
+	char msg[MAX_CHAT_MSG_LEN];
 } chat_buf_t;
+
+typedef struct chat_history_node {
+	char username[MAX_CHARS_USERNAME];
+	char msg[MAX_CHAT_MSG_LEN];
+	struct chat_history_node *next;
+} chat_history_node_t;
+
+typedef struct chat_history_list {
+	char id[MAX_CHARS_USERNAME];
+	chat_history_node_t *head;
+	chat_history_node_t *tail;
+	int count;
+} chat_history_list_t;
 
 extern const unsigned short AUTHENTICATION_PORT;
 extern const unsigned short SEARCH_PORT;
@@ -150,11 +164,15 @@ void remove_token_node(token_hashtable_t *thtbl, unsigned char *authn_token);
 
 int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr);
 
+void add_to_chat_history_list(chat_history_list_t *list, chat_history_node_t **chn);
+
 #define SZ_AUN_BF sizeof(authn_buf_t)
 #define SZ_CH_BF sizeof(chat_buf_t)
 #define SZ_AUN_ND sizeof(authn_node_t)
 #define SZ_AUN_TBL sizeof(authn_hashtable_t)
 #define SZ_TKN_ND sizeof(token_node_t)
+#define SZ_CH_HSTRY_ND sizeof(chat_history_node_t)
+#define SZ_CH_HSTRY_LT sizeof(chat_history_list_t)
 
 #define GENERIC_MAX(x, y) ((x) > (y) ? (x) : (y))
 

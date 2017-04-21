@@ -340,6 +340,31 @@ void contacts_perform(contact_list_t *contacts,
 	}
 }
 
+void add_to_contact_chat_history(contact_list_t *contacts, char *contactname, char *username, char *msg) {
+	if (!contacts || !username || !msg) return;
+	contact_t *c = contacts->head;
+	while (c) {
+		if (c->hn && strcmp(c->hn->username, contactname) == 0) break;
+		c = c->next;
+	}
+
+	if (!c) return;
+
+	if (!c->chat_history) {
+		c->chat_history = malloc(SZ_CH_HSTRY_LT);
+		memset(c->chat_history, '\0', SZ_CH_HSTRY_LT);
+		strcpy(c->chat_history->id, contactname);
+		c->chat_history->head = NULL;
+		c->chat_history->tail = NULL;
+		c->chat_history->count = 0;
+	}
+
+	chat_history_node_t *chn = NULL;
+	add_to_chat_history_list(c->chat_history, &chn);
+	strcpy(chn->username, username);
+	strcpy(chn->msg, msg);
+}
+
 hash_node_t *add_ip_to_user(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], node_t *ip) {
 	return NULL;
 }

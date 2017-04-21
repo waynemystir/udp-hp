@@ -51,7 +51,7 @@ int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port
 	void (*hole_punch_sent)(char *, int),
 	void (*confirmed_peer_while_punching)(SERVER_TYPE),
 	void (*from_peer)(SERVER_TYPE, char *),
-	void (*chat_msg)(char *),
+	void (*chat_msg)(char *username, char *msg),
 	void (*video_start)(char *server_host_url, char *room_id),
 	void (*unhandled_response_from_server)(int));
 
@@ -59,6 +59,8 @@ void search_username(const char *searchname,
 	void(*username_results)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results));
 
 void ping_all_peers();
+
+void add_self_chat_history(char *contactname, char *msg);
 
 void send_message_to_contact(contact_t *c, char *msg);
 

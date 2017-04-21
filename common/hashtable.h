@@ -17,6 +17,7 @@ struct hash_node;
 
 typedef struct contact {
 	struct hash_node *hn;
+	chat_history_list_t *chat_history;
 	struct contact *next;
 } contact_t;
 
@@ -63,6 +64,7 @@ void contacts_perform(contact_list_t *contacts,
 		void *arg1,
 		void *arg2,
 		void *arg3);
+void add_to_contact_chat_history(contact_list_t *contacts, char *contactname, char *username, char *msg);
 void freehashtable(hashtable_t *hashtbl);
 
 #endif /* hashtable_h */
