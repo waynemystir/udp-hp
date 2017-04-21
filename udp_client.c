@@ -119,6 +119,7 @@ void (*stay_touch_recd_cb)(SERVER_TYPE) = NULL;
 void (*coll_buf_cb)(char *) = NULL;
 void (*new_client_cb)(SERVER_TYPE, char *) = NULL;
 void (*confirmed_client_cb)(void) = NULL;
+void (*proceed_chat_hp_cb)(char *) = NULL;
 void (*hole_punch_sent_cb)(char *, int) = NULL;
 void (*contact_deinit_node_cb)(char *) = NULL;
 void (*add_contact_request_cb)(char *) = NULL;
@@ -519,13 +520,13 @@ int authn(NODE_USER_STATUS user_stat,
 
 void *hole_punch_thread(void *peer_to_hole_punch) {
 	node_t *peer = (node_t *)peer_to_hole_punch;
-	for (int j = 0; j < HOLE_PUNCH_RETRY_ATTEMPTS; j++) {
+	for (int j = 0; j < MAX_HOLE_PUNCH_RETRY_ATTEMPTS; j++) {
 		// Send (HOLE_PUNCH_RETRY_ATTEMPTS) datagrams, or until the peer
 		// is confirmed, whichever occurs first.
-		if (peer->status >= STATUS_CONFIRMED_PEER) {
+		if (j > MIN_HOLE_PUNCH_RETRY_ATTEMPTS && peer->status >= STATUS_CONFIRMED_PEER) {
 			if (confirmed_peer_while_punching_cb)
 				confirmed_peer_while_punching_cb(SERVER_MAIN);
-			init_chat_hp();
+//			init_chat_hp();
 			break;
 		}
 		send_hole_punch(peer);
@@ -801,7 +802,7 @@ void *wain_thread_routine(void *arg) {
 						me_external_family);
 					if (new_client_cb) new_client_cb(SERVER_MAIN, sprintf);
 					stay_in_touch_with_server(SERVER_MAIN);
-					// init_chat_hp();
+					 init_chat_hp();
 					break;
 				}
 				case STATUS_NOTIFY_EXISTING_CONTACT: {
@@ -876,6 +877,8 @@ void *wain_thread_routine(void *arg) {
                     
 				}
 				case STATUS_PROCEED_CHAT_HP: {
+					sprintf(sprintf, "STATUS_PROCEED_CHAT_HP (%d)(%s)(%d)", ntohs(buf.chat_port), buf.id, ntohs(buf.port));
+					if (proceed_chat_hp_cb) proceed_chat_hp_cb(sprintf);
 					node_t *cn;
 					lookup_contact_and_node_from_node_buf(self.contacts, &buf, &cn);
 					if (cn) {
@@ -925,8 +928,8 @@ void *wain_thread_routine(void *arg) {
 				case STATUS_CONFIRMED_PEER: {
 					unsigned short bcp = ntohs(buf.chat_port);
 					if (bcp != USHRT_MAX) {
-						existing_node->external_chat_port = buf.chat_port;
-						existing_node->internal_chat_port = buf.chat_port;
+						// existing_node->external_chat_port = buf.chat_port;
+						// existing_node->internal_chat_port = buf.chat_port;
 						sprintf(conf_stat, "CONF'D-CHAT-PORT {%d}", ntohs(existing_node->external_chat_port));
 						// punch_hole_in_peer(SERVER_CHAT, existing_peer);
 					} else {
@@ -985,6 +988,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	void (*contact_request_accepted)(char *),
 	void (*contact_request_declined)(char *),
 	void (*new_peer)(char *),
+	void (*proceed_chat_hp)(char *),
 	void (*hole_punch_sent)(char *, int),
 	void (*confirmed_peer_while_punching)(SERVER_TYPE),
 	void (*from_peer)(SERVER_TYPE, char *),
@@ -1003,6 +1007,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	coll_buf_cb = coll_buf;
 	new_client_cb = new_client;
 	confirmed_client_cb = confirmed_client;
+	proceed_chat_hp_cb = proceed_chat_hp;
 	hole_punch_sent_cb = hole_punch_sent;
 	contact_deinit_node_cb = contact_deinit_node;
 	add_contact_request_cb = add_contact_request;
@@ -1207,10 +1212,10 @@ void *chat_hp_server(void *w) {
 
 void *chat_hole_punch_thread(void *peer_to_hole_punch) {
 	node_t *peer = (node_t *)peer_to_hole_punch;
-	for (int j = 0; j < HOLE_PUNCH_RETRY_ATTEMPTS; j++) {
+	for (int j = 0; j < MAX_HOLE_PUNCH_RETRY_ATTEMPTS; j++) {
 		// Send (HOLE_PUNCH_RETRY_ATTEMPTS) datagrams, or until the peer
 		// is confirmed, whichever occurs first.
-		if (peer->status >= STATUS_CONFIRMED_CHAT_PEER) {
+		if (j > MIN_HOLE_PUNCH_RETRY_ATTEMPTS && peer->status >= STATUS_CONFIRMED_CHAT_PEER) {
 			if (confirmed_peer_while_punching_cb)
 				confirmed_peer_while_punching_cb(SERVER_CHAT);
 			break;
@@ -1257,7 +1262,7 @@ void send_chat_hole_punch(node_t *peer) {
 	chat_buf_t wcb;
 	wcb.status = CHAT_STATUS_ATTEMPTING_HOLE_PUNCH;
 	wcb.family = self_external->family;
-	wcb.port = self_external->chat_port;
+    wcb.port = peer->int_or_ext == INTERNAL_ADDR ? self_internal->chat_port : self_external->chat_port;
 	wcb.ip4 = self_external->ip4;
 
 	if (sendto(chat_sock_fd, &wcb, SZ_CH_BF, 0, peer_addr, peer_socklen) == -1)

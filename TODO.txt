@@ -28,7 +28,7 @@ make sure server is ALWAYS running
 *******************  POC is done  **********************
 
 FIX-ALL-BUGS
-------------
+----------------------------------------------
 ************* UDP guarantee (i.e. packet loss check and resend) *************
 
 stay-in-touch with peers (and self nodes?)
@@ -38,6 +38,9 @@ stay-in-touch with peers (and self nodes?)
 		-chatting with existing contact
 		-backgrounded?
 		-all time time? 
+
+backgrpund the app and quickly (less than 3 seconds) foreground the app... on the server, notice the logs: it doesn't recognize the authn token from stay-in-touch ping... this is because backgrounding the app tosses out the authn token and re-authn's... and the reason that the client is still sending stay-in-touch messages with an old authn token is that I don't specifically terminate the thread WHEN the user backgrounds the app... I just set the variable stay_in_touch_running = 0 but that thread is sleeping while stay_in_touch_running = 0... So you need to correctly terminate that thread (and all threads)
+-----------------------------------------------
 
 email
 fork/thread servers
