@@ -1,8 +1,4 @@
 
-generate random string for apprtc roomname...
-	is there a way to first check if there is space avail in the room?
-	OR even better, is there a way to clear all participants from the room?
-
 chat_buf_t, make msg arbitrarily long by making it a pointer?
 
 finish new user
@@ -15,8 +11,8 @@ lowercase letters only for username including
 	- this should fix the biggest bug
 	- implement stay-in-touch between peers (nodes)
 		- when peer A doesn't recv n number of stay-in-touch msgs from peer B, then peer A reports peer B to the server as offline
-		- on the server add a status for reporting other peers offline
-		- you should implement logic for actually removing a node...
+		- on the server, add a status for reporting other peers offline
+		- on the server, you should implement logic for actually removing a node...
 			e.g. if all of its contacts' nodes report the same thing
 			or this might be better: if x% of its contacts' nodes report the same thing
 

@@ -197,4 +197,6 @@ void get_all_substrings(char *str, char **sub_strs, unsigned int *numb_sub_strs,
 
 void get_substrings_from_beginning(char *str, char **sub_strs, unsigned int *numb_sub_strs, unsigned int *max_len);
 
+void rand_str(char *dest, size_t length);
+
 #endif /* common_h */

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "common.h"
 
@@ -253,6 +254,26 @@ void add_to_chat_history_list(chat_history_list_t *list, chat_history_node_t **c
 	}
 
 	list->count++;
+}
+
+void rand_str(char *dest, size_t length) {
+	static int rand_seeded = 0;
+
+	if (!rand_seeded) {
+		time_t t;
+		srand((unsigned) time(&t));
+	}
+	rand_seeded = 1;
+
+	char charset[] = "0123456789"
+			"abcdefghijklmnopqrstuvwxyz"
+			"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+	while (length-- > 0) {
+		size_t index = (double) rand() / RAND_MAX * (sizeof charset - 1);
+		*dest++ = charset[index];
+	}
+	*dest = '\0';
 }
 
 unsigned int calc_triangular_numbr(unsigned int x) {

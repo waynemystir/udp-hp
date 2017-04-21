@@ -1410,9 +1410,10 @@ void send_message_to_contact(contact_t *c, char *msg) {
 }
 
 void start_video_with_contact(contact_t *c, char **server_host_url, char **room_id) {
-	char *video_room_id = malloc(10);
-	memset(video_room_id, '\0', 10);
-	strcpy(video_room_id, "wayne08");
+	// TODO we need to free video_room_id somewhere in the app I guess
+	char *video_room_id = malloc(9);
+	memset(video_room_id, '\0', 9);
+	rand_str(video_room_id, 8);
 	CHAT_STATUS cs = CHAT_STATUS_VIDEO_START;
 	if (room_id) *room_id = video_room_id;
 	if (server_host_url) *server_host_url = VIDEO_SERVER_HOST_URL;
