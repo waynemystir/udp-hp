@@ -329,6 +329,7 @@ void notify_existing_peer_of_new_chat_port(node_t *existing_peer,
 	get_approp_node_bufs(existing_peer, peer_with_new_port, &exip_node_buf, &pwnp_buf, id_ep, id_nn);
 	exip_node_buf->status = STATUS_PROCEED_CHAT_HP;
 	pwnp_buf->status = STATUS_PROCEED_CHAT_HP;
+	printf("&*&*&*&*&*&*&*&&*&*&*&*&*&*&*&&*&*&*&*&*&*&*& (%d)(%d)\n", ntohs(pwnp_buf->chat_port), ntohs(exip_node_buf->chat_port));
 
 	// And now we notify existing peer of new tail
 	if (sendto(sock_fd, pwnp_buf, SZ_NODE_BF, 0, &ep_addr, main_slen)==-1)
