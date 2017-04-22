@@ -1118,6 +1118,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_SIGN_OUT with non-matching authn_token\n");
 					break;
 				}
+				contacts_perform(hn->contacts, notify_contact_of_deinit_node, n, hn->username, &si_other);
 
 				printf("STATUS_SIGN_OUT before(%d)\n", hn->nodes->node_count);
 				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
