@@ -1,9 +1,4 @@
 
-chat_buf_t, make msg arbitrarily long by making it a pointer?
-
-finish new user
-does sign-out work?
-
 lowercase letters only for username including
 	search hashtbl keys
 
@@ -41,6 +36,10 @@ infrequently and seemingly randomly, when performing internal hole punching, it 
 	- on the client, STATUS_PROCEED_CHAT_HP, log the ip4 we receive from the server... is this 0.0.0.0?
 
 backgrpund the app and quickly (less than 3 seconds) foreground the app... on the server, notice the logs: it doesn't recognize the authn token from stay-in-touch ping... this is because backgrounding the app tosses out the authn token and re-authn's... and the reason that the client is still sending stay-in-touch messages with an old authn token is that I don't specifically terminate the thread WHEN the user backgrounds the app... I just set the variable stay_in_touch_running = 0 but that thread is sleeping while stay_in_touch_running = 0... So you need to correctly terminate that thread (and all threads)
+
+slightly buggy, maybe
+	create new user
+	sign-out
 -----------------------------------------------
 
 email
@@ -92,6 +91,8 @@ network encryption
 device goes to sleep or app is background... will stay-in-touch with servers continue? do we need to re-do hole punching on awake/foregrounding?
 
 save chat history locally?
+
+chat_buf_t, CHAT_STATUS_MSG make msg arbitrarily long by sending in multiple calls to sendto/recvfrom
 
 go back and use memcmp to compare all unsigned char arrays (i.e. ip6, etc)
 thread the server

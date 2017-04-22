@@ -1557,4 +1557,6 @@ void signout() {
 	stay_in_touch_running = 0;
 	chat_stay_in_touch_running = 0;
 	chat_server_conn_running = 0;
+
+	usleep(300);
 }
