@@ -15,8 +15,8 @@
 #define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
 
 NODE_USER_STATUS node_user_status;
-char username[MAX_CHARS_USERNAME] = "Rupert Humperdink";
-char password[MAX_CHARS_PASSWORD] = "A bottle of bordeaux please";
+char username[MAX_CHARS_USERNAME] = {0};
+char password[MAX_CHARS_PASSWORD] = {0};
 unsigned char authentication_token[AUTHEN_TOKEN_LEN];
 
 void send_hole_punch(node_t *peer);
@@ -476,32 +476,17 @@ int authn(NODE_USER_STATUS user_stat,
 		memcpy(aes_key, aes_k, NUM_BYTES_AES_KEY);
 	}
 
-	int i;
-	for (i = 0; i < NUM_BYTES_AES_KEY; i++) {
-		if (i > 0) printf(":");
-		printf("(%d)-(%02X)", i, aes_key[i]);
-	}
-	printf("\n");
-
-	rsa_public_key = malloc(strlen(rsa_pub_key)+1);
-	rsa_private_key = malloc(strlen(rsa_pri_key)+1);
-	memset(rsa_public_key, '\0', strlen(rsa_pub_key)+1);
-	memset(rsa_private_key, '\0', strlen(rsa_pri_key)+1);
-
 	if (!rsa_pub_key || !rsa_pri_key) {
-		char *rsa_pri = NULL, *rsa_pub = NULL;
-		generate_rsa_keypair(NULL, &rsa_pri, &rsa_pub, NULL, NULL);
-		// TODO handle !rsa_pub || !rsa_pri
-		strcpy(rsa_public_key, rsa_pub);
-		strcpy(rsa_private_key, rsa_pri);
-		free(rsa_pub);
-		free(rsa_pri);
-		if (rsakeypair_generated_cb) rsakeypair_generated_cb(rsa_pub, rsa_pri);
+		generate_rsa_keypair(NULL, &rsa_private_key, &rsa_public_key, NULL, NULL);
+		// TODO handle !rsa_private_key || !rsa_public_key
+		if (rsakeypair_generated_cb) rsakeypair_generated_cb(rsa_public_key, rsa_private_key);
 	} else {
+		rsa_public_key = malloc(strlen(rsa_pub_key)+1);
+		rsa_private_key = malloc(strlen(rsa_pri_key)+1);
+		memset(rsa_public_key, '\0', strlen(rsa_pub_key)+1);
+		memset(rsa_private_key, '\0', strlen(rsa_pri_key)+1);
 		strcpy(rsa_public_key, rsa_pub_key);
 		strcpy(rsa_private_key, rsa_pri_key);
-//		free((char*)rsa_pub_key);
-//		free((char*)rsa_pri_key);
 	}
 
 	AUTHN_STATUS *as = malloc(sizeof(int));
@@ -747,7 +732,9 @@ void *wain_thread_routine(void *arg) {
 	// peers = malloc(SZ_LINK_LIST_MN);
 	memset(&self, '\0', SZ_HASH_NODE);
 	self.nodes = malloc(SZ_LINK_LIST);
+	memset(self.nodes, '\0', SZ_LINK_LIST);
 	self.contacts = malloc(SZ_CONTACT_LIST);
+	memset(self.contacts, '\0', SZ_CONTACT_LIST);
 
 	size_t max_buf = MAX(size_t, SZ_NODE_BF, SZ_SRCH_BF);
 	printf("Start MAIN (%lu)\n", max_buf);
@@ -1273,7 +1260,7 @@ void send_chat_hole_punch(node_t *peer) {
 	char pp[20];
 	char pf[20];
 	addr_to_str(peer_addr, pi, pp, pf);
-	sprintf(spf, "send_chat_hole_punchXXX %s %s %s\n", pi, pp, pf);
+	sprintf(spf, "send_chat_hole_punch %s %s %s\n", pi, pp, pf);
 	if (hole_punch_sent_cb) hole_punch_sent_cb(spf, ++chpc);
 }
 

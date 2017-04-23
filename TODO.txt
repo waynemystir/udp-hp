@@ -2,6 +2,8 @@
 lowercase letters only for username including
 	search hashtbl keys
 
+change keys for RSA and AES on ios app, to see if other bugs come up for generating new keys
+
 !!!! PEER REPORTING OF OTHER PEERS THAT APPEAR OFFLINE
 	- this should fix the biggest bug
 	- implement stay-in-touch between peers (nodes)

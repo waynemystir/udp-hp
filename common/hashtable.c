@@ -198,8 +198,10 @@ contact_t *add_contact_to_list(contact_list_t *contacts, char contactname[MAX_CH
 	contact_t *new_contact = malloc(SZ_CONTACT);
 	memset(new_contact, '\0', SZ_CONTACT);
 	new_contact->hn = malloc(SZ_HASH_NODE);
+	memset(new_contact->hn, '\0', SZ_HASH_NODE);
 	strcpy(new_contact->hn->username, contactname);
 	new_contact->hn->nodes = malloc(SZ_NODE);
+	memset(new_contact->hn->nodes, '\0', SZ_NODE);
 
 	if (!contacts->head) {
 		contacts->head = new_contact;
