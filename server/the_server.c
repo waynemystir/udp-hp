@@ -620,6 +620,10 @@ start_switch:
 					if (sendto_len == -1) {
 						pfail("sendto");
 					}
+
+					printf("AUTHN_STATUS_EXISTING_USER sendto DONE (%s)(%s)(%s)\n",
+						creds_check_result_to_str(cr), buf.id, buf.pw);
+
 					// TODO if cr == AUTHN_CREDS_CHECK_RESULT_GOOD, remove record from authn_tbl?
 					break;
 				}
