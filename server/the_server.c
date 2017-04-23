@@ -135,28 +135,28 @@ void load_hashtbl_from_db() {
 	add_user(&hashtbl, "waynemystir", "wes");
 	add_user(&hashtbl, "julius_erving", "je");
 	add_user(&hashtbl, "mike_schmidt", "ms");
-	add_user(&hashtbl, "pete_rose", "pr");
+	add_user(&hashtbl, "alan_turing", "at");
 	add_user(&hashtbl, "w", "w");
 
-	add_contact_to_hashtbl(&hashtbl, "pete_rose", "waynemystir");
-	add_contact_to_hashtbl(&hashtbl, "pete_rose", "mike_schmidt");
-	add_contact_to_hashtbl(&hashtbl, "pete_rose", "pete_rose");
-	add_contact_to_hashtbl(&hashtbl, "pete_rose", "julius_erving");
+	add_contact_to_hashtbl(&hashtbl, "alan_turing", "waynemystir");
+	add_contact_to_hashtbl(&hashtbl, "alan_turing", "mike_schmidt");
+	add_contact_to_hashtbl(&hashtbl, "alan_turing", "alan_turing");
+	add_contact_to_hashtbl(&hashtbl, "alan_turing", "julius_erving");
 
 	add_contact_to_hashtbl(&hashtbl, "julius_erving", "waynemystir");
 	add_contact_to_hashtbl(&hashtbl, "julius_erving", "waynemystir");
-	add_contact_to_hashtbl(&hashtbl, "julius_erving", "pete_rose");
+	add_contact_to_hashtbl(&hashtbl, "julius_erving", "alan_turing");
 	add_contact_to_hashtbl(&hashtbl, "julius_erving", "mike_schmidt");
 	add_contact_to_hashtbl(&hashtbl, "julius_erving", "julius_erving");
 
 	add_contact_to_hashtbl(&hashtbl, "mike_schmidt", "waynemystir");
 	add_contact_to_hashtbl(&hashtbl, "mike_schmidt", "mike_schmidt");
-	add_contact_to_hashtbl(&hashtbl, "mike_schmidt", "pete_rose");
+	add_contact_to_hashtbl(&hashtbl, "mike_schmidt", "alan_turing");
 	add_contact_to_hashtbl(&hashtbl, "mike_schmidt", "julius_erving");
 	
 	add_contact_to_hashtbl(&hashtbl, "waynemystir", "waynemystir");
 	add_contact_to_hashtbl(&hashtbl, "waynemystir", "mike_schmidt");
-	add_contact_to_hashtbl(&hashtbl, "waynemystir", "pete_rose");
+	add_contact_to_hashtbl(&hashtbl, "waynemystir", "alan_turing");
 	add_contact_to_hashtbl(&hashtbl, "waynemystir", "julius_erving");
 
 	add_user(&hashtbl, "abigail", "ab");
@@ -588,15 +588,33 @@ start_switch:
 					if (cr == AUTHN_CREDS_CHECK_RESULT_GOOD) {
 						unsigned char authentication_token[AUTHEN_TOKEN_LEN];
 						memset(authentication_token, '\0', AUTHEN_TOKEN_LEN);
+
+						printf("AUTHN_STATUS_EXISTING_USER about to RAND_bytes (%s)(%s)(%s)\n",
+							creds_check_result_to_str(cr), buf.id, buf.pw);
+
 						if (!RAND_bytes(authentication_token, sizeof(authentication_token))) {
 							printf("RAND_bytes failed for authentication_token\n");
 							ERR_print_errors_fp(stdout);
 							break;
 						}
+
+						printf("AUTHN_STATUS_EXISTING_USER RAND_bytes done (%s)(%s)(%s)\n",
+							creds_check_result_to_str(cr), buf.id, buf.pw);
+
 						memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+
+						printf("AUTHN_STATUS_EXISTING_USER memcpy authn_token done (%s)(%s)(%s)\n",
+							creds_check_result_to_str(cr), buf.id, buf.pw);
+
 						add_token_node(&token_tbl, authentication_token);
 						remove_authn_node(&authn_tbl, key);
+
+						printf("AUTHN_STATUS_EXISTING_USER done adding token node (%s)(%s)(%s)\n",
+							creds_check_result_to_str(cr), buf.id, buf.pw);
 					}
+
+					printf("AUTHN_STATUS_EXISTING_USER about to sendto (%s)(%s)(%s)\n",
+						creds_check_result_to_str(cr), buf.id, buf.pw);
 
 					sendto_len = sendto(connecting_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, authn_slen);
 					if (sendto_len == -1) {
@@ -834,6 +852,8 @@ void *main_server_endpoint(void *arg) {
 				}
 				new_tail->external_family = si_other.sa_family;
 				new_tail->internal_family = buf.family;
+				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				printf("STATUS_INIT_NODE (%s)(%d)\n", n?"SUCCESSFULLY ADDED":"FAILED ADDING", hn->nodes->node_count);
 				node_buf_t *new_tail_buf;
 				node_external_to_node_buf(new_tail, &new_tail_buf, hn->username);
 				sendto_len = sendto(sock_fd, new_tail_buf, SZ_NODE_BF, 0, &si_other, main_slen);

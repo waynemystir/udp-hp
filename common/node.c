@@ -650,7 +650,7 @@ void nodes_perform(LinkedList_t *list,
 }
 
 // curtesy of https://www.cs.bu.edu/teaching/c/linked-list/delete/
-node_t *removeNode(node_t *currP, struct sockaddr *addr, SERVER_TYPE st, int *num_nodes_removed) {
+node_t *removeNode(node_t *currP, struct sockaddr *addr, SERVER_TYPE st, int *num_nodes_removed, node_t **new_tail) {
 	/* See if we are at end of list. */
 	if (currP == NULL) return NULL;
 
@@ -682,7 +682,8 @@ node_t *removeNode(node_t *currP, struct sockaddr *addr, SERVER_TYPE st, int *nu
 	* pointer in case the next node is the one
 	* removed.
 	*/
-	currP->next = removeNode(currP->next, addr, st, num_nodes_removed);
+	currP->next = removeNode(currP->next, addr, st, num_nodes_removed, new_tail);
+	if (!currP->next && new_tail) *new_tail = currP;
 
 	/*
 	* Return the pointer to where we were called
@@ -695,12 +696,14 @@ node_t *removeNode(node_t *currP, struct sockaddr *addr, SERVER_TYPE st, int *nu
 void remove_node_with_sockaddr(LinkedList_t *list, struct sockaddr *addr, SERVER_TYPE st) {
 	if (!list || !addr) return;
 	int num_nodes_removed = 0;
-	list->head = removeNode(list->head, addr, st, &num_nodes_removed);
+	node_t *new_tail = NULL;
+	list->head = removeNode(list->head, addr, st, &num_nodes_removed, &new_tail);
+	if (new_tail) list->tail = new_tail;
 	list->node_count = list->node_count - num_nodes_removed;
 }
 
 // curtesy of https://www.cs.bu.edu/teaching/c/linked-list/delete/
-node_t *remove_node_with_node_buf_internal(node_t *currP, node_buf_t *nb, int *num_nodes_removed) {
+node_t *remove_node_with_node_buf_internal(node_t *currP, node_buf_t *nb, int *num_nodes_removed, node_t **new_tail) {
 	/* See if we are at end of list. */
 	if (currP == NULL) return NULL;
 
@@ -732,7 +735,8 @@ node_t *remove_node_with_node_buf_internal(node_t *currP, node_buf_t *nb, int *n
 	* pointer in case the next node is the one
 	* removed.
 	*/
-	currP->next = remove_node_with_node_buf_internal(currP->next, nb, num_nodes_removed);
+	currP->next = remove_node_with_node_buf_internal(currP->next, nb, num_nodes_removed, new_tail);
+	if (!currP->next && new_tail) *new_tail = currP;
 
 	/*
 	* Return the pointer to where we were called
@@ -745,7 +749,9 @@ node_t *remove_node_with_node_buf_internal(node_t *currP, node_buf_t *nb, int *n
 void remove_node_with_node_buf(LinkedList_t *list, node_buf_t *nb) {
 	if (!list || !nb) return;
 	int num_nodes_removed = 0;
-	list->head = remove_node_with_node_buf_internal(list->head, nb, &num_nodes_removed);
+	node_t *new_tail = NULL;
+	list->head = remove_node_with_node_buf_internal(list->head, nb, &num_nodes_removed, &new_tail);
+	if (new_tail) list->tail = new_tail;
 	list->node_count = list->node_count - num_nodes_removed;
 }
 
