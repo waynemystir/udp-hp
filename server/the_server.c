@@ -20,6 +20,8 @@
 #define AES_KEY_FILEPATH "SUP_AES_KEY"
 #define AES_IV_FILEPATH "SUP_AES_IV"
 
+char environment_str[64];
+
 char *rsa_public_key_str;
 char *rsa_private_key_str;
 unsigned char *aes_key;
@@ -393,9 +395,9 @@ void *authentication_server_endpoint(void *arg) {
 	// has to be run in a network with UDP endpoint previously known
 	// and directly accessible by all clients. In simpler terms, the
 	// server cannot be behind a NAT.
-	char auth_port[10];
-	sprintf(auth_port, "%d", AUTHENTICATION_PORT);
-	str_to_addr((struct sockaddr**)&si_me, NULL, auth_port, AF_INET, SOCK_STREAM, AI_PASSIVE);
+	char authn_port[10];
+	get_authentication_port_as_str(authn_port);
+	str_to_addr((struct sockaddr**)&si_me, NULL, authn_port, AF_INET, SOCK_STREAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
@@ -666,7 +668,7 @@ void *search_server_routine(void *arg) {
 	// and directly accessible by all clients. In simpler terms, the
 	// server cannot be behind a NAT.
 	char search_port[10];
-	sprintf(search_port, "%d", SEARCH_PORT);
+	get_search_port_as_str(search_port);
 	str_to_addr((struct sockaddr**)&si_me, NULL, search_port, AF_INET, SOCK_DGRAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
@@ -773,7 +775,9 @@ void *main_server_endpoint(void *arg) {
 	// has to be run in a network with UDP endpoint previously known
 	// and directly accessible by all clients. In simpler terms, the
 	// server cannot be behind a NAT.
-	str_to_addr((struct sockaddr**)&si_me, NULL, "9930", AF_INET, SOCK_DGRAM, AI_PASSIVE);
+	char wain_port[10];
+	get_wain_port_as_str(wain_port);
+	str_to_addr((struct sockaddr**)&si_me, NULL, wain_port, AF_INET, SOCK_DGRAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
@@ -1189,7 +1193,9 @@ void *chat_endpoint(void *msg) {
 	// has to be run in a network with UDP endpoint previously known
 	// and directly accessible by all clients. In simpler terms, the
 	// server cannot be behind a NAT.
-	str_to_addr((struct sockaddr**)&si_me, NULL, "9931", AF_INET, SOCK_DGRAM, AI_PASSIVE);
+	char chat_port[10];
+	get_chat_port_as_str(chat_port);
+	str_to_addr((struct sockaddr**)&si_me, NULL, chat_port, AF_INET, SOCK_DGRAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
@@ -1265,6 +1271,9 @@ void *chat_endpoint(void *msg) {
 
 int main() {
 	printf("the_server main 0 %zu %zu\n", sizeof(STATUS_TYPE), sizeof(struct node));
+	set_environment(ENV_DEV);
+	get_environment_as_str(environment_str);
+	printf("the_server main environment (%s)\n", environment_str);
 
 	// Get the keys
 	int ckr = collect_rsa_keys();

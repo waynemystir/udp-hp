@@ -152,6 +152,7 @@ typedef enum ENVIRONMENT {
 
 void set_environment(ENVIRONMENT env);
 ENVIRONMENT get_environment();
+void get_environment_as_str(char *);
 void get_server_ip_as_str(char *);
 unsigned short get_authentication_port();
 void get_authentication_port_as_str(char *);

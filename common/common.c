@@ -16,6 +16,23 @@ ENVIRONMENT get_environment() {
 	return environment;
 }
 
+void get_environment_as_str(char *es) {
+	switch (environment) {
+		case ENV_DEV: {
+			sprintf(es, "ENV_DEV");
+			break;
+		}
+		case ENV_STG: {
+			sprintf(es, "ENV_STG");
+			break;
+		}
+		case ENV_PROD: {
+			sprintf(es, "ENV_PROD");
+			break;
+		}
+	}
+}
+
 void get_server_ip_as_str(char *sip) {
 	sprintf(sip, "%s", server_ip_str);
 }
@@ -26,6 +43,7 @@ static unsigned short authentication_port() {
 		case ENV_STG: return 9929;
 		case ENV_PROD: return 9951;
 	}
+	return -1;
 }
 
 unsigned short get_authentication_port() {
@@ -42,6 +60,7 @@ static unsigned short wain_port() {
 		case ENV_STG: return 9930;
 		case ENV_PROD: return 9952;
 	}
+	return -1;
 }
 
 unsigned short get_wain_port() {
@@ -58,6 +77,7 @@ static unsigned short chat_port() {
 		case ENV_STG: return 9931;
 		case ENV_PROD: return 9953;
 	}
+	return -1;
 }
 
 unsigned short get_chat_port() {
@@ -74,6 +94,7 @@ static unsigned short search_port() {
 		case ENV_STG: return 9932;
 		case ENV_PROD: return 9954;
 	}
+	return -1;
 }
 
 unsigned short get_search_port() {
