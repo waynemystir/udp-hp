@@ -54,6 +54,7 @@ char me_chat_port[20];
 char me_chat_family[20];
 
 // The server
+char server_ip_str[256];
 struct sockaddr *sa_server;
 char server_internal_ip[INET6_ADDRSTRLEN];
 char server_internal_port[20];
@@ -304,8 +305,8 @@ void *authn_thread_routine(void *arg) {
 
 	// Setup server
 	char auth_port[10];
-	sprintf(auth_port, "%d", AUTHENTICATION_PORT);
-	str_to_addr(&sa_authn_server, "142.105.56.124", auth_port, AF_INET, SOCK_STREAM, 0);
+	get_authentication_port_as_str(auth_port);
+	str_to_addr(&sa_authn_server, server_ip_str, auth_port, AF_INET, SOCK_STREAM, 0);
 	authn_server_socklen = sa_authn_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_authn_server, authn_server_ip, authn_server_port, authn_server_family);
 	sprintf(wes, "The authn server %s port%s %s %u",
@@ -459,6 +460,8 @@ int authn(NODE_USER_STATUS user_stat,
 	creds_check_result_cb = creds_check_result;
 	general_cb = general;
 	node_user_status = user_stat;
+
+	get_server_ip_as_str(server_ip_str);
 
 	memset(username, '\0', MAX_CHARS_USERNAME);
 	if (usernm) {
@@ -679,10 +682,6 @@ void *wain_thread_routine(void *arg) {
 	char sprintf[256];
 
 	// Setup self
-	// str_to_addr((struct sockaddr**)&sa_me_internal, NULL, "1313", AF_INET, SOCK_DGRAM, AI_PASSIVE);
-	// addr_to_str((struct sockaddr*)sa_me_internal, me_internal_ip, me_internal_port, me_internal_family);
-	// sprintf(sprintf, "Moi %s port%s %s", me_internal_ip, me_internal_port, me_internal_family);
-	// if (self_info) self_info(sprintf);
 	struct sockaddr_in si_me;
 	memset((char *) &si_me, 0, sizeof(si_me));
 	si_me.sin_family = AF_INET;
@@ -691,7 +690,9 @@ void *wain_thread_routine(void *arg) {
 	sa_me_internal = (struct sockaddr*)&si_me;
 
 	// Setup server
-	str_to_addr(&sa_server, "142.105.56.124", "9930", AF_INET, SOCK_DGRAM, 0);
+	char wain_port[10];
+	get_wain_port_as_str(wain_port);
+	str_to_addr(&sa_server, server_ip_str, wain_port, AF_INET, SOCK_DGRAM, 0);
 	server_socklen = sa_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(sprintf, "The server %s port%s %s %u",
@@ -1029,10 +1030,6 @@ void *chat_hp_server(void *w) {
 	char sprintf[256];
 
 	// Setup self
-	// str_to_addr((struct sockaddr**)&sa_me_chat, NULL, "12001", AF_INET, SOCK_DGRAM, AI_PASSIVE);
-	// addr_to_str((struct sockaddr*)sa_me_chat, me_chat_ip, me_chat_port, me_chat_family);
-	// sprintf(sprintf, "Chat moi %s port%s %s", me_chat_ip, me_chat_port, me_chat_family);
-	// if (self_info_cb) self_info_cb(sprintf);
 	struct sockaddr_in si_me;
 	memset((char *) &si_me, 0, SZ_SOCKADDR_IN);
 	si_me.sin_family = AF_INET;
@@ -1041,7 +1038,9 @@ void *chat_hp_server(void *w) {
 	sa_me_chat = (struct sockaddr*)&si_me;
 
 	// Setup chat server
-	str_to_addr(&sa_chat_server, "142.105.56.124", "9931", AF_INET, SOCK_DGRAM, 0);
+	char chat_port[10];
+	get_chat_port_as_str(chat_port);
+	str_to_addr(&sa_chat_server, server_ip_str, chat_port, AF_INET, SOCK_DGRAM, 0);
 	chat_server_socklen = sa_chat_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_chat_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(sprintf, "The chat server %s port%s %s %u",
@@ -1269,10 +1268,6 @@ void *search_thread_routine(void *arg) {
 	char wayne[256];
 
 	// Setup self
-	// str_to_addr((struct sockaddr**)&sa_me_chat, NULL, "12001", AF_INET, SOCK_DGRAM, AI_PASSIVE);
-	// addr_to_str((struct sockaddr*)sa_me_chat, me_chat_ip, me_chat_port, me_chat_family);
-	// sprintf(sprintf, "Chat moi %s port%s %s", me_chat_ip, me_chat_port, me_chat_family);
-	// if (self_info_cb) self_info_cb(sprintf);
 	struct sockaddr_in si_me;
 	memset((char *) &si_me, 0, SZ_SOCKADDR_IN);
 	si_me.sin_family = AF_INET;
@@ -1281,8 +1276,8 @@ void *search_thread_routine(void *arg) {
 
 	// Setup search server
 	char search_port[10];
-	sprintf(search_port, "%d", SEARCH_PORT);
-	str_to_addr(&sa_search_server, "142.105.56.124", search_port, AF_INET, SOCK_DGRAM, 0);
+	get_search_port_as_str(search_port);
+	str_to_addr(&sa_search_server, server_ip_str, search_port, AF_INET, SOCK_DGRAM, 0);
 	search_server_socklen = sa_search_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_search_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(wayne, "The search server %s port%s %s %u",

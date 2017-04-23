@@ -5,13 +5,90 @@
 
 #include "common.h"
 
+static ENVIRONMENT environment = ENV_PROD;
+static char server_ip_str[] = "142.105.56.124";
+
+void set_environment(ENVIRONMENT env) {
+	environment = env;
+}
+
+ENVIRONMENT get_environment() {
+	return environment;
+}
+
+void get_server_ip_as_str(char *sip) {
+	sprintf(sip, "%s", server_ip_str);
+}
+
+static unsigned short authentication_port() {
+	switch (environment) {
+		case ENV_DEV:
+		case ENV_STG: return 9929;
+		case ENV_PROD: return 9951;
+	}
+}
+
+unsigned short get_authentication_port() {
+	return authentication_port();
+}
+
+void get_authentication_port_as_str(char *authn_port) {
+	sprintf(authn_port, "%d", authentication_port());
+}
+
+static unsigned short wain_port() {
+	switch (environment) {
+		case ENV_DEV:
+		case ENV_STG: return 9930;
+		case ENV_PROD: return 9952;
+	}
+}
+
+unsigned short get_wain_port() {
+	return wain_port();
+}
+
+void get_wain_port_as_str(char *wp) {
+	sprintf(wp, "%d", wain_port());
+}
+
+static unsigned short chat_port() {
+	switch (environment) {
+		case ENV_DEV:
+		case ENV_STG: return 9931;
+		case ENV_PROD: return 9953;
+	}
+}
+
+unsigned short get_chat_port() {
+	return chat_port();
+}
+
+void get_chat_port_as_str(char *cp) {
+	sprintf(cp, "%d", chat_port());
+}
+
+static unsigned short search_port() {
+	switch (environment) {
+		case ENV_DEV:
+		case ENV_STG: return 9932;
+		case ENV_PROD: return 9954;
+	}
+}
+
+unsigned short get_search_port() {
+	return search_port();
+}
+
+void get_search_port_as_str(char *srch_port) {
+	sprintf(srch_port, "%d", search_port());
+}
+
 const char USERNAME_ALLOWED_CHARS[65] = {'_', '.', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
 					'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
 					'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
 					'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
 					'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',};
-const unsigned short AUTHENTICATION_PORT = 9929;
-const unsigned short SEARCH_PORT = 9932;
 
 char *authn_status_to_str(AUTHN_STATUS as) {
 	switch (as) {

@@ -144,8 +144,23 @@ typedef struct chat_history_list {
 	int count;
 } chat_history_list_t;
 
-extern const unsigned short AUTHENTICATION_PORT;
-extern const unsigned short SEARCH_PORT;
+typedef enum ENVIRONMENT {
+	ENV_DEV = 0,
+	ENV_STG = 1,
+	ENV_PROD = 2,
+} ENVIRONMENT;
+
+void set_environment(ENVIRONMENT env);
+ENVIRONMENT get_environment();
+void get_server_ip_as_str(char *);
+unsigned short get_authentication_port();
+void get_authentication_port_as_str(char *);
+unsigned short get_wain_port();
+void get_wain_port_as_str(char *);
+unsigned short get_chat_port();
+void get_chat_port_as_str(char *);
+unsigned short get_search_port();
+void get_search_port_as_str(char *);
 
 char *authn_status_to_str(AUTHN_STATUS as);
 char *creds_check_result_to_str(AUTHN_CREDS_CHECK_RESULT r);
