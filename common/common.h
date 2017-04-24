@@ -144,6 +144,15 @@ typedef struct chat_history_list {
 	int count;
 } chat_history_list_t;
 
+typedef enum LOG_LEVEL {
+	NO_UI_LOG = 0,
+	DEBUG_LOG = 1,
+	DEV_LOG = 2,
+	INFO_LOG = 3,
+	WARNING_LOG = 4,
+	SEVERE_LOG = 5,
+} LOG_LEVEL;
+
 typedef enum ENVIRONMENT {
 	ENV_DEV = 0,
 	ENV_STG = 1,

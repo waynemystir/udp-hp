@@ -133,7 +133,7 @@ void (*chat_msg_cb)(char *username, char *msg) = NULL;
 void (*video_start_cb)(char *server_host_url, char *room_id) = NULL;
 void (*unhandled_response_from_server_cb)(int) = NULL;
 void (*username_results_cb)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results) = NULL;
-void (*general_cb)(char*) = NULL;
+void (*general_cb)(char*, LOG_LEVEL) = NULL;
 
 void pfail(char *w) {
 	printf("pfail 0\n");
@@ -361,24 +361,22 @@ void *authn_thread_routine(void *arg) {
 
 				create_aes_key_iv();
 				RSA *rsa_pub_key;
-				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE TRY load_public_key_from_str");
+				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE TRY load_public_key_from_str", NO_UI_LOG);
 				load_public_key_from_str(&rsa_pub_key, server_rsa_pub_key);
-				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE DONE load_public_key_from_str");
+				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE DONE load_public_key_from_str", NO_UI_LOG);
 				int result_len = 0;
 				unsigned char rsa_encrypted_aes_key[NUM_BYTES_RSA_ENCRYPTED_DATA];
 				memset(rsa_encrypted_aes_key, '\0', NUM_BYTES_RSA_ENCRYPTED_DATA);
 				printf("Attempting to encrypt (%d) bytes\n", NUM_BYTES_AES_KEY);
-				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE TRY rsa_encrypt");
+				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE TRY rsa_encrypt", NO_UI_LOG);
 				rsa_encrypt(rsa_pub_key, aes_key, NUM_BYTES_AES_KEY, rsa_encrypted_aes_key, &result_len);
-				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE DONE rsa_encrypt");
+				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE DONE rsa_encrypt", NO_UI_LOG);
 				printf("rsa_encrypted:(%s)(%d)\n", rsa_encrypted_aes_key, result_len);
 
 				memset(&buf, '\0', SZ_AUN_BF);
 				buf.status = AUTHN_STATUS_AES_SWAP;
 				// TODO encrypt AES key with RSA key before sending
-				memset(buf.aes_key, '\0', NUM_BYTES_RSA_ENCRYPTED_DATA);
 				memcpy(buf.aes_key, rsa_encrypted_aes_key, result_len);
-				memset(buf.aes_iv, '\0', NUM_BYTES_AES_IV);
 				memcpy(buf.aes_iv, aes_iv, NUM_BYTES_AES_IV);
 
 				authn_sendto_len = send(authn_sock_fd, &buf, SZ_AUN_BF, 0);
@@ -387,7 +385,7 @@ void *authn_thread_routine(void *arg) {
 					sprintf(w, "authn sendto failed with %zu", authn_sendto_len);
 					pfail(w);
 				}
-				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE SENT");
+				if (general_cb) general_cb("AUTHN_STATUS_RSA_SWAP_RESPONSE SENT", NO_UI_LOG);
 				break;
 			}
 			case AUTHN_STATUS_AES_SWAP_RESPONSE: {
@@ -449,7 +447,7 @@ int authn(NODE_USER_STATUS user_stat,
 	void (*aes_response)(NODE_USER_STATUS),
 	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, char *username,
 		char *password, unsigned char[AUTHEN_TOKEN_LEN]),
-	void (*general)(char*)) {
+	void (*general)(char*, LOG_LEVEL)) {
 
 	pfail_cb = pfail;
 	rsakeypair_generated_cb = rsakeypair_generated;
@@ -800,7 +798,7 @@ void *wain_thread_routine(void *arg) {
 				}
 				// TODO add status to populate self->nodes
 				case STATUS_STAY_IN_TOUCH_RESPONSE: {
-					// if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_MAIN);
+					if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_MAIN);
 					break;
 				}
 				case STATUS_DEINIT_NODE: {
@@ -1127,7 +1125,7 @@ void *chat_hp_server(void *w) {
 					break;
 				}
 				case CHAT_STATUS_STAY_IN_TOUCH_RESPONSE: {
-					// if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_CHAT);
+					if (stay_touch_recd_cb) stay_touch_recd_cb(SERVER_CHAT);
 					break;
 				}
 				default: printf("&-&-&-&-&-&-&-&-&-&-&-& chat server\n");
