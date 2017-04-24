@@ -139,8 +139,13 @@ void load_hashtbl_from_db() {
 	add_user(&hashtbl, "mike_schmidt", "ms");
 	add_user(&hashtbl, "alan_turing", "at");
 	add_user(&hashtbl, "w", "w");
+	add_user(&hashtbl, "apple_review", "password_apple");
+
+	add_contact_to_hashtbl(&hashtbl, "apple_review", "waynemystir");
+	add_contact_to_hashtbl(&hashtbl, "apple_review", "alan_turing");
 
 	add_contact_to_hashtbl(&hashtbl, "alan_turing", "waynemystir");
+	add_contact_to_hashtbl(&hashtbl, "alan_turing", "apple_review");
 	add_contact_to_hashtbl(&hashtbl, "alan_turing", "mike_schmidt");
 	add_contact_to_hashtbl(&hashtbl, "alan_turing", "alan_turing");
 	add_contact_to_hashtbl(&hashtbl, "alan_turing", "julius_erving");
@@ -157,6 +162,7 @@ void load_hashtbl_from_db() {
 	add_contact_to_hashtbl(&hashtbl, "mike_schmidt", "julius_erving");
 	
 	add_contact_to_hashtbl(&hashtbl, "waynemystir", "waynemystir");
+	add_contact_to_hashtbl(&hashtbl, "waynemystir", "apple_review");
 	add_contact_to_hashtbl(&hashtbl, "waynemystir", "mike_schmidt");
 	add_contact_to_hashtbl(&hashtbl, "waynemystir", "alan_turing");
 	add_contact_to_hashtbl(&hashtbl, "waynemystir", "julius_erving");
