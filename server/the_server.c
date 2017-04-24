@@ -432,30 +432,33 @@ void *authentication_server_endpoint(void *arg) {
 			printf("AUTH received packet (%d):(%s) (%zu bytes) from %s port%d %d\n", buf.status,
 				authn_status_to_str(buf.status), recvf_len, ip_str, port, family);
 
-start_switch:
+// start_switch:
 			switch (buf.status) {
 				case AUTHN_STATUS_ENCRYPTED: {
+					printf("AUTHN_STATUS_ENCRYPTED started\n");
 					char *key = authn_addr_info_to_key(family, ip_str, port);
-					printf("The node's key (%s)\n", key);
+					printf("AUTHN_STATUS_ENCRYPTED The node's key (%s)\n", key);
 					authn_node_t *an = lookup_authn_node(&authn_tbl, key);
 					if (!an) {
-						printf("No node was found for key (%s)\n", key);
+						printf("AUTHN_STATUS_ENCRYPTED No node was found for key (%s)\n", key);
 						break;
 					}
 					printf("And the node was found with key (%s)\n", an->key);
+					printf("I have temporarily disabled encryption, so how can AUTHN_STATUS_ENCRYPTED possibly be called????\n");
+					break;
 
-					authn_buf_encrypted_t *be = (authn_buf_encrypted_t*)&buf;
+					// authn_buf_encrypted_t *be = (authn_buf_encrypted_t*)&buf;
 
-					unsigned char decrypted_buf[SZ_AUN_BF + AES_PADDING];
-					memset(decrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
-					printf("Lets AES descrypt with (%s)(%s)(%s)\n", be ? "GOD" : "BAD",
-						an->aes_key ? "GOD" : "BAD", an->aes_iv ? "GOD" : "BAD");
-					int dl = aes_decrypt(be->encrypted_buf, be->encrypted_len, an->aes_key, an->aes_iv, decrypted_buf);
-					printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
-					memset(&buf, '\0', sizeof(buf));
-					memcpy(&buf, decrypted_buf, dl);
-					printf("aes_decrypt copied (%s)\n", buf.id);
-					goto start_switch;
+					// unsigned char decrypted_buf[SZ_AUN_BF + AES_PADDING];
+					// memset(decrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
+					// printf("Lets AES descrypt with (%s)(%s)(%s)\n", be ? "GOD" : "BAD",
+					// 	an->aes_key ? "GOD" : "BAD", an->aes_iv ? "GOD" : "BAD");
+					// int dl = aes_decrypt(be->encrypted_buf, be->encrypted_len, an->aes_key, an->aes_iv, decrypted_buf);
+					// printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
+					// memset(&buf, '\0', sizeof(buf));
+					// memcpy(&buf, decrypted_buf, dl);
+					// printf("aes_decrypt copied (%s)\n", buf.id);
+					// goto start_switch;
 				}
 				case AUTHN_STATUS_RSA_SWAP: {
 					char *key = authn_addr_info_to_key(family, ip_str, port);
