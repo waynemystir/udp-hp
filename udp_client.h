@@ -28,6 +28,7 @@ int authn(NODE_USER_STATUS user_stat,
 	void (*aes_response)(NODE_USER_STATUS),
 	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, char *username,
 		char *password, unsigned char[AUTHEN_TOKEN_LEN]),
+	void (*server_connection_failure)(SERVER_TYPE, char*),
 	void (*general)(char*, LOG_LEVEL));
 
 int send_user(NODE_USER_STATUS nus, char *usernm, char *pw);

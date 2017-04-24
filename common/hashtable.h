@@ -24,7 +24,7 @@ typedef struct contact {
 typedef struct contact_list {
 	contact_t *head;
 	contact_t *tail;
-	unsigned int count;
+	int count;
 } contact_list_t;
 
 typedef struct hash_node {

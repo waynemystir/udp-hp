@@ -3,6 +3,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include <openssl/rand.h>
 #include <openssl/err.h>
@@ -133,6 +134,7 @@ void (*chat_msg_cb)(char *username, char *msg) = NULL;
 void (*video_start_cb)(char *server_host_url, char *room_id) = NULL;
 void (*unhandled_response_from_server_cb)(int) = NULL;
 void (*username_results_cb)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results) = NULL;
+void (*server_connection_failure_cb)(SERVER_TYPE, char*) = NULL;
 void (*general_cb)(char*, LOG_LEVEL) = NULL;
 
 void pfail(char *w) {
@@ -230,6 +232,7 @@ int send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 			aes_key_created_cb,
 			aes_response_cb,
 			creds_check_result_cb,
+			server_connection_failure_cb,
 			general_cb);
 
 		int authn_retries = 0;
@@ -323,7 +326,8 @@ void *authn_thread_routine(void *arg) {
 
 	if (connect(authn_sock_fd, sa_authn_server, authn_server_socklen) == -1) {
 		fprintf(stderr, "Error on connect --> %s\n", strerror(errno));
-		exit(EXIT_FAILURE);
+		if (server_connection_failure_cb) server_connection_failure_cb(SERVER_AUTHN, "server is not accepting connections.");
+		pthread_exit("authn_thread exited with an error");
 	}
 
 	authn_sendto_len = send(authn_sock_fd, &buf, SZ_AUN_BF, 0);
@@ -447,6 +451,7 @@ int authn(NODE_USER_STATUS user_stat,
 	void (*aes_response)(NODE_USER_STATUS),
 	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, char *username,
 		char *password, unsigned char[AUTHEN_TOKEN_LEN]),
+	void (*server_connection_failure)(SERVER_TYPE, char*),
 	void (*general)(char*, LOG_LEVEL)) {
 
 	pfail_cb = pfail;
@@ -456,6 +461,7 @@ int authn(NODE_USER_STATUS user_stat,
 	aes_key_created_cb = aes_key_created;
 	aes_response_cb = aes_response;
 	creds_check_result_cb = creds_check_result;
+	server_connection_failure_cb = server_connection_failure;
 	general_cb = general;
 	node_user_status = user_stat;
 
@@ -496,6 +502,7 @@ int authn(NODE_USER_STATUS user_stat,
 	authn_running = 1;
 	wain_running = 1;
 
+	signal(SIGPIPE, SIG_IGN);
 	int atr = pthread_create(&authn_thread, NULL, authn_thread_routine, as);
 	if (atr) {
 		printf("ERROR in authn_thread creation; return code from pthread_create() is %d\n", atr);

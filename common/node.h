@@ -97,7 +97,7 @@ typedef struct LinkedList_min {
 typedef struct LinkedList {
 	node_t *head;
 	node_t *tail;
-	unsigned int node_count;
+	int node_count;
 } LinkedList_t;
 
 typedef struct search_buf {
