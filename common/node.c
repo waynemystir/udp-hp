@@ -74,6 +74,7 @@ int node_buf_to_addr(node_buf_t *node_buf, struct sockaddr **addr) {
 	switch (node_buf->family) {
 		case SUP_AF_INET_4: {
 			struct sockaddr_in *sai = malloc(SZ_SOCKADDR_IN);
+			memset(sai, '\0', SZ_SOCKADDR_IN);
 			sai->sin_addr.s_addr = node_buf->ip4;
 			sai->sin_port = node_buf->port;
 			sai->sin_family = AF_INET;
@@ -83,10 +84,11 @@ int node_buf_to_addr(node_buf_t *node_buf, struct sockaddr **addr) {
 		}
 		case SUP_AF_INET_6: {
 			struct sockaddr_in6 *sai = malloc(SZ_SOCKADDR_IN6);
+			memset(sai, '\0', SZ_SOCKADDR_IN6);
 			memcpy(sai->sin6_addr.s6_addr, node_buf->ip6, IP6_ADDR_LEN);
 			sai->sin6_port = node_buf->port;
 			sai->sin6_family = AF_INET;
-			*addr = (struct sockaddr*)&sai;
+			*addr = (struct sockaddr*)sai;
 			(*addr)->sa_family = AF_INET6;
 			break;
 		}
