@@ -771,12 +771,12 @@ void *main_server_endpoint(void *arg) {
 		SZ_NODE_BF, sizeof(node_buf_t));
 
 	size_t recvf_len, sendto_len;
-	struct sockaddr_in *si_me;
+	struct sockaddr_in6 *si_me;
 	node_buf_t buf;
 	// nodes = malloc(SZ_LINK_LIST);
 	// memset(nodes, '\0', SZ_LINK_LIST);
 
-	sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	sock_fd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 	if ( sock_fd == -1 ) pfail("socket");
 	printf("main_server_endpoint 1 %d\n", sock_fd);
 
@@ -786,7 +786,7 @@ void *main_server_endpoint(void *arg) {
 	// server cannot be behind a NAT.
 	char wain_port[10];
 	get_wain_port_as_str(wain_port);
-	str_to_addr((struct sockaddr**)&si_me, NULL, wain_port, AF_INET, SOCK_DGRAM, AI_PASSIVE);
+	str_to_addr((struct sockaddr**)&si_me, NULL, wain_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];

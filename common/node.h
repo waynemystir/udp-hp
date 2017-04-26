@@ -14,6 +14,7 @@
 #include "common.h"
 
 #define ID_LEN 20
+#define IP6_ADDR_LEN 16
 
 typedef enum STATUS_TYPE {
 	STATUS_INIT_NODE = 0,
@@ -46,7 +47,7 @@ typedef struct node_buf {
 	unsigned short int_or_ext; // 0 is internal and 1 is external
 	union {
 		in_addr_t ip4;
-		unsigned char ip6[16];
+		unsigned char ip6[IP6_ADDR_LEN + 1];
 		char other_id[MAX_CHARS_USERNAME];
 	};
 	in_port_t port;
@@ -59,7 +60,7 @@ typedef struct node_min {
 	unsigned short int_or_ext; // 0 is internal and 1 is external
 	union {
 		in_addr_t ip4;
-		unsigned char ip6[16];
+		unsigned char ip6[IP6_ADDR_LEN + 1];
 	};
 	in_port_t port;
 	in_port_t chat_port;
@@ -73,14 +74,14 @@ typedef struct node {
 	unsigned short int_or_ext; // 0 is internal and 1 is external
 	union {
 		in_addr_t internal_ip4;
-		unsigned char internal_ip6[16];
+		unsigned char internal_ip6[IP6_ADDR_LEN + 1];
 	};
 	in_port_t internal_port;
 	in_port_t internal_chat_port;
 	sa_family_t internal_family;
 	union {
 		in_addr_t external_ip4;
-		unsigned char external_ip6[16];
+		unsigned char external_ip6[IP6_ADDR_LEN + 1];
 	};
 	in_port_t external_port;
 	in_port_t external_chat_port;

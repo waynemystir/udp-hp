@@ -60,7 +60,7 @@ void addr_to_node_buf(struct sockaddr *sa,
 		}
 		case AF_INET6: {
 			struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)sa;
-			memcpy(new_node_buf->ip6, sa6->sin6_addr.s6_addr, sizeof(unsigned char[16]));
+			memcpy(new_node_buf->ip6, sa6->sin6_addr.s6_addr, IP6_ADDR_LEN);
 			new_node_buf->port = sa6->sin6_port;
 			break;
 		}
@@ -83,7 +83,7 @@ int node_buf_to_addr(node_buf_t *node_buf, struct sockaddr **addr) {
 		}
 		case AF_INET6: {
 			struct sockaddr_in6 *sai = malloc(SZ_SOCKADDR_IN6);
-			memcpy(sai->sin6_addr.s6_addr, node_buf->ip6, sizeof(unsigned char[16]));
+			memcpy(sai->sin6_addr.s6_addr, node_buf->ip6, IP6_ADDR_LEN);
 			sai->sin6_port = node_buf->port;
 			sai->sin6_family = AF_INET;
 			*addr = (struct sockaddr*)&sai;
@@ -115,7 +115,7 @@ void node_buf_to_node_min(node_buf_t *nb, node_min_t **nm) {
 			break;
 		}
 		case AF_INET6: {
-			memcpy(new_node_min->ip6, nb->ip6, 16);
+			memcpy(new_node_min->ip6, nb->ip6, IP6_ADDR_LEN);
 			break;
 		}
 		default: break;
@@ -137,7 +137,7 @@ void node_min_to_node_buf(node_min_t *nm, node_buf_t **nb) {
 			break;
 		}
 		case AF_INET6: {
-			memcpy(new_node_buf->ip6, nm->ip6, 16);
+			memcpy(new_node_buf->ip6, nm->ip6, IP6_ADDR_LEN);
 			break;
 		}
 		default: break;
@@ -305,11 +305,11 @@ int nodes_equal(node_t *n1, node_t *n2) {
 			return n1_ip4 == n2_ip4;
 		}
 		case AF_INET6: {
-			unsigned char n1_ip6[16];
-			memcpy(n1_ip6, n1->int_or_ext == INTERNAL_ADDR ? n1->internal_ip6 : n1->external_ip6, 16);
-			unsigned char n2_ip6[16];
-			memcpy(n2_ip6, n2->int_or_ext == INTERNAL_ADDR ? n2->internal_ip6 : n2->external_ip6, 16);
-			return memcmp(n1_ip6, n2_ip6, 16) == 0;
+			unsigned char n1_ip6[IP6_ADDR_LEN];
+			memcpy(n1_ip6, n1->int_or_ext == INTERNAL_ADDR ? n1->internal_ip6 : n1->external_ip6, IP6_ADDR_LEN);
+			unsigned char n2_ip6[IP6_ADDR_LEN];
+			memcpy(n2_ip6, n2->int_or_ext == INTERNAL_ADDR ? n2->internal_ip6 : n2->external_ip6, IP6_ADDR_LEN);
+			return memcmp(n1_ip6, n2_ip6, IP6_ADDR_LEN) == 0;
 		}
 		default: return 0;
 	}
@@ -329,7 +329,7 @@ int node_and_node_buf_equal(node_t *n, node_buf_t *nb) {
 				break;
 			}
 			case AF_INET6: {
-				memcpy(nb_node.internal_ip6, nb->ip6, 16);
+				memcpy(nb_node.internal_ip6, nb->ip6, IP6_ADDR_LEN);
 				break;
 			}
 			default: break;
@@ -344,7 +344,7 @@ int node_and_node_buf_equal(node_t *n, node_buf_t *nb) {
 				break;
 			}
 			case AF_INET6: {
-				memcpy(nb_node.external_ip6, nb->ip6, 16);
+				memcpy(nb_node.external_ip6, nb->ip6, IP6_ADDR_LEN);
 				break;
 			}
 			default: break;
@@ -387,17 +387,18 @@ int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr, SERVER_TYPE st)
 
 	switch (addr->sa_family) {
 		case AF_INET: {
+			printf("node_and_sockaddr_equal IP 444444\n");
 			struct sockaddr_in *sa4 = (struct sockaddr_in *)addr;
 			in_addr_t ip4 = node->int_or_ext == INTERNAL_ADDR ? node->internal_ip4 : node->external_ip4;
 			return ip4 == sa4->sin_addr.s_addr &&
 				aport == sa4->sin_port;
 		}
 		case AF_INET6: {
+			printf("node_and_sockaddr_equal IP 666666\n");
 			struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)addr;
-			unsigned char ip6[16] = {0};
-			memcpy(ip6, node->int_or_ext == INTERNAL_ADDR ? node->internal_ip6 : node->external_ip6, 16);
-			// TODO replace with memcmp
-			return ip6 == sa6->sin6_addr.s6_addr &&
+			unsigned char ip6[IP6_ADDR_LEN] = {0};
+			memcpy(ip6, node->int_or_ext == INTERNAL_ADDR ? node->internal_ip6 : node->external_ip6, IP6_ADDR_LEN);
+			return memcmp(ip6, sa6->sin6_addr.s6_addr, IP6_ADDR_LEN) == 0 &&
 				aport == sa6->sin6_port;
 		}
 		default: return 0;
@@ -430,7 +431,7 @@ void node_to_internal_addr(node_t *node, struct sockaddr **addr) {
 		}
 		case AF_INET6: {
 			struct sockaddr_in6 *sai = malloc(SZ_SOCKADDR_IN6);
-			memcpy(sai->sin6_addr.s6_addr, node->internal_ip6, sizeof(unsigned char[16]));
+			memcpy(sai->sin6_addr.s6_addr, node->internal_ip6, IP6_ADDR_LEN);
 			sai->sin6_port = node->internal_port;
 			sai->sin6_family = AF_INET;
 			*addr = (struct sockaddr*)&sai;
@@ -458,7 +459,7 @@ void node_to_external_addr(node_t *node, struct sockaddr **addr) {
 		}
 		case AF_INET6: {
 			struct sockaddr_in6 *sai = malloc(SZ_SOCKADDR_IN6);
-			memcpy(sai->sin6_addr.s6_addr, node->external_ip6, sizeof(unsigned char[16]));
+			memcpy(sai->sin6_addr.s6_addr, node->external_ip6, IP6_ADDR_LEN);
 			sai->sin6_port = node->external_port;
 			sai->sin6_family = AF_INET;
 			*addr = (struct sockaddr*)&sai;
@@ -475,6 +476,7 @@ void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf, char id[MAX_
 	if (!node || !node_buf) return;
 
 	node_buf_t *new_node_buf = malloc(SZ_NODE_BF);
+	memset(new_node_buf, '\0', SZ_NODE_BF);
 	*node_buf = new_node_buf;
 	new_node_buf->status = node->status;
 	strcpy(new_node_buf->id, id);
@@ -488,7 +490,7 @@ void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf, char id[MAX_
 			break;
 		}
 		case AF_INET6: {
-			memcpy(new_node_buf->ip6, node->internal_ip6, sizeof(unsigned char[16]));
+			memcpy(new_node_buf->ip6, node->internal_ip6, IP6_ADDR_LEN);
 			break;
 		}
 		default: break;
@@ -499,6 +501,7 @@ void node_external_to_node_buf(node_t *node, node_buf_t **node_buf, char id[MAX_
 	if (!node || !node_buf) return;
 
 	node_buf_t *new_node_buf = malloc(SZ_NODE_BF);
+	memset(new_node_buf, '\0', SZ_NODE_BF);
 	*node_buf = new_node_buf;
 	new_node_buf->status = node->status;
 	strcpy(new_node_buf->id, id);
@@ -508,11 +511,13 @@ void node_external_to_node_buf(node_t *node, node_buf_t **node_buf, char id[MAX_
 	new_node_buf->chat_port = node->external_chat_port;
 	switch (node->external_family) {
 		case AF_INET: {
+			printf("node_external_to_node_buf 444444 (%d)(%d)\n", new_node_buf->family, node->external_family);
 			new_node_buf->ip4 = node->external_ip4;
 			break;
 		}
 		case AF_INET6: {
-			memcpy(new_node_buf->ip6, node->external_ip6, sizeof(unsigned char[16]));
+			printf("node_external_to_node_buf 666666 (%d)(%d)\n", new_node_buf->family, node->external_family);
+			memcpy(new_node_buf->ip6, node->external_ip6, IP6_ADDR_LEN);
 			break;
 		}
 		default: break;
@@ -534,7 +539,7 @@ void node_buf_to_node(node_buf_t *nb, node_t **n) {
 				break;
 			}
 			case AF_INET6: {
-				memcpy(new_node->internal_ip6, nb->ip6, 16);
+				memcpy(new_node->internal_ip6, nb->ip6, IP6_ADDR_LEN);
 				break;
 			}
 			default: break;
@@ -549,7 +554,7 @@ void node_buf_to_node(node_buf_t *nb, node_t **n) {
 				break;
 			}
 			case AF_INET6: {
-				memcpy(new_node->external_ip6, nb->ip6, 16);
+				memcpy(new_node->external_ip6, nb->ip6, IP6_ADDR_LEN);
 				break;
 			}
 			default: break;
