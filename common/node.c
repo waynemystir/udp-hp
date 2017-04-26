@@ -50,15 +50,15 @@ void addr_to_node_buf(struct sockaddr *sa,
 	new_node_buf->status = status;
 	strcpy(new_node_buf->id, id);
 	new_node_buf->int_or_ext = int_or_ext;
-	new_node_buf->family = sa->sa_family;
+	new_node_buf->family = sa_fam_to_sup_fam(sa->sa_family);
 	switch (new_node_buf->family) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			struct sockaddr_in *sa4 = (struct sockaddr_in *)sa;
 			new_node_buf->ip4 = sa4->sin_addr.s_addr;
 			new_node_buf->port = sa4->sin_port;
 			break;
 		}
-		case AF_INET6: {
+		case SUP_AF_INET_6: {
 			struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)sa;
 			memcpy(new_node_buf->ip6, sa6->sin6_addr.s6_addr, IP6_ADDR_LEN);
 			new_node_buf->port = sa6->sin6_port;
@@ -72,7 +72,7 @@ int node_buf_to_addr(node_buf_t *node_buf, struct sockaddr **addr) {
 	if (!addr || !node_buf) return -1;
 
 	switch (node_buf->family) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			struct sockaddr_in *sai = malloc(SZ_SOCKADDR_IN);
 			sai->sin_addr.s_addr = node_buf->ip4;
 			sai->sin_port = node_buf->port;
@@ -81,7 +81,7 @@ int node_buf_to_addr(node_buf_t *node_buf, struct sockaddr **addr) {
 			(*addr)->sa_family = AF_INET;
 			break;
 		}
-		case AF_INET6: {
+		case SUP_AF_INET_6: {
 			struct sockaddr_in6 *sai = malloc(SZ_SOCKADDR_IN6);
 			memcpy(sai->sin6_addr.s6_addr, node_buf->ip6, IP6_ADDR_LEN);
 			sai->sin6_port = node_buf->port;
@@ -98,52 +98,6 @@ int node_buf_to_addr(node_buf_t *node_buf, struct sockaddr **addr) {
 	return 0;
 }
 
-void node_buf_to_node_min(node_buf_t *nb, node_min_t **nm) {
-	if (!nb || !nm) return;
-
-	node_min_t *new_node_min = malloc(SZ_NODE_MN);
-	*nm = new_node_min;
-	new_node_min->next = NULL;
-	new_node_min->status = nb->status;
-	new_node_min->int_or_ext = nb->int_or_ext;
-	new_node_min->port = nb->port;
-	new_node_min->chat_port = USHRT_MAX;
-	new_node_min->family = nb->family;
-	switch (new_node_min->family) {
-		case AF_INET: {
-			new_node_min->ip4 = nb->ip4;
-			break;
-		}
-		case AF_INET6: {
-			memcpy(new_node_min->ip6, nb->ip6, IP6_ADDR_LEN);
-			break;
-		}
-		default: break;
-	}
-}
-
-void node_min_to_node_buf(node_min_t *nm, node_buf_t **nb) {
-	if (!nm || !nb) return;
-
-	node_buf_t *new_node_buf = malloc(SZ_NODE_BF);
-	*nb = new_node_buf;
-	new_node_buf->status = nm->status;
-	new_node_buf->int_or_ext = nm->int_or_ext;
-	new_node_buf->port = nm->port;
-	new_node_buf->family = nm->family;
-	switch (new_node_buf->family) {
-		case AF_INET: {
-			new_node_buf->ip4 = nm->ip4;
-			break;
-		}
-		case AF_INET6: {
-			memcpy(new_node_buf->ip6, nm->ip6, IP6_ADDR_LEN);
-			break;
-		}
-		default: break;
-	}
-}
-
 void get_approp_node_bufs(node_t *n1, node_t *n2,
 				node_buf_t **nb1, node_buf_t **nb2,
 				char id1[MAX_CHARS_USERNAME], char id2[MAX_CHARS_USERNAME]) {
@@ -158,130 +112,13 @@ void get_approp_node_bufs(node_t *n1, node_t *n2,
 	}
 }
 
-int nodes_min_equal(node_min_t *n1, node_min_t *n2) {
-	if (!n1 || !n2) return 0;
-	if (n1->family != n2->family) return 0;
-	if (n1->port != n2->port) return 0;
-
-	switch (n1->family) {
-		case AF_INET: return n1->ip4 == n2->ip4;
-		case AF_INET6: return n1->ip6 == n2->ip6;
-		default: return 0;
-	}
-}
-
-node_min_t *find_node_min(LinkedList_min_t *list, node_min_t *node) {
-	if (!list || !list->head) return NULL;
-
-	node_min_t *p = list->head;
-	while (p) {
-		if (nodes_min_equal(p, node)) return p;
-		p = p->next;
-	}
-	return NULL;
-}
-
-int node_min_and_node_buf_equal(node_min_t *node_m, node_buf_t *node_b) {
-	if (!node_m || !node_b) return 0;
-	if (node_m->family != node_b->family) return 0;
-	if (node_m->port != node_b->port) return 0;
-	// TODO I intentially didn't check chat_port here
-	// because this function is only called from 
-	// udp_client.case STATUS_PROCEED_CHAT_HP, where
-	// we are just now receiving the chat port
-
-	switch (node_m->family) {
-		case AF_INET: return node_m->ip4 == node_b->ip4;
-		case AF_INET6: return node_m->ip6 == node_m->ip6;
-		default: return 0;
-	}
-}
-
-node_min_t *find_node_min_from_node_buf(LinkedList_min_t *list, node_buf_t *node_b) {
-	if (!list || !node_b) return NULL;
-
-	node_min_t *p = list->head;
-	while (p) {
-		if (node_min_and_node_buf_equal(p, node_b)) return p;
-		p = p->next;
-	}
-	return NULL;
-}
-
-int node_min_and_sockaddr_equal(node_min_t *node, struct sockaddr *addr, SERVER_TYPE st) {
-	if (!node || !addr) return 0;
-	if (node->family != addr->sa_family) return 0;
-	in_port_t aport;
-	switch (st) {
-		case SERVER_MAIN: {
-			aport = node->port;
-			break;
-		}
-		case SERVER_CHAT: {
-			aport = node->chat_port;
-			break;
-		}
-		default: return 0;
-	}
-
-	switch (addr->sa_family) {
-		case AF_INET: {
-			struct sockaddr_in *sa4 = (struct sockaddr_in *)addr;
-			return node->ip4 == sa4->sin_addr.s_addr &&
-				aport == sa4->sin_port;
-		}
-		case AF_INET6: {
-			struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)addr;
-			return node->ip6 == sa6->sin6_addr.s6_addr &&
-				aport == sa6->sin6_port;
-		}
-		default: return 0;
-	}
-}
-
-node_min_t *find_node_min_from_sockaddr(LinkedList_min_t *list, struct sockaddr *addr, SERVER_TYPE st) {
-	if (!list || !addr) return NULL;
-
-	node_min_t *p = list->head;
-	while (p) {
-		if (node_min_and_sockaddr_equal(p, addr, st)) return p;
-		p = p->next;
-	}
-	return NULL;
-}
-
-void add_node_min(LinkedList_min_t *list, node_min_t *node) {
-	if (!list || !node) return;
-	node->next = NULL;
-
-	if (!list->head) {
-		list->head = node;
-		list->tail = node;
-	} else {
-		list->tail->next = node;
-		list->tail = node;
-	}
-
-	list->node_count++;
-}
-
-void nodes_min_perform(LinkedList_min_t *list, void (*perform)(node_min_t *node)) {
-	if (!list || !list->head) return;
-
-	node_min_t *p = list->head;
-	while (p) {
-		perform(p);
-		p = p->next;
-	}
-}
-
 int same_nat(node_t *n1, node_t *n2) {
 	if (!n1 || !n2) return 0;
 	if (n1->external_family != n2->external_family) return 0;
 
 	switch (n1->external_family) {
-		case AF_INET: return n1->external_ip4 == n2->external_ip4;
-		case AF_INET6: return n1->external_ip6 == n2->external_ip6;
+		case SUP_AF_INET_4: return n1->external_ip4 == n2->external_ip4;
+		case SUP_AF_INET_6: return memcmp(n1->external_ip6, n2->external_ip6, IP6_ADDR_LEN);
 		default: return 0;
 	}
 }
@@ -290,8 +127,8 @@ int nodes_equal(node_t *n1, node_t *n2) {
 	if (!n1 || !n2) return 0;
 	if (n1->int_or_ext != n2->int_or_ext) return 0;
 
-	sa_family_t n1_fam = n1->int_or_ext == INTERNAL_ADDR ? n1->internal_family : n1->external_family;
-	sa_family_t n2_fam = n2->int_or_ext == INTERNAL_ADDR ? n2->internal_family : n2->external_family;
+	SUP_FAMILY_T n1_fam = n1->int_or_ext == INTERNAL_ADDR ? n1->internal_family : n1->external_family;
+	SUP_FAMILY_T n2_fam = n2->int_or_ext == INTERNAL_ADDR ? n2->internal_family : n2->external_family;
 	if (n1_fam != n2_fam) return 0;
 
 	in_port_t n1_port = n1->int_or_ext == INTERNAL_ADDR ? n1->internal_port : n1->external_port;
@@ -299,12 +136,12 @@ int nodes_equal(node_t *n1, node_t *n2) {
 	if (n1_port != n2_port) return 0;
 
 	switch (n1_fam) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			in_addr_t n1_ip4 = n1->int_or_ext == INTERNAL_ADDR ? n1->internal_ip4 : n1->external_ip4;
 			in_addr_t n2_ip4 = n2->int_or_ext == INTERNAL_ADDR ? n2->internal_ip4 : n2->external_ip4;
 			return n1_ip4 == n2_ip4;
 		}
-		case AF_INET6: {
+		case SUP_AF_INET_6: {
 			unsigned char n1_ip6[IP6_ADDR_LEN];
 			memcpy(n1_ip6, n1->int_or_ext == INTERNAL_ADDR ? n1->internal_ip6 : n1->external_ip6, IP6_ADDR_LEN);
 			unsigned char n2_ip6[IP6_ADDR_LEN];
@@ -324,11 +161,11 @@ int node_and_node_buf_equal(node_t *n, node_buf_t *nb) {
 	if (nb_node.int_or_ext == INTERNAL_ADDR) {
 		nb_node.internal_family = nb->family;
 		switch (nb_node.internal_family) {
-			case AF_INET: {
+			case SUP_AF_INET_4: {
 				nb_node.internal_ip4 = nb->ip4;
 				break;
 			}
-			case AF_INET6: {
+			case SUP_AF_INET_6: {
 				memcpy(nb_node.internal_ip6, nb->ip6, IP6_ADDR_LEN);
 				break;
 			}
@@ -339,11 +176,11 @@ int node_and_node_buf_equal(node_t *n, node_buf_t *nb) {
 	} else {
 		nb_node.external_family = nb->family;
 		switch (nb_node.external_family) {
-			case AF_INET: {
+			case SUP_AF_INET_4: {
 				nb_node.external_ip4 = nb->ip4;
 				break;
 			}
-			case AF_INET6: {
+			case SUP_AF_INET_6: {
 				memcpy(nb_node.external_ip6, nb->ip6, IP6_ADDR_LEN);
 				break;
 			}
@@ -369,8 +206,9 @@ struct node *find_node(LinkedList_t *list, node_t *node) {
 
 int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr, SERVER_TYPE st) {
 	if (!node || !addr) return 0;
-	sa_family_t fam = node->int_or_ext == INTERNAL_ADDR ? node->internal_family : node->external_family;
-	if (fam != addr->sa_family) return 0;
+	SUP_FAMILY_T sup_fam = node->int_or_ext == INTERNAL_ADDR ? node->internal_family : node->external_family;
+	sa_family_t sa_fam = sup_fam_to_sa_fam(sup_fam);
+	if (sa_fam != addr->sa_family) return 0;
 	in_port_t aport;
 	switch (st) {
 		case SERVER_SEARCH:
@@ -420,7 +258,7 @@ void node_to_internal_addr(node_t *node, struct sockaddr **addr) {
 	if (!node || !addr) return;
 
 	switch (node->internal_family) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			struct sockaddr_in *sai = malloc(SZ_SOCKADDR_IN);
 			sai->sin_addr.s_addr = node->internal_ip4;
 			sai->sin_port = node->internal_port;
@@ -429,7 +267,7 @@ void node_to_internal_addr(node_t *node, struct sockaddr **addr) {
 			(*addr)->sa_family = AF_INET;
 			break;
 		}
-		case AF_INET6: {
+		case SUP_AF_INET_6: {
 			struct sockaddr_in6 *sai = malloc(SZ_SOCKADDR_IN6);
 			memcpy(sai->sin6_addr.s6_addr, node->internal_ip6, IP6_ADDR_LEN);
 			sai->sin6_port = node->internal_port;
@@ -448,7 +286,7 @@ void node_to_external_addr(node_t *node, struct sockaddr **addr) {
 	if (!node || !addr) return;
 
 	switch (node->external_family) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			struct sockaddr_in *sai = malloc(SZ_SOCKADDR_IN);
 			sai->sin_addr.s_addr = node->external_ip4;
 			sai->sin_port = node->external_port;
@@ -457,7 +295,7 @@ void node_to_external_addr(node_t *node, struct sockaddr **addr) {
 			(*addr)->sa_family = AF_INET;
 			break;
 		}
-		case AF_INET6: {
+		case SUP_AF_INET_6: {
 			struct sockaddr_in6 *sai = malloc(SZ_SOCKADDR_IN6);
 			memcpy(sai->sin6_addr.s6_addr, node->external_ip6, IP6_ADDR_LEN);
 			sai->sin6_port = node->external_port;
@@ -485,11 +323,11 @@ void node_internal_to_node_buf(node_t *node, node_buf_t **node_buf, char id[MAX_
 	new_node_buf->port = node->internal_port;
 	new_node_buf->chat_port = node->internal_chat_port;
 	switch (node->internal_family) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			new_node_buf->ip4 = node->internal_ip4;
 			break;
 		}
-		case AF_INET6: {
+		case SUP_AF_INET_6: {
 			memcpy(new_node_buf->ip6, node->internal_ip6, IP6_ADDR_LEN);
 			break;
 		}
@@ -510,12 +348,12 @@ void node_external_to_node_buf(node_t *node, node_buf_t **node_buf, char id[MAX_
 	new_node_buf->port = node->external_port;
 	new_node_buf->chat_port = node->external_chat_port;
 	switch (node->external_family) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			printf("node_external_to_node_buf 444444 (%d)(%d)\n", new_node_buf->family, node->external_family);
 			new_node_buf->ip4 = node->external_ip4;
 			break;
 		}
-		case AF_INET6: {
+		case SUP_AF_INET_6: {
 			printf("node_external_to_node_buf 666666 (%d)(%d)\n", new_node_buf->family, node->external_family);
 			memcpy(new_node_buf->ip6, node->external_ip6, IP6_ADDR_LEN);
 			break;
@@ -534,11 +372,11 @@ void node_buf_to_node(node_buf_t *nb, node_t **n) {
 	if (new_node->int_or_ext == INTERNAL_ADDR) {
 		new_node->internal_family = nb->family;
 		switch (new_node->internal_family) {
-			case AF_INET: {
+			case SUP_AF_INET_4: {
 				new_node->internal_ip4 = nb->ip4;
 				break;
 			}
-			case AF_INET6: {
+			case SUP_AF_INET_6: {
 				memcpy(new_node->internal_ip6, nb->ip6, IP6_ADDR_LEN);
 				break;
 			}
@@ -549,11 +387,11 @@ void node_buf_to_node(node_buf_t *nb, node_t **n) {
 	} else {
 		new_node->external_family = nb->family;
 		switch (new_node->external_family) {
-			case AF_INET: {
+			case SUP_AF_INET_4: {
 				new_node->external_ip4 = nb->ip4;
 				break;
 			}
-			case AF_INET6: {
+			case SUP_AF_INET_6: {
 				memcpy(new_node->external_ip6, nb->ip6, IP6_ADDR_LEN);
 				break;
 			}

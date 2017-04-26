@@ -5,6 +5,23 @@
 
 #include "common.h"
 
+sa_family_t sup_fam_to_sa_fam(SUP_FAMILY_T sf) {
+	switch (sf) {
+		case SUP_UNKNOWN: return 0;
+		case SUP_AF_INET_4: return AF_INET;
+		case SUP_AF_INET_6: return AF_INET6;
+	}
+	return 0;
+}
+
+SUP_FAMILY_T sa_fam_to_sup_fam(sa_family_t sf) {
+	switch (sf) {
+		case AF_INET: return SUP_AF_INET_4;
+		case AF_INET6: return SUP_AF_INET_6;
+		default: return SUP_UNKNOWN;
+	}
+}
+
 static ENVIRONMENT environment = ENV_PROD;
 static char server_ip_str[] = "142.105.56.124";
 

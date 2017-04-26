@@ -35,6 +35,16 @@
 #define VIDEO_SERVER_HOST_URL "https://appr.tc"
 #define MAX_CHAT_MSG_LEN 256
 
+typedef enum SUP_FAMILY {
+	SUP_UNKNOWN = 1000,
+	SUP_AF_INET_4 = 1001,
+	SUP_AF_INET_6 = 1002,
+} SUP_FAMILY_T;
+
+sa_family_t sup_fam_to_sa_fam(SUP_FAMILY_T sf);
+
+SUP_FAMILY_T sa_fam_to_sup_fam(sa_family_t sf);
+
 extern const char USERNAME_ALLOWED_CHARS[65];
 
 typedef enum SERVER_TYPE {
