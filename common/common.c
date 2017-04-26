@@ -316,7 +316,7 @@ int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr) {
 	if (!cb || !addr) return -1;
 
 	switch (cb->family) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			struct sockaddr_in *sai = malloc(sizeof(struct sockaddr_in));
 			sai->sin_addr.s_addr = cb->ip4;
 			sai->sin_port = cb->port;
@@ -325,7 +325,7 @@ int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr) {
 			(*addr)->sa_family = AF_INET;
 			break;
 		}
-		case AF_INET6: {
+		case SUP_AF_INET_6: {
 			struct sockaddr_in6 *sai = malloc(sizeof(struct sockaddr_in6));
 			memcpy(sai->sin6_addr.s6_addr, cb->ip6, sizeof(unsigned char[16]));
 			sai->sin6_port = cb->port;

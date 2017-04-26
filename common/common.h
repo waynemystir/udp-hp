@@ -137,7 +137,7 @@ typedef struct chat_buf {
 		unsigned char ip6[16];
 	};
 	in_port_t port;
-	sa_family_t family;
+	SUP_FAMILY_T family;
 	char msg[MAX_CHAT_MSG_LEN];
 } chat_buf_t;
 
