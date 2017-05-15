@@ -10,6 +10,7 @@ sa_family_t sup_fam_to_sa_fam(SUP_FAMILY_T sf) {
 		case SUP_UNKNOWN: return 0;
 		case SUP_AF_INET_4: return AF_INET;
 		case SUP_AF_INET_6: return AF_INET6;
+		case SUP_AF_4_via_6: return AF_INET;
 	}
 	return 0;
 }
@@ -440,4 +441,19 @@ void get_substrings_from_beginning(char *str, char **sub_strs, unsigned int *num
 		memset(*sub_strs, '\0', nss*ml);
 		memcpy(*sub_strs, w, nss*ml);
 	}
+}
+
+int starts_with(char *s, char *w) {
+	size_t sl = strlen(s);
+	size_t wl = strlen(w);
+	if (wl > sl) return 0;
+	for (size_t i = 0; i < wl; i++) {
+		if (s[i] != w[i]) return 0;
+	}
+	return 1;
+}
+
+int is_it_actually_ipv4(struct sockaddr_in6 *addr) {
+	// if ()
+	return 0;
 }

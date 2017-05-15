@@ -200,7 +200,7 @@ void notify_existing_peer_of_new_node(node_t *existing_peer,
 	void *arg3, // the username of the new node
 	void *arg4) // the sockaddr of the new node
 {
-	printf("notify_existing_peer_of_new_node 111 ep-id(%s)(%d) nn-id(%s)(%d)\n",
+	printf("notify_existing_peer_of_new_node 111 ep-id(%s)(%lu) nn-id(%s)(%lu)\n",
 		(char*)arg2, strlen((char*)arg2), (char*)arg3, strlen((char*)arg3));
 	if (!existing_peer || !arg1) return;
 	node_t *new_node = arg1;
@@ -808,7 +808,7 @@ void *main_server_endpoint(void *arg) {
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
-	addr_to_str( (struct sockaddr*)si_me, me_ip_str, me_port, me_fam );
+	addr_to_str((struct sockaddr*)si_me, me_ip_str, me_port, me_fam);
 	printf("main_server_endpoint 2 %s %s %s %zu\n", me_ip_str, me_port, me_fam, sizeof(*si_me));
 
 	int br = bind(sock_fd, (struct sockaddr*)si_me, sizeof(*si_me));
@@ -816,15 +816,16 @@ void *main_server_endpoint(void *arg) {
 	printf("main_server_endpoint 3 %d\n", br);
 
 	while (main_server_running) {
-		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, &main_slen);
+		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, (struct sockaddr*)&si_other, &main_slen);
 		if ( recvf_len == -1) pfail("recvfrom");
+		printf("979797979797979797 (%s)\n", si_other.sin6_addr.s6_addr);
 
 		char ip_str[INET6_ADDRSTRLEN];
 		unsigned short port;
 		unsigned short family;
 		// void *addr = &(si_other.sin_addr);
 		// inet_ntop( AF_INET, &(si_other.sin_addr), ip_str, sizeof(ip_str) );
-		addr_to_str_short( &si_other, ip_str, &port, &family );
+		addr_to_str_short((struct sockaddr*)&si_other, ip_str, &port, &family);
 		if (buf.status != STATUS_STAY_IN_TOUCH)
 			printf("MAIN received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
 
@@ -887,11 +888,11 @@ void *main_server_endpoint(void *arg) {
 				// }
 				new_tail->external_family = sa_fam_to_sup_fam(si_other.sin6_family);
 				new_tail->internal_family = buf.family;
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				printf("STATUS_INIT_NODE (%s)(%d)\n", n?"SUCCESSFULLY ADDED":"FAILED ADDING", hn->nodes->node_count);
 				node_buf_t *new_tail_buf;
 				node_external_to_node_buf(new_tail, &new_tail_buf, hn->username);
-				sendto_len = sendto(sock_fd, new_tail_buf, SZ_NODE_BF, 0, &si_other, main_slen);
+				sendto_len = sendto(sock_fd, new_tail_buf, SZ_NODE_BF, 0, (struct sockaddr*)&si_other, main_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
@@ -919,7 +920,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_STAY_IN_TOUCH no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_STAY_IN_TOUCH No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -930,7 +931,7 @@ void *main_server_endpoint(void *arg) {
 					break;
 				}
 				buf.status = STATUS_STAY_IN_TOUCH_RESPONSE;
-				sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, main_slen);
+				sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, (struct sockaddr*)&si_other, main_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
@@ -943,7 +944,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_DEINIT_NODE no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_DEINIT_NODE No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -961,7 +962,7 @@ void *main_server_endpoint(void *arg) {
 				}
 
 				// TODO you can just remove (n) since we already have it
-				remove_node_with_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				remove_node_with_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				printf("STATUS_DEINIT_NODE after(%d)\n", hn->nodes->node_count);
 				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) {
 					printf("(%d):(%d):(%d)\n", no->external_ip4, ntohs(no->external_port), ntohs(no->external_chat_port));
@@ -976,7 +977,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_REQUEST_ADD_CONTACT_REQUEST no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_REQUEST_ADD_CONTACT_REQUEST No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -1018,7 +1019,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_REQUEST_ADD_CONTACT_ACCEPT no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_REQUEST_ADD_CONTACT_ACCEPT No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -1091,7 +1092,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_REQUEST_ADD_CONTACT_DENIED no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_REQUEST_ADD_CONTACT_DENIED No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -1130,7 +1131,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_ACQUIRED_CHAT_PORT no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_ACQUIRED_CHAT_PORT No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -1143,7 +1144,7 @@ void *main_server_endpoint(void *arg) {
 
 				// TODO we are duplicating calls to find_node_from_sockaddr
 				node_t *peer_with_new_chat_port = find_node_from_sockaddr(hn->nodes,
-					&si_other,
+					(struct sockaddr*)&si_other,
 					SERVER_MAIN);
 				if (peer_with_new_chat_port) {
 					peer_with_new_chat_port->external_chat_port = buf.chat_port;
@@ -1163,7 +1164,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_SIGN_OUT no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_SIGN_OUT No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -1178,7 +1179,7 @@ void *main_server_endpoint(void *arg) {
 				printf("STATUS_SIGN_OUT before(%d)\n", hn->nodes->node_count);
 				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
 				printf("\n");
-				remove_node_with_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				remove_node_with_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				printf("STATUS_SIGN_OUT after(%d)\n", hn->nodes->node_count);
 				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
 				printf("\n");
