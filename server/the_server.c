@@ -818,7 +818,6 @@ void *main_server_endpoint(void *arg) {
 	while (main_server_running) {
 		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, (struct sockaddr*)&si_other, &main_slen);
 		if ( recvf_len == -1) pfail("recvfrom");
-		printf("979797979797979797 (%s)\n", si_other.sin6_addr.s6_addr);
 
 		char ip_str[INET6_ADDRSTRLEN];
 		unsigned short port;

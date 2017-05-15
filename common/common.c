@@ -454,6 +454,11 @@ int starts_with(char *s, char *w) {
 }
 
 int is_it_actually_ipv4(struct sockaddr_in6 *addr) {
-	// if ()
-	return 0;
+	for (int i = 0; i < 10; i++)
+		if (0 != addr->sin6_addr.s6_addr[i]) return 0;
+
+	for (int j = 10; j < 12; j++)
+		if (255 != addr->sin6_addr.s6_addr[j]) return 0;
+
+	return 1;
 }
