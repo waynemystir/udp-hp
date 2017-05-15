@@ -238,6 +238,6 @@ void rand_str(char *dest, size_t length);
 
 int starts_with(char *s, char *w);
 
-int is_it_actually_ipv4(struct sockaddr_in6 *addr);
+int is_it_actually_ipv4(unsigned char*);
 
 #endif /* common_h */
