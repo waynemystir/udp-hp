@@ -316,6 +316,7 @@ void node_to_external_addr(node_t *node, struct sockaddr **addr) {
 	switch (node->external_family) {
 		case SUP_AF_INET_4: {
 			struct sockaddr_in *sai = malloc(SZ_SOCKADDR_IN);
+			memset(sai, '\0', SZ_SOCKADDR_IN);
 			sai->sin_addr.s_addr = node->external_ip4;
 			sai->sin_port = node->external_port;
 			sai->sin_family = AF_INET;
@@ -326,9 +327,10 @@ void node_to_external_addr(node_t *node, struct sockaddr **addr) {
 		case SUP_AF_4_via_6:
 		case SUP_AF_INET_6: {
 			struct sockaddr_in6 *sai = malloc(SZ_SOCKADDR_IN6);
-			memcpy(sai->sin6_addr.s6_addr, node->external_ip6, IP6_ADDR_LEN);
+			memset(sai, '\0', SZ_SOCKADDR_IN6);
+			memcpy(sai->sin6_addr.s6_addr, node->external_ip6, SZ_SOCKADDR_IN6);
 			sai->sin6_port = node->external_port;
-			sai->sin6_family = AF_INET;
+			sai->sin6_family = AF_INET6;
 			*addr = (struct sockaddr*)&sai;
 			(*addr)->sa_family = AF_INET6;
 			break;
