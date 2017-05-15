@@ -753,7 +753,9 @@ void *search_server_routine(void *arg) {
 				unsigned short wp;
 				unsigned short wf;
 				addr_to_str_short(&si_search_other_copy, wa, &wp, &wf);
-				printf("SEARCH_STATUS_USERNAME-WWW (%s)(%d)(%d)\n", wa, wp, wf);
+				printf("SEARCH_STATUS_USERNAME-WWW-111 (%s)(%d)(%d)\n", wa, wp, wf);
+				addr_to_str_short(&si_search_other, wa, &wp, &wf);
+				printf("SEARCH_STATUS_USERNAME-WWW-222 (%s)(%d)(%d)\n", wa, wp, wf);
 				node_t *n = find_node_from_sockaddr(hn->nodes, &si_search_other_copy, SERVER_SEARCH);
 				if (!n) {
 					printf("SEARCH_STATUS_USERNAME No node found for addr %s %s port%d %d\n",
