@@ -120,7 +120,7 @@ int same_nat(node_t *n1, node_t *n2) {
 
 	switch (n1->external_family) {
 		case SUP_AF_INET_4: return n1->external_ip4 == n2->external_ip4;
-		case SUP_AF_INET_6: return memcmp(n1->external_ip6, n2->external_ip6, IP6_ADDR_LEN);
+		case SUP_AF_INET_6: return memcmp(n1->external_ip6, n2->external_ip6, IP6_ADDR_LEN) == 0;
 		default: return 0;
 	}
 }
@@ -227,14 +227,12 @@ int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr, SERVER_TYPE st)
 
 	switch (addr->sa_family) {
 		case AF_INET: {
-			printf("node_and_sockaddr_equal IP 444444\n");
 			struct sockaddr_in *sa4 = (struct sockaddr_in *)addr;
 			in_addr_t ip4 = node->int_or_ext == INTERNAL_ADDR ? node->internal_ip4 : node->external_ip4;
 			return ip4 == sa4->sin_addr.s_addr &&
 				aport == sa4->sin_port;
 		}
 		case AF_INET6: {
-			printf("node_and_sockaddr_equal IP 666666\n");
 			struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)addr;
 			unsigned char ip6[IP6_ADDR_LEN] = {0};
 			memcpy(ip6, node->int_or_ext == INTERNAL_ADDR ? node->internal_ip6 : node->external_ip6, IP6_ADDR_LEN);
@@ -345,18 +343,17 @@ void node_external_to_node_buf(node_t *node, node_buf_t **node_buf, char id[MAX_
 	*node_buf = new_node_buf;
 	new_node_buf->status = node->status;
 	strcpy(new_node_buf->id, id);
+	printf("node_external_to_node_buf id(%s)(%s)\n", id, new_node_buf->id);
 	new_node_buf->int_or_ext = EXTERNAL_ADDR;
 	new_node_buf->family = node->external_family;
 	new_node_buf->port = node->external_port;
 	new_node_buf->chat_port = node->external_chat_port;
 	switch (node->external_family) {
 		case SUP_AF_INET_4: {
-			printf("node_external_to_node_buf 444444 (%d)(%d)\n", new_node_buf->family, node->external_family);
 			new_node_buf->ip4 = node->external_ip4;
 			break;
 		}
 		case SUP_AF_INET_6: {
-			printf("node_external_to_node_buf 666666 (%d)(%d)\n", new_node_buf->family, node->external_family);
 			memcpy(new_node_buf->ip6, node->external_ip6, IP6_ADDR_LEN);
 			break;
 		}
