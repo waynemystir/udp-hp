@@ -682,7 +682,7 @@ void *search_server_routine(void *arg) {
 	printf("search_endpoint 0 %s\n", (char *)arg);
 
 	size_t recvf_len, sendto_len;
-	struct sockaddr_in *si_me;
+	struct sockaddr_in6 *si_me;
 	search_buf_t buf;
 	struct sockaddr si_search_other;
 	socklen_t search_slen = SZ_SOCKADDR_IN6;
@@ -704,7 +704,7 @@ void *search_server_routine(void *arg) {
 	addr_to_str( (struct sockaddr*)si_me, me_ip_str, me_port, me_fam );
 	printf("search_endpoint 2 %s %s %s %zu\n", me_ip_str, me_port, me_fam, sizeof(*si_me));
 
-	int br = bind(search_sock_fd, (struct sockaddr*)si_me, sizeof(*si_me));
+	int br = bind(search_sock_fd, (struct sockaddr*)si_me, SZ_SOCKADDR_IN6);
 	if ( br == -1 ) pfail("bind");
 	printf("search_endpoint 3 %d\n", br);
 
