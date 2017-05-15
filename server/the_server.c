@@ -886,6 +886,10 @@ void *main_server_endpoint(void *arg) {
 				// 	}
 				// }
 				new_tail->external_family = sa_fam_to_sup_fam(si_other.sin6_family);
+				if (new_tail->external_family == AF_INET6) {
+					int i = is_it_actually_ipv4(sai6->sin6_addr.s6_addr);
+					if (i) new_tail->external_family = SUP_AF_4_via_6;
+				}
 				new_tail->internal_family = buf.family;
 				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				printf("STATUS_INIT_NODE (%s)(%d)\n", n?"SUCCESSFULLY ADDED":"FAILED ADDING", hn->nodes->node_count);
