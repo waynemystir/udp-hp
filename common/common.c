@@ -50,6 +50,23 @@ void get_environment_as_str(char *es) {
 	}
 }
 
+void get_server_hostname(char *shn) {
+	switch (environment) {
+		case ENV_DEV: {
+			sprintf(shn, "supproto-aws.dynv6.net");
+			break;
+		}
+		case ENV_STG: {
+			sprintf(shn, "supproto-aws.dynv6.net");
+			break;
+		}
+		case ENV_PROD: {
+			sprintf(shn, "supproto-aws.dynv6.net");
+			break;
+		}
+	}
+}
+
 void get_server_ip_as_str(char *sip) {
 	sprintf(sip, "%s", server_ip_str);
 }
