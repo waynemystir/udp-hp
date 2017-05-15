@@ -685,9 +685,9 @@ void *search_server_routine(void *arg) {
 	struct sockaddr_in *si_me;
 	search_buf_t buf;
 	struct sockaddr si_search_other;
-	socklen_t search_slen = sizeof(struct sockaddr);
+	socklen_t search_slen = SZ_SOCKADDR_IN6;
 
-	search_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	search_sock_fd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 	if ( search_sock_fd == -1 ) pfail("socket");
 	printf("search_endpoint 1 %d\n", search_sock_fd);
 
@@ -697,7 +697,7 @@ void *search_server_routine(void *arg) {
 	// server cannot be behind a NAT.
 	char search_port[10];
 	get_search_port_as_str(search_port);
-	str_to_addr((struct sockaddr**)&si_me, NULL, search_port, AF_INET, SOCK_DGRAM, AI_PASSIVE);
+	str_to_addr((struct sockaddr**)&si_me, NULL, search_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
