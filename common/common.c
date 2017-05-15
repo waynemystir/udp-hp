@@ -343,6 +343,7 @@ int chatbuf_to_addr(chat_buf_t *cb, struct sockaddr **addr) {
 			(*addr)->sa_family = AF_INET;
 			break;
 		}
+		case SUP_AF_4_via_6:
 		case SUP_AF_INET_6: {
 			struct sockaddr_in6 *sai = malloc(sizeof(struct sockaddr_in6));
 			memcpy(sai->sin6_addr.s6_addr, cb->ip6, sizeof(unsigned char[16]));

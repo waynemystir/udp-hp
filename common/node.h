@@ -82,6 +82,12 @@ typedef struct LinkedList {
 	int node_count;
 } LinkedList_t;
 
+typedef struct send_msg {
+	node_t *n;
+	CHAT_STATUS status;
+	char msg[MAX_CHAT_MSG_LEN];
+} send_msg_t;
+
 typedef struct search_buf {
 	SEARCH_STATUS status;
 	char id[MAX_CHARS_USERNAME];
@@ -100,6 +106,7 @@ extern const unsigned short EXTERNAL_ADDR;
 #define SZ_NODE_BF sizeof(node_buf_t)
 #define SZ_NODE sizeof(node_t)
 #define SZ_LINK_LIST sizeof(LinkedList_t)
+#define SZ_SND_MSG sizeof(send_msg_t)
 #define SZ_SRCH_BF sizeof(search_buf_t)
 #define SZ_SOCKADDR sizeof(struct sockaddr)
 #define SZ_SOCKADDR_IN sizeof(struct sockaddr_in)
