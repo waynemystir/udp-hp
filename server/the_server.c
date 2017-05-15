@@ -722,7 +722,7 @@ void *search_server_routine(void *arg) {
 
 		// TODO we should probably handle packets with a thread pool
 		// so that the next recvfrom isn't blocked by the below code
-start_switch:
+// start_switch:
 		switch(buf.status) {
 			case SEARCH_STATUS_USERNAME: {
 				printf("SEARCH_STATUS_USERNAME from %s %s port%d %d\n", buf.id, ip_str, port, family);
@@ -732,23 +732,23 @@ start_switch:
 					break;
 				}
 				struct sockaddr si_search_other_copy = si_search_other;
-				switch (si_search_other.sa_family) {
-					case AF_INET: {
-						struct sockaddr_in *sa4 = (struct sockaddr_in*)&si_search_other_copy;
-						sa4->sin_port = buf.main_port;
-						break;
-					}
-					case AF_INET6: {
+				// switch (si_search_other.sa_family) {
+				// 	case AF_INET: {
+				// 		struct sockaddr_in *sa4 = (struct sockaddr_in*)&si_search_other_copy;
+				// 		sa4->sin_port = buf.main_port;
+				// 		break;
+				// 	}
+				// 	case AF_INET6: {
 						struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)&si_search_other_copy;
 						sa6->sin6_port = buf.main_port;
-						break;
-					}
-					default: {
-						printf("SEARCH_STATUS_USERNAME: A problem occurred:"
-							" si_search_other.sa_family is neither AF_INET nor AF_INET6\n");
-						goto start_switch;
-					}
-				}
+				// 		break;
+				// 	}
+				// 	default: {
+				// 		printf("SEARCH_STATUS_USERNAME: A problem occurred:"
+				// 			" si_search_other.sa_family is neither AF_INET nor AF_INET6\n");
+				// 		goto start_switch;
+				// 	}
+				// }
 				node_t *n = find_node_from_sockaddr(hn->nodes, &si_search_other_copy, SERVER_SEARCH);
 				if (!n) {
 					printf("SEARCH_STATUS_USERNAME No node found for addr %s %s port%d %d\n",
