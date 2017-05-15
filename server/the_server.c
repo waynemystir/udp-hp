@@ -752,6 +752,7 @@ void *search_server_routine(void *arg) {
 				// }
 				struct sockaddr_in6 si_search_other_copy = {0};
 				memcpy(&si_search_other_copy, &si_search_other, SZ_SOCKADDR_IN6);
+				si_search_other_copy.sin6_port = buf.main_port;
 				char wa[256] = {0};
 				unsigned short wp;
 				unsigned short wf;
