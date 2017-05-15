@@ -223,6 +223,7 @@ void notify_existing_peer_of_new_node(node_t *existing_peer,
 			((struct sockaddr_in*)&ep_addr)->sin_addr.s_addr = existing_peer->external_ip4;
 			break;
 		}
+		case SUP_AF_4_via_6:
 		case SUP_AF_INET_6: {
 			ep_addr.sa_family = AF_INET6;
 			((struct sockaddr_in6*)&ep_addr)->sin6_family = AF_INET6;
@@ -279,6 +280,7 @@ void notify_existing_peer_of_deinit_node(node_t *existing_peer,
 			((struct sockaddr_in*)&ep_addr)->sin_addr.s_addr = existing_peer->external_ip4;
 			break;
 		}
+		case SUP_AF_4_via_6:
 		case SUP_AF_INET_6: {
 			ep_addr.sa_family = AF_INET6;
 			((struct sockaddr_in6*)&ep_addr)->sin6_family = AF_INET6;
@@ -333,6 +335,7 @@ void notify_existing_peer_of_new_chat_port(node_t *existing_peer,
 			((struct sockaddr_in*)&ep_addr)->sin_addr.s_addr = existing_peer->external_ip4;
 			break;
 		}
+		case SUP_AF_4_via_6:
 		case SUP_AF_INET_6: {
 			ep_addr.sa_family = AF_INET6;
 			((struct sockaddr_in6*)&ep_addr)->sin6_family = AF_INET6;
