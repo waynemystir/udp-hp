@@ -42,9 +42,7 @@ int authn_sock_fd;
 int search_sock_fd;
 int chat_sock_fd;
 
-struct sockaddr si_other;
 struct sockaddr sa_auth_other;
-socklen_t main_slen = SZ_SOCKADDR;
 socklen_t authn_slen = SZ_SOCKADDR;
 hashtable_t hashtbl;
 authn_hashtable_t authn_tbl;
@@ -202,25 +200,30 @@ void notify_existing_peer_of_new_node(node_t *existing_peer,
 	void *arg3, // the username of the new node
 	void *arg4) // the sockaddr of the new node
 {
-	printf("notify_existing_peer_of_new_node\n");
+	printf("notify_existing_peer_of_new_node 111 ep-id(%s)(%lu) nn-id(%s)(%lu)\n",
+		(char*)arg2, strlen((char*)arg2), (char*)arg3, strlen((char*)arg3));
 	if (!existing_peer || !arg1) return;
 	node_t *new_node = arg1;
-	char id_ep[MAX_CHARS_USERNAME];
-	char id_nn[MAX_CHARS_USERNAME];
-	strcpy(id_ep, arg2);
-	strcpy(id_nn, arg3);
+	char id_ep[MAX_CHARS_USERNAME+200];
+	char id_nn[MAX_CHARS_USERNAME+200];
+	memset(id_ep, '\0', MAX_CHARS_USERNAME+200);
+	memset(id_nn, '\0', MAX_CHARS_USERNAME+200);
+	// memcpy((char*)id_ep, (char*)arg2, MAX_CHARS_USERNAME);
+	// memcpy((char*)id_nn, (char*)arg3, MAX_CHARS_USERNAME);
+	strcpy((char*)id_ep, (char*)arg2);
+	strcpy((char*)id_nn, (char*)arg3);
 
 	// Let's get the sockaddr of existing_peer
 	struct sockaddr ep_addr;
 	switch (existing_peer->external_family) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			ep_addr.sa_family = AF_INET;
 			((struct sockaddr_in*)&ep_addr)->sin_family = AF_INET;
 			((struct sockaddr_in*)&ep_addr)->sin_port = existing_peer->external_port;
 			((struct sockaddr_in*)&ep_addr)->sin_addr.s_addr = existing_peer->external_ip4;
 			break;
 		}
-		case AF_INET6: {
+		case SUP_AF_INET_6: {
 			ep_addr.sa_family = AF_INET6;
 			((struct sockaddr_in6*)&ep_addr)->sin6_family = AF_INET6;
 			((struct sockaddr_in6*)&ep_addr)->sin6_port = existing_peer->external_port;
@@ -230,17 +233,23 @@ void notify_existing_peer_of_new_node(node_t *existing_peer,
 		default: return;
 	}
 
+	printf("notify_existing_peer_of_new_node 22222ggggggg22222 id_ep(%s) id_nn(%s)\n", id_ep, id_nn);
+	printf("notify_existing_peer_of_new_node 333 ep-id(%s) nn-id(%s)\n", (char*)arg2, (char*)arg3);
 	node_buf_t *exip_node_buf, *new_node_buf;
-	get_approp_node_bufs(existing_peer, new_node, &exip_node_buf, &new_node_buf, id_ep, id_nn);
+	get_approp_node_bufs(existing_peer, new_node, &exip_node_buf, &new_node_buf, (char*)arg2, id_nn);
 	exip_node_buf->status = STATUS_NEW_PEER;
 	new_node_buf->status = STATUS_NEW_PEER;
 
 	// And now we notify existing peer of new tail
-	if (sendto(sock_fd, new_node_buf, SZ_NODE_BF, 0, &ep_addr, main_slen)==-1)
+	printf("notify_existing_peer_of_new_node nn-id(%s)(%d)\n", new_node_buf->id, ntohs(new_node_buf->port));
+	socklen_t ep_socklength = ep_addr.sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
+	if (sendto(sock_fd, new_node_buf, SZ_NODE_BF, 0, &ep_addr, ep_socklength)==-1)
 		pfail("sendto");
 
 	// And notify new tail (i.e. si_other) of existing peer
-	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, (struct sockaddr*)arg4, main_slen)==-1)
+	printf("notify_existing_peer_of_new_node ep-id(%s)(%d)\n", exip_node_buf->id, ntohs(exip_node_buf->port));
+	socklen_t nn_socklength = ((struct sockaddr*)arg4)->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
+	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, (struct sockaddr*)arg4, nn_socklength)==-1)
 		pfail("sendto");
 
 	free(exip_node_buf);
@@ -263,14 +272,14 @@ void notify_existing_peer_of_deinit_node(node_t *existing_peer,
 	// Let's get the sockaddr of existing_peer
 	struct sockaddr ep_addr;
 	switch (existing_peer->external_family) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			ep_addr.sa_family = AF_INET;
 			((struct sockaddr_in*)&ep_addr)->sin_family = AF_INET;
 			((struct sockaddr_in*)&ep_addr)->sin_port = existing_peer->external_port;
 			((struct sockaddr_in*)&ep_addr)->sin_addr.s_addr = existing_peer->external_ip4;
 			break;
 		}
-		case AF_INET6: {
+		case SUP_AF_INET_6: {
 			ep_addr.sa_family = AF_INET6;
 			((struct sockaddr_in6*)&ep_addr)->sin6_family = AF_INET6;
 			((struct sockaddr_in6*)&ep_addr)->sin6_port = existing_peer->external_port;
@@ -286,7 +295,8 @@ void notify_existing_peer_of_deinit_node(node_t *existing_peer,
 	deinit_node_buf->status = STATUS_DEINIT_NODE;
 
 	// And now we notify existing peer of new tail
-	if (sendto(sock_fd, deinit_node_buf, SZ_NODE_BF, 0, &ep_addr, main_slen)==-1)
+	socklen_t ep_socklength = ep_addr.sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
+	if (sendto(sock_fd, deinit_node_buf, SZ_NODE_BF, 0, &ep_addr, ep_socklength)==-1)
 		pfail("sendto");
 
 	// And notify new tail (i.e. si_other) of existing peer
@@ -316,14 +326,14 @@ void notify_existing_peer_of_new_chat_port(node_t *existing_peer,
 	// Let's get the sockaddr of existing_peer
 	struct sockaddr ep_addr;
 	switch (existing_peer->external_family) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			ep_addr.sa_family = AF_INET;
 			((struct sockaddr_in*)&ep_addr)->sin_family = AF_INET;
 			((struct sockaddr_in*)&ep_addr)->sin_port = existing_peer->external_port;
 			((struct sockaddr_in*)&ep_addr)->sin_addr.s_addr = existing_peer->external_ip4;
 			break;
 		}
-		case AF_INET6: {
+		case SUP_AF_INET_6: {
 			ep_addr.sa_family = AF_INET6;
 			((struct sockaddr_in6*)&ep_addr)->sin6_family = AF_INET6;
 			((struct sockaddr_in6*)&ep_addr)->sin6_port = existing_peer->external_port;
@@ -334,17 +344,21 @@ void notify_existing_peer_of_new_chat_port(node_t *existing_peer,
 	}
 
 	node_buf_t *exip_node_buf, *pwnp_buf;
-	get_approp_node_bufs(existing_peer, peer_with_new_port, &exip_node_buf, &pwnp_buf, id_ep, id_nn);
+	get_approp_node_bufs(existing_peer, peer_with_new_port, &exip_node_buf, &pwnp_buf, (char*)arg2, id_nn);
 	exip_node_buf->status = STATUS_PROCEED_CHAT_HP;
 	pwnp_buf->status = STATUS_PROCEED_CHAT_HP;
-	printf("&*&*&*&*&*&*&*&&*&*&*&*&*&*&*&&*&*&*&*&*&*&*& (%d)(%d)\n", ntohs(pwnp_buf->chat_port), ntohs(exip_node_buf->chat_port));
+	printf("BBBBBBB (%s)(%s))\n", pwnp_buf->id, exip_node_buf->id);
+	printf("&*&*&*&*&*&*&*&&*&*&*&*&*&*&*&&*&*&*&*&*&*&*& (%s)(%d)(%s)(%d)\n",
+		pwnp_buf->id, ntohs(pwnp_buf->chat_port), exip_node_buf->id, ntohs(exip_node_buf->chat_port));
 
 	// And now we notify existing peer of new tail
-	if (sendto(sock_fd, pwnp_buf, SZ_NODE_BF, 0, &ep_addr, main_slen)==-1)
+	socklen_t ep_socklength = ep_addr.sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
+	if (sendto(sock_fd, pwnp_buf, SZ_NODE_BF, 0, &ep_addr, ep_socklength)==-1)
 		pfail("sendto");
 
 	// And notify peer_with_new_port (i.e. si_other) of existing peer
-	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, (struct sockaddr*)arg4, main_slen)==-1)
+	socklen_t nn_socklength = ((struct sockaddr*)arg4)->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
+	if (sendto(sock_fd, exip_node_buf, SZ_NODE_BF, 0, (struct sockaddr*)arg4, nn_socklength)==-1)
 		pfail("sendto");
 
 	free(exip_node_buf);
@@ -362,7 +376,9 @@ void notify_contact_of_new_node(contact_t *contact,
 	node_buf_t contact_nb;
 	contact_nb.status = STATUS_NOTIFY_EXISTING_CONTACT;
 	strcpy(contact_nb.id, contact->hn->username);
-	if (sendto(sock_fd, &contact_nb, SZ_NODE_BF, 0, (struct sockaddr*)arg3, main_slen)==-1)
+	printf("notify_contact_of_new_node (%s)(%s)\n", contact->hn->username, contact_nb.id);
+	socklen_t nn_socklength = ((struct sockaddr*)arg3)->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
+	if (sendto(sock_fd, &contact_nb, SZ_NODE_BF, 0, (struct sockaddr*)arg3, nn_socklength)==-1)
 		pfail("sendto");
 
 	if (!arg1 || !contact->hn->nodes) return;
@@ -770,9 +786,11 @@ void *main_server_endpoint(void *arg) {
 		SZ_NODE, sizeof(node_t),
 		SZ_NODE_BF, sizeof(node_buf_t));
 
+	struct sockaddr_in6 si_other = {0};
+	socklen_t main_slen = SZ_SOCKADDR_IN6;
 	size_t recvf_len, sendto_len;
 	struct sockaddr_in6 *si_me;
-	node_buf_t buf;
+	node_buf_t buf = {0};
 	// nodes = malloc(SZ_LINK_LIST);
 	// memset(nodes, '\0', SZ_LINK_LIST);
 
@@ -790,7 +808,7 @@ void *main_server_endpoint(void *arg) {
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
-	addr_to_str( (struct sockaddr*)si_me, me_ip_str, me_port, me_fam );
+	addr_to_str((struct sockaddr*)si_me, me_ip_str, me_port, me_fam);
 	printf("main_server_endpoint 2 %s %s %s %zu\n", me_ip_str, me_port, me_fam, sizeof(*si_me));
 
 	int br = bind(sock_fd, (struct sockaddr*)si_me, sizeof(*si_me));
@@ -798,7 +816,7 @@ void *main_server_endpoint(void *arg) {
 	printf("main_server_endpoint 3 %d\n", br);
 
 	while (main_server_running) {
-		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, &main_slen);
+		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, (struct sockaddr*)&si_other, &main_slen);
 		if ( recvf_len == -1) pfail("recvfrom");
 
 		char ip_str[INET6_ADDRSTRLEN];
@@ -806,7 +824,7 @@ void *main_server_endpoint(void *arg) {
 		unsigned short family;
 		// void *addr = &(si_other.sin_addr);
 		// inet_ntop( AF_INET, &(si_other.sin_addr), ip_str, sizeof(ip_str) );
-		addr_to_str_short( &si_other, ip_str, &port, &family );
+		addr_to_str_short((struct sockaddr*)&si_other, ip_str, &port, &family);
 		if (buf.status != STATUS_STAY_IN_TOUCH)
 			printf("MAIN received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
 
@@ -844,36 +862,36 @@ void *main_server_endpoint(void *arg) {
 				memcpy(new_tail->authn_token, buf.authn_token, AUTHEN_TOKEN_LEN);
 				new_tail->int_or_ext = EXTERNAL_ADDR;
 				new_tail->status = STATUS_NEW_NODE;
-				switch (si_other.sa_family) {
-					case AF_INET: {
-						struct sockaddr_in *sai4 = (struct sockaddr_in*)&si_other;
-						new_tail->external_ip4 = sai4->sin_addr.s_addr;
-						new_tail->external_port = sai4->sin_port;
-						new_tail->internal_ip4 = buf.ip4;
-						new_tail->internal_port = buf.port;
-						break;
-					}
-					case AF_INET6: {
+				// switch (si_other.sa_family) {
+				// 	case AF_INET: {
+				// 		struct sockaddr_in *sai4 = (struct sockaddr_in*)&si_other;
+				// 		new_tail->external_ip4 = sai4->sin_addr.s_addr;
+				// 		new_tail->external_port = sai4->sin_port;
+				// 		new_tail->internal_ip4 = buf.ip4;
+				// 		new_tail->internal_port = buf.port;
+				// 		break;
+				// 	}
+				// 	case AF_INET6: {
 						struct sockaddr_in6 *sai6 = (struct sockaddr_in6*)&si_other;
 						memcpy(new_tail->external_ip6, sai6->sin6_addr.s6_addr, 16);
 						new_tail->external_port = sai6->sin6_port;
 						memcpy(new_tail->internal_ip6, buf.ip6, 16);
 						new_tail->internal_port = buf.port;
-						break;
-					}
-					default: {
-						printf("We received STATUS_INIT_NODE with invalid family %d\n",
-							si_other.sa_family);
-						continue;
-					}
-				}
-				new_tail->external_family = si_other.sa_family;
+				// 		break;
+				// 	}
+				// 	default: {
+				// 		printf("We received STATUS_INIT_NODE with invalid family %d\n",
+				// 			si_other.sa_family);
+				// 		continue;
+				// 	}
+				// }
+				new_tail->external_family = sa_fam_to_sup_fam(si_other.sin6_family);
 				new_tail->internal_family = buf.family;
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				printf("STATUS_INIT_NODE (%s)(%d)\n", n?"SUCCESSFULLY ADDED":"FAILED ADDING", hn->nodes->node_count);
 				node_buf_t *new_tail_buf;
 				node_external_to_node_buf(new_tail, &new_tail_buf, hn->username);
-				sendto_len = sendto(sock_fd, new_tail_buf, SZ_NODE_BF, 0, &si_other, main_slen);
+				sendto_len = sendto(sock_fd, new_tail_buf, SZ_NODE_BF, 0, (struct sockaddr*)&si_other, main_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
@@ -901,7 +919,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_STAY_IN_TOUCH no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_STAY_IN_TOUCH No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -912,7 +930,7 @@ void *main_server_endpoint(void *arg) {
 					break;
 				}
 				buf.status = STATUS_STAY_IN_TOUCH_RESPONSE;
-				sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, &si_other, main_slen);
+				sendto_len = sendto(sock_fd, &buf, SZ_NODE_BF, 0, (struct sockaddr*)&si_other, main_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
@@ -925,7 +943,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_DEINIT_NODE no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_DEINIT_NODE No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -943,7 +961,7 @@ void *main_server_endpoint(void *arg) {
 				}
 
 				// TODO you can just remove (n) since we already have it
-				remove_node_with_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				remove_node_with_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				printf("STATUS_DEINIT_NODE after(%d)\n", hn->nodes->node_count);
 				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) {
 					printf("(%d):(%d):(%d)\n", no->external_ip4, ntohs(no->external_port), ntohs(no->external_chat_port));
@@ -958,7 +976,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_REQUEST_ADD_CONTACT_REQUEST no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_REQUEST_ADD_CONTACT_REQUEST No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -1000,7 +1018,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_REQUEST_ADD_CONTACT_ACCEPT no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_REQUEST_ADD_CONTACT_ACCEPT No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -1073,7 +1091,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_REQUEST_ADD_CONTACT_DENIED no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_REQUEST_ADD_CONTACT_DENIED No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -1112,7 +1130,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_ACQUIRED_CHAT_PORT no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_ACQUIRED_CHAT_PORT No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -1125,7 +1143,7 @@ void *main_server_endpoint(void *arg) {
 
 				// TODO we are duplicating calls to find_node_from_sockaddr
 				node_t *peer_with_new_chat_port = find_node_from_sockaddr(hn->nodes,
-					&si_other,
+					(struct sockaddr*)&si_other,
 					SERVER_MAIN);
 				if (peer_with_new_chat_port) {
 					peer_with_new_chat_port->external_chat_port = buf.chat_port;
@@ -1145,7 +1163,7 @@ void *main_server_endpoint(void *arg) {
 					printf("STATUS_SIGN_OUT no hn for user (%s)\n", buf.id);
 					break;
 				}
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				if (!n) {
 					printf("STATUS_SIGN_OUT No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -1160,7 +1178,7 @@ void *main_server_endpoint(void *arg) {
 				printf("STATUS_SIGN_OUT before(%d)\n", hn->nodes->node_count);
 				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
 				printf("\n");
-				remove_node_with_sockaddr(hn->nodes, &si_other, SERVER_MAIN);
+				remove_node_with_sockaddr(hn->nodes, (struct sockaddr*)&si_other, SERVER_MAIN);
 				printf("STATUS_SIGN_OUT after(%d)\n", hn->nodes->node_count);
 				for (node_t *no = hn->nodes->head; no!=NULL; no=no->next) printf("(%d)", no->external_ip4);
 				printf("\n");
@@ -1189,12 +1207,14 @@ void *chat_endpoint(void *msg) {
 	printf("chat_endpoint 0 %s\n", (char *)msg);
 
 	size_t recvf_len, sendto_len;
-	struct sockaddr_in *si_me;
+	struct sockaddr_in6 *si_me;
 	chat_buf_t buf;
-	struct sockaddr si_chat_other;
-	socklen_t chat_slen = sizeof(struct sockaddr);
+	memset(&buf, '\0', SZ_CH_BF);
+	struct sockaddr_in6 si_chat_other;
+	memset(&si_chat_other, '\0', SZ_SOCKADDR_IN6);
+	socklen_t chat_slen = SZ_SOCKADDR_IN6;
 
-	chat_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	chat_sock_fd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 	if ( chat_sock_fd == -1 ) pfail("socket");
 	printf("chat_endpoint 1 %d\n", chat_sock_fd);
 
@@ -1204,29 +1224,32 @@ void *chat_endpoint(void *msg) {
 	// server cannot be behind a NAT.
 	char chat_port[10];
 	get_chat_port_as_str(chat_port);
-	str_to_addr((struct sockaddr**)&si_me, NULL, chat_port, AF_INET, SOCK_DGRAM, AI_PASSIVE);
+	str_to_addr((struct sockaddr**)&si_me, NULL, chat_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
 	addr_to_str( (struct sockaddr*)si_me, me_ip_str, me_port, me_fam );
 	printf("chat_endpoint 2 %s %s %s %zu\n", me_ip_str, me_port, me_fam, sizeof(*si_me));
 
-	int br = bind(chat_sock_fd, (struct sockaddr*)si_me, sizeof(*si_me));
+	int br = bind(chat_sock_fd, (struct sockaddr*)si_me, SZ_SOCKADDR_IN6);
 	if ( br == -1 ) pfail("bind");
-	printf("chat_endpoint 3 %d\n", br);
+	printf("chat_endpoint 3 (%d)(%d)(%lu)\n", chat_sock_fd, br, SZ_CH_BF);
 
 	while (chat_running) {
-		recvf_len = recvfrom(chat_sock_fd, &buf, sizeof(buf), 0, &si_chat_other, &chat_slen);
-		if ( recvf_len == -1) pfail("recvfrom");
+		recvf_len = recvfrom(chat_sock_fd, &buf, SZ_CH_BF, 0, (struct sockaddr *)&si_chat_other, &chat_slen);
+		if ( recvf_len == -1) {
+			char w[256];
+			sprintf(w, "chattttt recvfrom (%d)", chat_sock_fd);
+			pfail(w);
+		}
 
 		char ip_str[INET6_ADDRSTRLEN];
 		unsigned short port;
 		unsigned short family;
-		// void *addr = &(si_chat_other.sin_addr);
-		// inet_ntop( AF_INET, &(si_chat_other.sin_addr), ip_str, sizeof(ip_str) );
-		addr_to_str_short( &si_chat_other, ip_str, &port, &family );
+		addr_to_str_short((struct sockaddr *)&si_chat_other, ip_str, &port, &family);
 		if (buf.status != CHAT_STATUS_STAY_IN_TOUCH)
-			printf("CHAT received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
+			printf("CHATTTT received packet (%d)(%s) (%zu bytes) from %s port%d %d\n", buf.status, chat_status_to_str(buf.status),
+				recvf_len, ip_str, port, family);
 
 		// TODO we should probably handle packets with a thread pool
 		// so that the next recvfrom isn't blocked by the below code
@@ -1234,8 +1257,8 @@ void *chat_endpoint(void *msg) {
 			case CHAT_STATUS_INIT: {
 				printf("CHAT_STATUS_INIT from %s port%d %d\n", ip_str, port, family);
 				buf.status = CHAT_STATUS_NEW;
-				buf.family = si_chat_other.sa_family;
-				switch (si_chat_other.sa_family) {
+				buf.family = sa_fam_to_sup_fam(si_chat_other.sin6_family);
+				switch (si_chat_other.sin6_family) {
 					case AF_INET: {
 						buf.ip4 = ((struct sockaddr_in *)&si_chat_other)->sin_addr.s_addr;
 						buf.port = ((struct sockaddr_in *)&si_chat_other)->sin_port;
@@ -1249,11 +1272,11 @@ void *chat_endpoint(void *msg) {
 					}
 					default: {
 						printf("CHAT_STATUS_INIT si_chat_other.sa_family is not good %d\n",
-							si_chat_other.sa_family);
+							si_chat_other.sin6_family);
 						continue;
 					}
 				}
-				sendto_len = sendto(chat_sock_fd, &buf, sizeof(buf), 0, &si_chat_other, chat_slen);
+				sendto_len = sendto(chat_sock_fd, &buf, sizeof(buf), 0, (struct sockaddr *)&si_chat_other, chat_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
@@ -1263,7 +1286,7 @@ void *chat_endpoint(void *msg) {
 			case CHAT_STATUS_STAY_IN_TOUCH: {
 				// printf("CHAT_STATUS_STAY_IN_TOUCH from %s port%d %d\n", ip_str, port, family);
 				buf.status = CHAT_STATUS_STAY_IN_TOUCH_RESPONSE;
-				sendto_len = sendto(chat_sock_fd, &buf, sizeof(buf), 0, &si_chat_other, chat_slen);
+				sendto_len = sendto(chat_sock_fd, &buf, sizeof(buf), 0, (struct sockaddr *)&si_chat_other, chat_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
@@ -1324,9 +1347,9 @@ int main() {
 	}
 
 	char *chat_thread_exit_msg;
-	pcr = pthread_create(&chat_thread, NULL, chat_endpoint, (void *)"chap_hp_thread");
-	if (pcr) {
-		printf("ERROR starting chat_hp_thread: %d\n", pcr);
+	int cpcr = pthread_create(&chat_thread, NULL, chat_endpoint, (void *)"chap_hp_thread");
+	if (cpcr) {
+		printf("ERROR starting chat_hp_thread: %d\n", cpcr);
 		exit(-1);
 	}
 

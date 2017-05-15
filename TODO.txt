@@ -1,3 +1,5 @@
+fire chat_hole_punch from case: CHAT_STATUS_ATTEMPTING_HOLE_PUNCH...
+
 iOS: show if a user is online
 
 lowercase letters only for username including

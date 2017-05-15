@@ -39,6 +39,7 @@ typedef enum SUP_FAMILY {
 	SUP_UNKNOWN = 1000,
 	SUP_AF_INET_4 = 1001,
 	SUP_AF_INET_6 = 1002,
+	SUP_AF_4_via_6 = 1003,
 } SUP_FAMILY_T;
 
 sa_family_t sup_fam_to_sa_fam(SUP_FAMILY_T sf);
@@ -234,5 +235,9 @@ void get_all_substrings(char *str, char **sub_strs, unsigned int *numb_sub_strs,
 void get_substrings_from_beginning(char *str, char **sub_strs, unsigned int *numb_sub_strs, unsigned int *max_len);
 
 void rand_str(char *dest, size_t length);
+
+int starts_with(char *s, char *w);
+
+int is_it_actually_ipv4(struct sockaddr_in6 *addr);
 
 #endif /* common_h */
