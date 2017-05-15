@@ -725,7 +725,7 @@ void *search_server_routine(void *arg) {
 // start_switch:
 		switch(buf.status) {
 			case SEARCH_STATUS_USERNAME: {
-				printf("SEARCH_STATUS_USERNAME from %s %s port%d %d\n", buf.id, ip_str, port, family);
+				printf("SEARCH_STATUS_USERNAME from %s %s port%d %d (%d)\n", buf.id, ip_str, port, family, ntohs(buf.main_port));
 				hash_node_t *hn = lookup_user_from_id(&hashtbl, buf.id);
 				if (!hn) {
 					printf("SEARCH_STATUS_USERNAME no hn for user (%s)\n", buf.id);
@@ -749,6 +749,11 @@ void *search_server_routine(void *arg) {
 				// 		goto start_switch;
 				// 	}
 				// }
+				char wa[256] = {0};
+				unsigned short wp;
+				unsigned short wf;
+				addr_to_str_short(&si_search_other_copy, wa, &wp, &wf);
+				printf("SEARCH_STATUS_USERNAME-WWW (%s)(%d)(%d)\n", wa, wp, wf);
 				node_t *n = find_node_from_sockaddr(hn->nodes, &si_search_other_copy, SERVER_SEARCH);
 				if (!n) {
 					printf("SEARCH_STATUS_USERNAME No node found for addr %s %s port%d %d\n",
