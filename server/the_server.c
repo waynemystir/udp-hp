@@ -684,7 +684,7 @@ void *search_server_routine(void *arg) {
 	size_t recvf_len, sendto_len;
 	struct sockaddr_in6 *si_me;
 	search_buf_t buf;
-	struct sockaddr si_search_other;
+	struct sockaddr_in6 si_search_other;
 	socklen_t search_slen = SZ_SOCKADDR_IN6;
 
 	search_sock_fd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
@@ -709,7 +709,7 @@ void *search_server_routine(void *arg) {
 	printf("search_endpoint 3 %d\n", br);
 
 	while (search_server_running) {
-		recvf_len = recvfrom(search_sock_fd, &buf, SZ_SRCH_BF, 0, &si_search_other, &search_slen);
+		recvf_len = recvfrom(search_sock_fd, &buf, SZ_SRCH_BF, 0, (struct sockaddr*)&si_search_other, &search_slen);
 		if ( recvf_len == -1) pfail("recvfrom");
 
 		char ip_str[INET6_ADDRSTRLEN];
@@ -717,7 +717,7 @@ void *search_server_routine(void *arg) {
 		unsigned short family;
 		// void *addr = &(si_chat_other.sin_addr);
 		// inet_ntop( AF_INET, &(si_chat_other.sin_addr), ip_str, sizeof(ip_str) );
-		addr_to_str_short( &si_search_other, ip_str, &port, &family );
+		addr_to_str_short((struct sockaddr*)&si_search_other, ip_str, &port, &family);
 		printf("SEARCH received packet (%zu bytes) from %s port%d %d\n", recvf_len, ip_str, port, family);
 
 		// TODO we should probably handle packets with a thread pool
@@ -731,7 +731,8 @@ void *search_server_routine(void *arg) {
 					printf("SEARCH_STATUS_USERNAME no hn for user (%s)\n", buf.id);
 					break;
 				}
-				struct sockaddr si_search_other_copy = si_search_other;
+
+				// struct sockaddr si_search_other_copy = si_search_other;
 				// switch (si_search_other.sa_family) {
 				// 	case AF_INET: {
 				// 		struct sockaddr_in *sa4 = (struct sockaddr_in*)&si_search_other_copy;
@@ -739,8 +740,8 @@ void *search_server_routine(void *arg) {
 				// 		break;
 				// 	}
 				// 	case AF_INET6: {
-						struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)&si_search_other_copy;
-						sa6->sin6_port = buf.main_port;
+						// struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)&si_search_other_copy;
+						// sa6->sin6_port = buf.main_port;
 				// 		break;
 				// 	}
 				// 	default: {
@@ -749,14 +750,16 @@ void *search_server_routine(void *arg) {
 				// 		goto start_switch;
 				// 	}
 				// }
+				struct sockaddr_in6 si_search_other_copy = {0};
+				memcpy(&si_search_other_copy, &si_search_other, SZ_SOCKADDR_IN6);
 				char wa[256] = {0};
 				unsigned short wp;
 				unsigned short wf;
-				addr_to_str_short(&si_search_other_copy, wa, &wp, &wf);
+				addr_to_str_short((struct sockaddr*)&si_search_other_copy, wa, &wp, &wf);
 				printf("SEARCH_STATUS_USERNAME-WWW-111 (%s)(%d)(%d)\n", wa, wp, wf);
-				addr_to_str_short(&si_search_other, wa, &wp, &wf);
+				addr_to_str_short((struct sockaddr*)&si_search_other, wa, &wp, &wf);
 				printf("SEARCH_STATUS_USERNAME-WWW-222 (%s)(%d)(%d)\n", wa, wp, wf);
-				node_t *n = find_node_from_sockaddr(hn->nodes, &si_search_other_copy, SERVER_SEARCH);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_search_other_copy, SERVER_SEARCH);
 				if (!n) {
 					printf("SEARCH_STATUS_USERNAME No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
@@ -775,7 +778,7 @@ void *search_server_routine(void *arg) {
 					search_results++;
 				}
 				rbuf.number_of_search_results = number_of_search_results;
-				sendto_len = sendto(search_sock_fd, &rbuf, SZ_SRCH_BF, 0, &si_search_other, search_slen);
+				sendto_len = sendto(search_sock_fd, &rbuf, SZ_SRCH_BF, 0, (struct sockaddr*)&si_search_other, search_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
