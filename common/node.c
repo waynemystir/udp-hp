@@ -326,18 +326,13 @@ void node_to_external_addr(node_t *node, struct sockaddr **addr) {
 		}
 		case SUP_AF_4_via_6:
 		case SUP_AF_INET_6: {
-			printf("ZxZxZxZxZxZxZxZxZx (%d)(%d)\n", node->external_family, ntohs(node->external_port));
-			for (int i = 0; i < 16; i++) {
-				printf("(%u)", node->external_ip6[i]);
-			}
-			printf("\n");
 			struct sockaddr_in6 *sai6 = malloc(SZ_SOCKADDR_IN6);
 			memset(sai6, '\0', SZ_SOCKADDR_IN6);
 			memcpy(sai6->sin6_addr.s6_addr, node->external_ip6, 16);
 			sai6->sin6_port = node->external_port;
 			sai6->sin6_family = AF_INET6;
-			*addr = (struct sockaddr*)&sai6;
-			// (*addr)->sa_family = AF_INET6;
+			*addr = (struct sockaddr*)sai6;
+			(*addr)->sa_family = AF_INET6;
 			break;
 		}
 		default: {

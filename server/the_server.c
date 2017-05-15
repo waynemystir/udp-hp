@@ -1009,11 +1009,6 @@ void *main_server_endpoint(void *arg) {
 					node_buf_t nb = {0};
 					nb.status = STATUS_REQUEST_ADD_CONTACT_REQUEST;
 					strcpy(nb.other_id, hn->username);
-					char wa[256] = {0};
-					unsigned short wp;
-					unsigned short wf;
-					addr_to_str_short(n_addr, wa, &wp, &wf);
-					printf("STATUS_REQUEST_ADD_CONTACT_REQUEST-2 (%s)(%d)(%d)\n", wa, wp, wf);
 					
 					sendto_len = sendto(sock_fd, &nb, SZ_NODE_BF, 0, n_addr, main_slen);
 					if (sendto_len == -1) {
