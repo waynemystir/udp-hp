@@ -42,8 +42,6 @@ int authn_sock_fd;
 int search_sock_fd;
 int chat_sock_fd;
 
-struct sockaddr sa_auth_other;
-socklen_t authn_slen = SZ_SOCKADDR;
 hashtable_t hashtbl;
 authn_hashtable_t authn_tbl;
 token_hashtable_t token_tbl;
@@ -409,10 +407,12 @@ void *authentication_server_endpoint(void *arg) {
 		NUM_BITS_AES_KEY, NUM_BYTES_AES_KEY, NUM_BITS_IV_KEY, NUM_BYTES_AES_IV);
 
 	size_t recvf_len, sendto_len;
-	struct sockaddr_in *si_me;
+	struct sockaddr_in6 *si_me;
 	authn_buf_t buf;
+	struct sockaddr_in6 sa_auth_other;
+	socklen_t authn_slen = SZ_SOCKADDR_IN6;
 
-	authn_sock_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	authn_sock_fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 	if ( authn_sock_fd == -1 ) pfail("socket");
 	printf("authentication_server_endpoint 1 %d\n", authn_sock_fd);
 
@@ -422,14 +422,14 @@ void *authentication_server_endpoint(void *arg) {
 	// server cannot be behind a NAT.
 	char authn_port[10];
 	get_authentication_port_as_str(authn_port);
-	str_to_addr((struct sockaddr**)&si_me, NULL, authn_port, AF_INET, SOCK_STREAM, AI_PASSIVE);
+	str_to_addr((struct sockaddr**)&si_me, NULL, authn_port, AF_INET6, SOCK_STREAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
 	addr_to_str( (struct sockaddr*)si_me, me_ip_str, me_port, me_fam );
 	printf("authentication_server_endpoint 2 %s %s %s %zu\n", me_ip_str, me_port, me_fam, sizeof(*si_me));
 
-	int br = bind(authn_sock_fd, (struct sockaddr*)si_me, sizeof(*si_me));
+	int br = bind(authn_sock_fd, (struct sockaddr*)si_me, SZ_SOCKADDR_IN6);
 	if ( br == -1 ) pfail("authn bind");
 	printf("authentication_server_endpoint 3 %d\n", br);
 
@@ -441,7 +441,7 @@ void *authentication_server_endpoint(void *arg) {
 
 	while (authentication_server_running) {
 		// printf("main -: 3\n");
-		int connecting_sock_fd = accept(authn_sock_fd, &sa_auth_other, &authn_slen);
+		int connecting_sock_fd = accept(authn_sock_fd, (struct sockaddr*)&sa_auth_other, &authn_slen);
 
 		if ( connecting_sock_fd < 0 ) pfail("authn accept");
 		printf("authentication_server_endpoint 5: we've got a connection.\n");
@@ -453,7 +453,7 @@ void *authentication_server_endpoint(void *arg) {
 			unsigned short family;
 			// void *addr = &(sa_auth_other.sin_addr);
 			// inet_ntop( AF_INET, &(sa_auth_other.sin_addr), ip_str, sizeof(ip_str) );
-			addr_to_str_short( &sa_auth_other, ip_str, &port, &family );
+			addr_to_str_short((struct sockaddr*)&sa_auth_other, ip_str, &port, &family);
 			printf("AUTH received packet (%d):(%s) (%zu bytes) from %s port%d %d\n", buf.status,
 				authn_status_to_str(buf.status), recvf_len, ip_str, port, family);
 
@@ -500,7 +500,7 @@ void *authentication_server_endpoint(void *arg) {
 					memcpy(buf.rsa_pub_key, rsa_public_key_str, RSA_PUBLIC_KEY_LEN);
 					// printf("Sending RSA public key (%s) to node\n", buf.rsa_pub_key);
 
-					sendto_len = sendto(connecting_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, authn_slen);
+					sendto_len = sendto(connecting_sock_fd, &buf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
 					if (sendto_len == -1) {
 						pfail("sendto");
 					}
@@ -546,7 +546,7 @@ void *authentication_server_endpoint(void *arg) {
 					// memcpy(buf.aes_key, aes_key, NUM_BYTES_AES_KEY);
 					// memset(buf.aes_iv, '\0', NUM_BYTES_AES_IV);
 					// memcpy(buf.aes_iv, aes_iv, NUM_BYTES_AES_IV);
-					sendto_len = sendto(connecting_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, authn_slen);
+					sendto_len = sendto(connecting_sock_fd, &buf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
 					if (sendto_len == -1) {
 						pfail("sendto");
 					}
@@ -588,7 +588,7 @@ void *authentication_server_endpoint(void *arg) {
 						remove_authn_node(&authn_tbl, key);
 					}
 
-					sendto_len = sendto(connecting_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, authn_slen);
+					sendto_len = sendto(connecting_sock_fd, &buf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
 					if (sendto_len == -1) {
 						pfail("sendto");
 					}
@@ -646,7 +646,7 @@ void *authentication_server_endpoint(void *arg) {
 					printf("AUTHN_STATUS_EXISTING_USER about to sendto (%s)(%s)(%s)\n",
 						creds_check_result_to_str(cr), buf.id, buf.pw);
 
-					sendto_len = sendto(connecting_sock_fd, &buf, SZ_AUN_BF, 0, &sa_auth_other, authn_slen);
+					sendto_len = sendto(connecting_sock_fd, &buf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
 					if (sendto_len == -1) {
 						pfail("sendto");
 					}
