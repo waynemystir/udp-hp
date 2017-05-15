@@ -886,7 +886,7 @@ void *main_server_endpoint(void *arg) {
 				// 	}
 				// }
 				new_tail->external_family = sa_fam_to_sup_fam(si_other.sin6_family);
-				if (new_tail->external_family == AF_INET6) {
+				if (new_tail->external_family == SUP_AF_INET_6) {
 					int i = is_it_actually_ipv4(sai6->sin6_addr.s6_addr);
 					if (i) new_tail->external_family = SUP_AF_4_via_6;
 				}
