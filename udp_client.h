@@ -21,6 +21,7 @@ int authn(NODE_USER_STATUS user_stat,
 	const char *rsa_pri_key,
 	unsigned char *aes_key,
 	void (*pfail_cb)(char *),
+	void (*connectivity)(IF_ADDR_PREFFERED, int),
 	void (*rsakeypair_generated)(const char *rsa_pub_key, const char *rsa_pri_key),
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
 	void (*rsa_response)(char *server_rsa_pub_key),
@@ -53,7 +54,7 @@ int wain(void (*self_info)(char *, unsigned short port, unsigned short chat_port
 	void (*confirmed_peer_while_punching)(SERVER_TYPE),
 	void (*from_peer)(SERVER_TYPE, char *),
 	void (*chat_msg)(char *username, char *msg),
-	void (*video_start)(char *server_host_url, char *room_id),
+	void (*video_start)(char *server_host_url, char *room_id, char *fromusername),
 	void (*unhandled_response_from_server)(int));
 
 void search_username(const char *searchname,

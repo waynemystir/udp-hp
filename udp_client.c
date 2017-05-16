@@ -13,7 +13,10 @@
 #include "common.h"
 #include "crypto_wrapper.h"
 
-#define DEFAULT_OTHER_ADDR_LEN sizeof(struct sockaddr_in6)
+#define DEFAULT_OTHER_ADDR_LEN SZ_SOCKADDR_IN6
+
+IF_ADDR_PREFFERED interface_preferred;
+int sock_addr_family_to_use;
 
 NODE_USER_STATUS node_user_status;
 char username[MAX_CHARS_USERNAME] = {0};
@@ -37,10 +40,8 @@ node_buf_t *self_internal;
 node_buf_t *self_external;
 struct sockaddr *sa_self_internal;
 size_t sz_sa_self_internal;
-char self_internal_ip[INET6_ADDRSTRLEN];
 
 // Me
-struct sockaddr *sa_me_internal;
 char me_internal_ip[INET6_ADDRSTRLEN];
 unsigned short me_internal_port;
 unsigned short me_internal_family;
@@ -48,7 +49,6 @@ struct sockaddr *sa_me_external;
 char me_external_ip[INET6_ADDRSTRLEN];
 char me_external_port[20];
 char me_external_family[20];
-struct sockaddr *sa_me_chat;
 struct sockaddr *sa_me_chat_external;
 char me_chat_ip[INET6_ADDRSTRLEN];
 char me_chat_port[20];
@@ -56,6 +56,7 @@ char me_chat_family[20];
 
 // The server
 char server_ip_str[256];
+char server_hostname[256];
 struct sockaddr *sa_server;
 char server_internal_ip[INET6_ADDRSTRLEN];
 char server_internal_port[20];
@@ -105,6 +106,7 @@ int search_thread_has_started = 0;
 
 // function pointers
 void (*pfail_cb)(char *) = NULL;
+void (*connectivity_cb)(IF_ADDR_PREFFERED, int) = NULL;
 void (*rsakeypair_generated_cb)(const char *rsa_pub_key, const char *rsa_pri_key) = NULL;
 void (*rsa_response_cb)(char *server_rsa_pub_key) = NULL;
 void (*aes_key_created_cb)(unsigned char[NUM_BYTES_AES_KEY]) = NULL;
@@ -131,7 +133,7 @@ void (*new_peer_cb)(char *) = NULL;
 void (*confirmed_peer_while_punching_cb)(SERVER_TYPE) = NULL;
 void (*from_peer_cb)(SERVER_TYPE, char *) = NULL;
 void (*chat_msg_cb)(char *username, char *msg) = NULL;
-void (*video_start_cb)(char *server_host_url, char *room_id) = NULL;
+void (*video_start_cb)(char *server_host_url, char *room_id, char *fromusername) = NULL;
 void (*unhandled_response_from_server_cb)(int) = NULL;
 void (*username_results_cb)(char search_results[MAX_SEARCH_RESULTS][MAX_CHARS_USERNAME], int number_of_search_results) = NULL;
 void (*server_connection_failure_cb)(SERVER_TYPE, char*) = NULL;
@@ -140,7 +142,10 @@ void (*general_cb)(char*, LOG_LEVEL) = NULL;
 void pfail(char *w) {
 	printf("pfail 0\n");
 	perror(w);
-	if (pfail_cb) pfail_cb(w);
+	char *w2 = strerror(errno);
+	char w3[512];
+	sprintf(w3, "(%s) (%s)", w, w2);
+	if (pfail_cb) pfail_cb(w3);
 }
 
 void create_aes_iv() {
@@ -226,6 +231,7 @@ int send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 		wain_running = 1;
 		authn(nus, usernm, pw, buf.status, rsa_public_key, rsa_private_key, aes_key,
 			pfail_cb,
+			connectivity_cb,
 			rsakeypair_generated_cb,
 			recd_cb,
 			rsa_response_cb,
@@ -301,7 +307,7 @@ void *authn_thread_routine(void *arg) {
 	socklen_t authn_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 	char wayne[256];
 
-	authn_sock_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	authn_sock_fd = socket(sock_addr_family_to_use, SOCK_STREAM, IPPROTO_TCP);
 	if (authn_sock_fd == -1) {
 		printf("There was a problem creating the authn socket\n");
 	}
@@ -309,7 +315,7 @@ void *authn_thread_routine(void *arg) {
 	// Setup server
 	char auth_port[10];
 	get_authentication_port_as_str(auth_port);
-	str_to_addr(&sa_authn_server, server_ip_str, auth_port, AF_INET, SOCK_STREAM, 0);
+	str_to_addr(&sa_authn_server, server_hostname, auth_port, sock_addr_family_to_use, SOCK_STREAM, 0);
 	authn_server_socklen = sa_authn_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_authn_server, authn_server_ip, authn_server_port, authn_server_family);
 	sprintf(wes, "The authn server %s port%s %s %u",
@@ -327,6 +333,7 @@ void *authn_thread_routine(void *arg) {
 	if (connect(authn_sock_fd, sa_authn_server, authn_server_socklen) == -1) {
 		fprintf(stderr, "Error on connect --> %s\n", strerror(errno));
 		if (server_connection_failure_cb) server_connection_failure_cb(SERVER_AUTHN, "server is not accepting connections.");
+		pfail("A problem occurred connecting to the AuthN server");
 		pthread_exit("authn_thread exited with an error");
 	}
 
@@ -436,6 +443,46 @@ void *authn_thread_routine(void *arg) {
 	pthread_exit("authn_thread exited normally");
 }
 
+void figure_out_connectivity() {
+	IF_ADDR_PREFFERED ifpref = IPV6_WIFI;
+	struct sockaddr *ret_addr = NULL;
+	size_t size_addr;
+	char ip_str[INET6_ADDRSTRLEN];
+
+	int ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
+	if (ifr > 0) {
+		sock_addr_family_to_use = AF_INET6;
+		interface_preferred = ifpref;
+		if (connectivity_cb) connectivity_cb(ifpref, 1);
+		return;
+	}
+	if (connectivity_cb) connectivity_cb(ifpref, 0);
+
+	ifpref = IPV4_WIFI;
+	ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
+	if (ifr > 0) {
+		sock_addr_family_to_use = AF_INET;
+		interface_preferred = ifpref;
+		if (connectivity_cb) connectivity_cb(ifpref, 1);
+		return;
+	}
+	if (connectivity_cb) connectivity_cb(ifpref, 0);
+
+	// We are skipping IPV6_CELLULAR for now because
+	// hole punching doesn't work on that...
+	// But it does work on IPv4 cellular
+
+	ifpref = IPV4_CELLULAR;
+	ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
+	if (ifr > 0) {
+		sock_addr_family_to_use = AF_INET;
+		interface_preferred = ifpref;
+		if (connectivity_cb) connectivity_cb(ifpref, 1);
+		return;
+	}
+	if (connectivity_cb) connectivity_cb(ifpref, 0);
+}
+
 int authn(NODE_USER_STATUS user_stat,
 	const char *usernm,
 	const char *passwd,
@@ -444,6 +491,7 @@ int authn(NODE_USER_STATUS user_stat,
 	const char *rsa_pri_key,
 	unsigned char *aes_k,
 	void (*pfail)(char *),
+	void (*connectivity)(IF_ADDR_PREFFERED, int),
 	void (*rsakeypair_generated)(const char *rsa_pub_key, const char *rsa_pri_key),
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
 	void (*rsa_response)(char *server_rsa_pub_key),
@@ -455,6 +503,7 @@ int authn(NODE_USER_STATUS user_stat,
 	void (*general)(char*, LOG_LEVEL)) {
 
 	pfail_cb = pfail;
+	connectivity_cb = connectivity;
 	rsakeypair_generated_cb = rsakeypair_generated;
 	recd_cb = recd;
 	rsa_response_cb = rsa_response;
@@ -465,6 +514,13 @@ int authn(NODE_USER_STATUS user_stat,
 	general_cb = general;
 	node_user_status = user_stat;
 
+	figure_out_connectivity();
+
+	// get_server_hostname(server_hostname);
+//    sprintf(server_hostname, "2001:2:0:aab1:c6cd:ccb5:4a2f:3190");
+   sprintf(server_hostname, "2001:2::aab1:c6cd:ccb5:4a2f:3190");
+//    sprintf(server_hostname, "2001:2:0:aab1:753c:de9b:551e:44e6");
+//    sprintf(server_hostname, "fe80::887:9ece:f8e5:cd92");
 	get_server_ip_as_str(server_ip_str);
 
 	memset(username, '\0', MAX_CHARS_USERNAME);
@@ -556,9 +612,9 @@ void send_hole_punch(node_t *peer) {
 	static int hpc = 0;
 	struct sockaddr *peer_addr;
 	socklen_t peer_socklen = 0;
-	sa_family_t fam = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_family : peer->external_family;
+	SUP_FAMILY_T fam = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_family : peer->external_family;
 	switch (fam) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			struct sockaddr_in sa4;
 			sa4.sin_family = AF_INET;
 			sa4.sin_addr.s_addr = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip4 : peer->external_ip4;
@@ -567,14 +623,32 @@ void send_hole_punch(node_t *peer) {
 			peer_addr = (struct sockaddr*)&sa4;
 			break;
 		}
-		case AF_INET6: {
+		case SUP_AF_INET_6: {
+			unsigned char tip[16] = {0};
+			memcpy(tip, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6, 16);
+
 			struct sockaddr_in6 sa6;
 			sa6.sin6_family = AF_INET6;
-			memcpy(sa6.sin6_addr.s6_addr, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6,
-				sizeof(unsigned char[16]));
+			memcpy(sa6.sin6_addr.s6_addr, tip, 16);
 			sa6.sin6_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_port : peer->external_port;
 			peer_socklen = SZ_SOCKADDR_IN6;
 			peer_addr = (struct sockaddr*)&sa6;
+			break;
+		}
+		case SUP_AF_4_via_6: {
+			unsigned char tip[16] = {0};
+			memcpy(tip, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6, 16);
+
+			struct sockaddr_in sa4;
+			void *wayne = malloc(4);
+			memset(wayne, '\0', 4);
+			memcpy(wayne, &(tip[12]), 4);
+
+			sa4.sin_family = AF_INET;
+			sa4.sin_addr.s_addr = *(in_addr_t*)wayne;
+			sa4.sin_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_port : peer->external_port;
+			peer_socklen = SZ_SOCKADDR_IN;
+			peer_addr = (struct sockaddr*)&sa4;
 			break;
 		}
 		default: {
@@ -653,28 +727,47 @@ void stay_in_touch_with_server(SERVER_TYPE st) {
 
 void *wain_thread_routine(void *arg) {
 	printf("STARTING.....%s\n", arg);
+	char sprintf[256];
 
 	// Other (server or peer in recvfrom)
-	struct sockaddr sa_other;
+	struct sockaddr_storage sa_other;
 	char other_ip[INET6_ADDRSTRLEN];
 	char other_port[20];
 	char other_family[20];
 	socklen_t other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
 	// Self
+	struct sockaddr_in6 si_me6;
+	memset(&si_me6, '\0', SZ_SOCKADDR_IN6);
+	si_me6.sin6_family = AF_INET6;
+	si_me6.sin6_port = htons(0);
+	si_me6.sin6_addr = in6addr_any;
+
+	struct sockaddr_in si_me4;
+	memset(&si_me4, '\0', SZ_SOCKADDR_IN);
+	si_me4.sin_family = AF_INET;
+	si_me4.sin_port = htons(0);
+	si_me4.sin_addr.s_addr = INADDR_ANY;
+
 	sa_self_internal = NULL;
 	self_internal = NULL;
-	get_if_addr_iOS_OSX(IPV4_WIFI, &sa_self_internal, &sz_sa_self_internal, self_internal_ip);
-	if (!sa_self_internal)
-		get_if_addr_iOS_OSX(IPV4_CELLULAR, &sa_self_internal, &sz_sa_self_internal, self_internal_ip);
+
+	get_if_addr_iOS_OSX(interface_preferred, &sa_self_internal, &sz_sa_self_internal, me_internal_ip);
 
 	if (sa_self_internal) {
+		addr_to_str_short(sa_self_internal, me_internal_ip, &me_internal_port, &me_internal_family);
+		sprintf(sprintf, "PRE-Moi (%s)(%d)(%d)", me_internal_ip, me_internal_port, me_internal_family);
+		if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
+
 		addr_to_node_buf(sa_self_internal, &self_internal, STATUS_INIT_NODE, 0, username);
 		memcpy(self_internal->authn_token, authentication_token, AUTHEN_TOKEN_LEN);
 	} else {
-		memset(self_internal, '\0', SZ_NODE_BF);
-		self_internal->status = STATUS_INIT_NODE;
-		strcpy(self_internal->id, username);
+		sa_self_internal = sock_addr_family_to_use == AF_INET6 ? (struct sockaddr*)&si_me6 : (struct sockaddr*)&si_me4;
+		addr_to_str_short(sa_self_internal, me_internal_ip, &me_internal_port, &me_internal_family);
+		sprintf(sprintf, "PRE-000-Moi (%s)(%d)(%d)", me_internal_ip, me_internal_port, me_internal_family);
+		if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
+
+		addr_to_node_buf(sa_self_internal, &self_internal, STATUS_INIT_NODE, 0, username);
 		memcpy(self_internal->authn_token, authentication_token, AUTHEN_TOKEN_LEN);
 	}
 
@@ -684,20 +777,11 @@ void *wain_thread_routine(void *arg) {
 
 	// Various
 	size_t sendto_len, recvf_len;
-	char sprintf[256];
-
-	// Setup self
-	struct sockaddr_in si_me;
-	memset((char *) &si_me, 0, sizeof(si_me));
-	si_me.sin_family = AF_INET;
-	si_me.sin_port = htons(0);
-	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-	sa_me_internal = (struct sockaddr*)&si_me;
 
 	// Setup server
 	char wain_port[10];
 	get_wain_port_as_str(wain_port);
-	str_to_addr(&sa_server, server_ip_str, wain_port, AF_INET, SOCK_DGRAM, 0);
+	str_to_addr(&sa_server, server_hostname, wain_port, sock_addr_family_to_use, SOCK_DGRAM, 0);
 	server_socklen = sa_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(sprintf, "The server %s port%s %s %u",
@@ -707,26 +791,26 @@ void *wain_thread_routine(void *arg) {
 		server_socklen);
 	if (server_info_cb) server_info_cb(SERVER_MAIN, sprintf);
 
-	sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	sock_fd = socket(sock_addr_family_to_use, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock_fd == -1) {
 		printf("There was a problem creating the socket\n");
 	} else if (socket_created_cb) socket_created_cb(sock_fd);
 
-	int br = bind(sock_fd, sa_me_internal, sizeof(*sa_me_internal));
+	struct sockaddr_in6 *sa_self_6 = (struct sockaddr_in6 *)sa_self_internal;
+	sa_self_6->sin6_port = htons(0);
+	int br = bind(sock_fd, sa_self_internal, sa_self_internal->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN);
 	if ( br == -1 ) pfail("bind");
 	if (socket_bound_cb) socket_bound_cb();
 
-	socklen_t gsn_len = sizeof(*sa_me_internal);
-	int gsn = getsockname(sock_fd, sa_me_internal, &gsn_len);
+	socklen_t gsn_len = sizeof(*sa_self_internal);
+	int gsn = getsockname(sock_fd, sa_self_internal, &gsn_len);
 	if (gsn == -1) pfail("getsockname");
 
-	addr_to_str_short(sa_me_internal, me_internal_ip, &me_internal_port, &me_internal_family);
-	sprintf(sprintf, "Moi %s %s %s", username, me_internal_ip, self_internal_ip);
+	addr_to_str_short(sa_self_internal, me_internal_ip, &me_internal_port, &me_internal_family);
+	sprintf(sprintf, "Moi INTERNAL (%s)(%s)(%d)(%d)", username, me_internal_ip, me_internal_port, me_internal_family);
 	if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
 
-	self_internal->port = si_me.sin_port;
-	sprintf(sprintf, "Moi INTERNAL %s %d", self_internal_ip, me_internal_port);
-	if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
+	self_internal->port = sock_addr_family_to_use == AF_INET6 ? si_me6.sin6_port : si_me4.sin_port;
 
 	sendto_len = sendto(sock_fd, self_internal, SZ_NODE_BF, 0, sa_server, server_socklen);
 	if (sendto_len == -1) {
@@ -742,18 +826,18 @@ void *wain_thread_routine(void *arg) {
 	self.contacts = malloc(SZ_CONTACT_LIST);
 	memset(self.contacts, '\0', SZ_CONTACT_LIST);
 
-	size_t max_buf = MAX(size_t, SZ_NODE_BF, SZ_SRCH_BF);
-	printf("Start MAIN (%lu)\n", max_buf);
+	// size_t max_buf = MAX(size_t, SZ_NODE_BF, SZ_SRCH_BF);
+	// printf("Start MAIN (%lu)\n", max_buf);
 	if (wain_running) wain_thread_has_started = 1;
 	while (wain_running) {
-		recvf_len = recvfrom(sock_fd, &buf, max_buf, 0, &sa_other, &other_socklen);
+		recvf_len = recvfrom(sock_fd, &buf, SZ_NODE_BF, 0, (struct sockaddr*)&sa_other, &other_socklen);
 		if (recvf_len == -1) {
 			char w[256];
 			sprintf(w, "recvfrom failed with %zu", recvf_len);
 			pfail(w);
 		}
 
-		addr_to_str(&sa_other, other_ip, other_port, other_family);
+		addr_to_str((struct sockaddr*)&sa_other, other_ip, other_port, other_family);
 		sprintf(sprintf, "WAIN-RCV-FROM %s port%s %s", other_ip, other_port, other_family);
 		if (buf.status != STATUS_STAY_IN_TOUCH_RESPONSE && recd_cb)
 			recd_cb(SERVER_MAIN, recvf_len, other_socklen, sprintf);
@@ -761,9 +845,9 @@ void *wain_thread_routine(void *arg) {
 
 		struct sockaddr *buf_sa = NULL;
 		node_buf_to_addr(&buf, &buf_sa);
-		char bp[20];
-		char bf[20];
-		addr_to_str(buf_sa, buf_ip, bp, bf);
+		unsigned short buf_port;
+		unsigned short buf_fam;
+		addr_to_str_short(buf_sa, buf_ip, &buf_port, &buf_fam);
 		sprintf(sprintf, "coll_buf id:%s sz:%zu st:%d ip:%s p:%u CHAT_PORT:%u f:%u",
 			buf.id,
 			sizeof(buf),
@@ -774,7 +858,7 @@ void *wain_thread_routine(void *arg) {
 			buf.family);
 		if (buf.status != STATUS_STAY_IN_TOUCH_RESPONSE && coll_buf_cb) coll_buf_cb(sprintf);
 
-		if (addr_equals(sa_server, &sa_other)) {
+		if (addr_equals(sa_server, (struct sockaddr*)&sa_other)) {
 			// The datagram came from the server.
 			switch (buf.status) {
 				case STATUS_NEW_NODE: {
@@ -783,8 +867,10 @@ void *wain_thread_routine(void *arg) {
 					self_external->int_or_ext = EXTERNAL_ADDR;
 					memcpy(self_external, &buf, SZ_NODE_BF);
 					self_external->chat_port = USHRT_MAX;
-					sa_me_external = malloc(SZ_SOCKADDR);
-					memcpy(sa_me_external, buf_sa, SZ_SOCKADDR);
+					size_t WSZ = buf_fam == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
+					sa_me_external = malloc(WSZ);
+					memset(sa_me_external, '\0', WSZ);
+					memcpy(sa_me_external, buf_sa, WSZ);
 					addr_to_str((struct sockaddr*)sa_me_external,
 						me_external_ip,
 						me_external_port,
@@ -795,7 +881,7 @@ void *wain_thread_routine(void *arg) {
 						me_external_family);
 					if (new_client_cb) new_client_cb(SERVER_MAIN, sprintf);
 					stay_in_touch_with_server(SERVER_MAIN);
-					 init_chat_hp();
+					init_chat_hp();
 					break;
 				}
 				case STATUS_NOTIFY_EXISTING_CONTACT: {
@@ -840,12 +926,12 @@ void *wain_thread_routine(void *arg) {
 					add_node_to_contacts(&self, &buf, &new_peer_node);
 
 					if (new_peer_node) {
-						sprintf(sprintf, "New peer %s p:%u added\nNow we have %d peers",
+						sprintf(sprintf, "STATUS_NEW_PEER %s p:%u added\nNow we have %d peers",
 							buf_ip,
 							ntohs(buf.port),
 							self.contacts->count);
 					} else {
-						sprintf(sprintf, "New peer %s p:%u already exist\nNow we have %d peers",
+						sprintf(sprintf, "STATUS_NEW_PEER %s p:%u already exist\nNow we have %d peers",
 							buf_ip,
 							ntohs(buf.port),
 							self.contacts->count);
@@ -870,7 +956,8 @@ void *wain_thread_routine(void *arg) {
                     
 				}
 				case STATUS_PROCEED_CHAT_HP: {
-					sprintf(sprintf, "STATUS_PROCEED_CHAT_HP (%d)(%s)(%d)", ntohs(buf.chat_port), buf.id, ntohs(buf.port));
+					sprintf(sprintf, "STATUS_PROCEED_CHAT_HP (%d)(%s)(%d)\nZZZZZZZZZZZZZZZZZZZZZZ",
+						ntohs(buf.chat_port), buf.id, ntohs(buf.port));
 					if (proceed_chat_hp_cb) proceed_chat_hp_cb(sprintf);
 					node_t *cn;
 					lookup_contact_and_node_from_node_buf(self.contacts, &buf, &cn);
@@ -892,7 +979,7 @@ void *wain_thread_routine(void *arg) {
 		} else {
 			node_t *existing_node;
 			lookup_contact_and_node_from_sockaddr(self.contacts,
-				&sa_other, SERVER_MAIN, &existing_node);
+				(struct sockaddr*)&sa_other, SERVER_MAIN, &existing_node);
 			if (!existing_node) {
 				/* TODO: This is an issue. Either a security issue (how
 				did an unknown peer get through the firewall) or my list
@@ -986,7 +1073,7 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	void (*confirmed_peer_while_punching)(SERVER_TYPE),
 	void (*from_peer)(SERVER_TYPE, char *),
 	void (*chat_msg)(char *username, char *msg),
-	void (*video_start)(char *server_host_url, char *room_id),
+	void (*video_start)(char *server_host_url, char *room_id, char *fromusername),
 	void (*unhandled_response_from_server)(int)) {
 
 	printf("main 0 %lu\n", DEFAULT_OTHER_ADDR_LEN);
@@ -1035,20 +1122,25 @@ void *chat_hp_server(void *w) {
 	char sprintf[256];
 
 	// Setup self
-	struct sockaddr_in si_me;
-	memset((char *) &si_me, 0, SZ_SOCKADDR_IN);
-	si_me.sin_family = AF_INET;
-	si_me.sin_port = htons(0);
-	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-	sa_me_chat = (struct sockaddr*)&si_me;
+	struct sockaddr_in6 si_me6;
+	memset(&si_me6, '\0', SZ_SOCKADDR_IN6);
+	si_me6.sin6_family = AF_INET6;
+	si_me6.sin6_port = htons(0);
+	si_me6.sin6_addr = in6addr_any;
+
+	struct sockaddr_in si_me4;
+	memset(&si_me4, '\0', SZ_SOCKADDR_IN);
+	si_me4.sin_family = AF_INET;
+	si_me4.sin_port = htons(0);
+	si_me4.sin_addr.s_addr = INADDR_ANY;
 
 	// Setup chat server
 	char chat_port[10];
 	get_chat_port_as_str(chat_port);
-	str_to_addr(&sa_chat_server, server_ip_str, chat_port, AF_INET, SOCK_DGRAM, 0);
+	str_to_addr(&sa_chat_server, server_hostname, chat_port, sock_addr_family_to_use, SOCK_DGRAM, 0);
 	chat_server_socklen = sa_chat_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_chat_server, server_internal_ip, server_internal_port, server_internal_family);
-	sprintf(sprintf, "The chat server %s port%s %s %u",
+	sprintf(sprintf, "The chat server %s port%s %s chat_server_socklen(%u)",
 		server_internal_ip,
 		server_internal_port,
 		server_internal_family,
@@ -1056,26 +1148,31 @@ void *chat_hp_server(void *w) {
 	if (server_info_cb) server_info_cb(SERVER_CHAT, sprintf);
 
 	// Setup sa_chat_other
-	struct sockaddr sa_chat_other;
+	struct sockaddr_storage sa_chat_other;
 	char chat_other_ip[INET6_ADDRSTRLEN];
 	char chat_other_port[20];
 	char chat_other_family[20];
 	socklen_t chat_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
-	chat_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	chat_sock_fd = socket(sock_addr_family_to_use, SOCK_DGRAM, IPPROTO_UDP);
 	if (chat_sock_fd == -1) {
-		printf("There was a problem creating the socket\n");
+		pfail("There was a problem creating the socket");
+        exit(-1);
 	} else if (socket_created_cb) socket_created_cb(chat_sock_fd);
 
-	int br = bind(chat_sock_fd, (struct sockaddr*)sa_me_chat, sizeof(*sa_me_chat));
-	if ( br == -1 ) pfail("bind");
-	if (socket_bound_cb) socket_bound_cb();
+	// int br = bind(chat_sock_fd, (struct sockaddr*)sa_me_chat, SZ_SOCKADDR_IN6);
+	// if ( br == -1 ) {
+	// 	pfail("bind");
+	// 	exit(-1);
+	// }
+	// if (socket_bound_cb) socket_bound_cb();
 
 	chat_buf_t buf;
-	memset(&buf, '\0', sizeof(buf));
+	memset(&buf, '\0', SZ_CH_BF);
+	buf.status = CHAT_STATUS_INIT;
 	char buf_ip[INET6_ADDRSTRLEN];
 
-	size_t chat_sendto_len = sendto(chat_sock_fd, &buf, sizeof(node_t), 0, sa_chat_server, chat_server_socklen);
+	size_t chat_sendto_len = sendto(chat_sock_fd, &buf, SZ_CH_BF, 0, sa_chat_server, chat_server_socklen);
 	if (chat_sendto_len == -1) {
 		char w[256];
 		sprintf(w, "sendto failed with %zu", chat_sendto_len);
@@ -1085,14 +1182,14 @@ void *chat_hp_server(void *w) {
 	chat_server_conn_running = 1;
 	while (chat_server_conn_running) {
 
-		size_t recvf_len = recvfrom(chat_sock_fd, &buf, SZ_CH_BF, 0, &sa_chat_other, &chat_other_socklen);
+		size_t recvf_len = recvfrom(chat_sock_fd, &buf, SZ_CH_BF, 0, (struct sockaddr*)&sa_chat_other, &chat_other_socklen);
 		if (recvf_len == -1) {
 			char w[256];
 			sprintf(w, "recvfrom failed with %zu", recvf_len);
 			pfail(w);
 		}
 
-		addr_to_str(&sa_chat_other, chat_other_ip, chat_other_port, chat_other_family);
+		addr_to_str((struct sockaddr*)&sa_chat_other, chat_other_ip, chat_other_port, chat_other_family);
 		sprintf(sprintf, "CHAT-RECV-FRM %s port%s %s", chat_other_ip, chat_other_port, chat_other_family);
 		if (buf.status != CHAT_STATUS_STAY_IN_TOUCH_RESPONSE && recd_cb)
 			recd_cb(SERVER_CHAT, recvf_len, chat_other_socklen, sprintf);
@@ -1111,7 +1208,7 @@ void *chat_hp_server(void *w) {
 			buf.family);
 		if (buf.status != CHAT_STATUS_STAY_IN_TOUCH_RESPONSE && coll_buf_cb) coll_buf_cb(sprintf);
 
-		if (addr_equals(sa_chat_server, &sa_chat_other)) {
+		if (addr_equals(sa_chat_server, (struct sockaddr*)&sa_chat_other)) {
 
 			switch (buf.status) {
 				case CHAT_STATUS_NEW: {
@@ -1148,7 +1245,7 @@ void *chat_hp_server(void *w) {
 
 			node_t *existing_node;
 			lookup_contact_and_node_from_sockaddr(self.contacts,
-				&sa_chat_other, SERVER_CHAT, &existing_node);
+				(struct sockaddr*)&sa_chat_other, SERVER_CHAT, &existing_node);
 			if (!existing_node) {
 				/* TODO: This is an issue. Either a security issue (how
 				did an unknown peer get through the firewall) or my list
@@ -1182,7 +1279,7 @@ void *chat_hp_server(void *w) {
 					break;
 				}
 				case CHAT_STATUS_VIDEO_START: {
-					if (video_start_cb) video_start_cb(VIDEO_SERVER_HOST_URL, buf.msg);
+					if (video_start_cb) video_start_cb(VIDEO_SERVER_HOST_URL, buf.msg, buf.id);
 					sprintf(conf_stat, "%s (%s)", chat_status_to_str(buf.status), buf.msg);
 					break;
 				}
@@ -1225,9 +1322,9 @@ void send_chat_hole_punch(node_t *peer) {
 	static int chpc = 0;
 	struct sockaddr *peer_addr;
 	socklen_t peer_socklen = 0;
-	sa_family_t fam = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_family : peer->external_family;
+	SUP_FAMILY_T fam = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_family : peer->external_family;
 	switch (fam) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			struct sockaddr_in sa4;
 			sa4.sin_family = AF_INET;
 			sa4.sin_addr.s_addr = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip4 : peer->external_ip4;
@@ -1236,14 +1333,32 @@ void send_chat_hole_punch(node_t *peer) {
 			peer_addr = (struct sockaddr*)&sa4;
 			break;
 		}
-		case AF_INET6: {
+		case SUP_AF_INET_6: {
+			unsigned char tip[16] = {0};
+			memcpy(tip, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6, 16);
+
 			struct sockaddr_in6 sa6;
 			sa6.sin6_family = AF_INET6;
-			memcpy(sa6.sin6_addr.s6_addr, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6,
-				sizeof(unsigned char[16]));
+			memcpy(sa6.sin6_addr.s6_addr, tip, 16);
 			sa6.sin6_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_chat_port : peer->external_chat_port;
 			peer_socklen = SZ_SOCKADDR_IN6;
 			peer_addr = (struct sockaddr*)&sa6;
+			break;
+		}
+		case SUP_AF_4_via_6: {
+			unsigned char tip[16] = {0};
+			memcpy(tip, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6, 16);
+
+			struct sockaddr_in sa4;
+			void *wayne = malloc(4);
+			memset(wayne, '\0', 4);
+			memcpy(wayne, &(tip[12]), 4);
+
+			sa4.sin_family = AF_INET;
+			sa4.sin_addr.s_addr = *(in_addr_t*)wayne;
+			sa4.sin_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_chat_port : peer->external_chat_port;
+			peer_socklen = SZ_SOCKADDR_IN;
+			peer_addr = (struct sockaddr*)&sa4;
 			break;
 		}
 		default: {
@@ -1282,7 +1397,7 @@ void *search_thread_routine(void *arg) {
 	// Setup search server
 	char search_port[10];
 	get_search_port_as_str(search_port);
-	str_to_addr(&sa_search_server, server_ip_str, search_port, AF_INET, SOCK_DGRAM, 0);
+	str_to_addr(&sa_search_server, server_hostname, search_port, sock_addr_family_to_use, SOCK_DGRAM, 0);
 	search_server_socklen = sa_search_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_search_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(wayne, "The search server %s port%s %s %u",
@@ -1299,7 +1414,7 @@ void *search_thread_routine(void *arg) {
 	char search_other_family[20];
 	socklen_t search_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
-	search_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	search_sock_fd = socket(sock_addr_family_to_use, SOCK_DGRAM, IPPROTO_UDP);
 	if (search_sock_fd == -1) {
 		printf("There was a problem creating the socket\n");
 	} else if (socket_created_cb) socket_created_cb(search_sock_fd);
@@ -1417,14 +1532,18 @@ void send_message_to_all_contacts(char *msg) {
 	contacts_perform(self.contacts, send_message_to_all_nodes_in_contact, msg, &cs, NULL);
 }
 
-void send_message_to_node(node_t *peer, void *msg, void *chat_status, void *arg3_unused, void *arg4_unused) {
-	if (!peer || !chat_status) return;
-	CHAT_STATUS cs = *(CHAT_STATUS*)chat_status;
+void *send_message_to_node_routine(void *arg) {
+	if (!arg) pthread_exit("");
+	send_msg_t *sm = (send_msg_t*)arg;
+	if (!sm) pthread_exit("");
+	node_t *peer = sm->n;
+	if (!peer) pthread_exit("");
+	CHAT_STATUS cs = sm->status;
 	struct sockaddr *peer_addr;
 	socklen_t peer_socklen = 0;
-	sa_family_t fam = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_family : peer->external_family;
+	SUP_FAMILY_T fam = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_family : peer->external_family;
 	switch (fam) {
-		case AF_INET: {
+		case SUP_AF_INET_4: {
 			struct sockaddr_in sa4;
 			sa4.sin_family = AF_INET;
 			sa4.sin_addr.s_addr = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip4 : peer->external_ip4;
@@ -1433,7 +1552,23 @@ void send_message_to_node(node_t *peer, void *msg, void *chat_status, void *arg3
 			peer_addr = (struct sockaddr*)&sa4;
 			break;
 		}
-		case AF_INET6: {
+		case SUP_AF_4_via_6: {
+			unsigned char tip[16] = {0};
+			memcpy(tip, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6, 16);
+
+			struct sockaddr_in sa4;
+			void *wayne = malloc(4);
+			memset(wayne, '\0', 4);
+			memcpy(wayne, &(tip[12]), 4);
+
+			sa4.sin_family = AF_INET;
+			sa4.sin_addr.s_addr = *(in_addr_t*)wayne;
+			sa4.sin_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_chat_port : peer->external_chat_port;
+			peer_socklen = SZ_SOCKADDR_IN;
+			peer_addr = (struct sockaddr*)&sa4;
+			break;
+		}
+		case SUP_AF_INET_6: {
 			struct sockaddr_in6 sa6;
 			sa6.sin6_family = AF_INET6;
 			memcpy(sa6.sin6_addr.s6_addr, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6,
@@ -1441,11 +1576,15 @@ void send_message_to_node(node_t *peer, void *msg, void *chat_status, void *arg3
 			sa6.sin6_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_chat_port : peer->external_chat_port;
 			peer_socklen = SZ_SOCKADDR_IN6;
 			peer_addr = (struct sockaddr*)&sa6;
+			char ip_str[256];
+			unsigned short pt = 0;
+			unsigned short fm = 0;
+			addr_to_str_short(peer_addr, ip_str, &pt, &fm);
 			break;
 		}
 		default: {
 			printf("send_message_to_peer, peer->family not well defined\n");
-			return;
+			pthread_exit("");
 		}
 	}
 	chat_buf_t wcb;
@@ -1454,10 +1593,30 @@ void send_message_to_node(node_t *peer, void *msg, void *chat_status, void *arg3
 	wcb.family = self_external->family;
 	wcb.port = self_external->chat_port;
 	wcb.ip4 = self_external->ip4;
-	strcpy(wcb.msg, msg);
+	strcpy(wcb.msg, sm->msg);
 
 	if (sendto(chat_sock_fd, &wcb, SZ_CH_BF, 0, peer_addr, peer_socklen) == -1)
 		pfail("send_message_to_peer sendto");
+
+	free(sm);
+	pthread_exit("");
+}
+
+void send_message_to_node(node_t *peer, void *msg, void *chat_status, void *arg3_unused, void *arg4_unused) {
+	send_msg_t *sm = malloc(SZ_SND_MSG);
+	memset(sm, '\0', SZ_SND_MSG);
+	sm->n = peer;
+	sm->status = *(CHAT_STATUS*)chat_status;
+	strcpy(sm->msg, msg);
+	printf("YYYYYYYYYYYYYYY (%d)(%d)(%s)\n", ntohs(sm->n->external_port), sm->status, sm->msg);
+
+	pthread_t thr;
+	int r = pthread_create(&thr, NULL, send_message_to_node_routine, sm);
+	if (r) {
+		printf("ERROR in send msg thread creation; return code from pthread_create() is %d\n", r);
+		return;
+	}
+	return;
 }
 
 void list_contacts(contact_list_t **contacts) {
