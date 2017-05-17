@@ -29,6 +29,20 @@ SUP_FAMILY_T sa_fam_to_sup_fam(sa_family_t sf) {
 static ENVIRONMENT environment = ENV_PROD;
 static char server_ip_str[] = "142.105.56.124";
 
+void set_environment_from_str(char *env_str) {
+	if (strcmp(env_str, "dev") == 0)
+		return set_environment(ENV_DEV);
+
+	if (strcmp(env_str, "stg") == 0)
+		return set_environment(ENV_STG);
+
+	if (strcmp(env_str, "prod") == 0)
+		return set_environment(ENV_PROD);
+
+	printf("Invalid environment name given (%s)\n", env_str);
+	exit(1);
+}
+
 void set_environment(ENVIRONMENT env) {
 	environment = env;
 	char log_file_name[256] = {0};
@@ -494,6 +508,19 @@ int is_it_actually_ipv4(unsigned char *ip6) {
 
 int wlog(const char *fmt, ...) {
 	int ret;
+	size_t len = strlen(fmt);
+	char wes[len + 256];
+	memset(wes, '\0', len + 256);
+	char time_text_delimit[] = "*";
+
+	time_t rawtime;
+	struct tm * timeinfo;
+
+	time ( &rawtime );
+	timeinfo = localtime ( &rawtime );
+	sprintf(wes, "%s%s ", asctime (timeinfo), time_text_delimit);
+	wes[strlen(wes) - strlen(time_text_delimit) - 2] = ' ';
+	strcat(wes, fmt);
 
 	/* Declare a va_list type variable */
 	va_list myargs;
@@ -502,7 +529,7 @@ int wlog(const char *fmt, ...) {
 	va_start(myargs, fmt);
 
 	/* Forward the '...' to vprintf */
-	ret = vfprintf(LF, fmt, myargs);
+	ret = vfprintf(LF, wes, myargs);
 
 	/* Clean up the va_list */
 	va_end(myargs);

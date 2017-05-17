@@ -1325,17 +1325,21 @@ void *chat_endpoint(void *msg) {
 	pthread_exit("chat_hp_thread exiting normally");
 }
 
-int main() {
-	printf("the_server has started\n");
-	set_environment(ENV_DEV);
-	get_environment_as_str(environment_str);
+int main(int argc, char **argv) {
+	printf("the_server is initializing...\n");
 
-	/* print some text */
-	const char *text = "Logger works!!!";
-	wlog("Wayne's handy logger: %s\n", text);
+	if (argc < 2) {
+		printf("Only (%d) argument(s) given. You must provide atleast 2.\n", argc);
+		exit(1);
+	}
+
+	char *arg_env = argv[1];
+	set_environment_from_str(arg_env);
+	get_environment_as_str(environment_str);
+	wlog("the_server environment is (%s)\n", environment_str);
+	printf("the_server is starting...\n");
 
 	wlog("the_server main 0 %zu %zu\n", sizeof(STATUS_TYPE), sizeof(struct node));
-	wlog("the_server main environment (%s)\n", environment_str);
 
 	// Get the keys
 	int ckr = collect_rsa_keys();

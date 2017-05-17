@@ -170,6 +170,7 @@ typedef enum ENVIRONMENT {
 	ENV_PROD = 2,
 } ENVIRONMENT;
 
+void set_environment_from_str(char *env_str);
 void set_environment(ENVIRONMENT env);
 ENVIRONMENT get_environment();
 void get_environment_as_str(char *);
