@@ -53,7 +53,7 @@ void pfail(char *s) {
 	perror(s);
 	char *w2 = strerror(errno);
 	char w3[512];
-	sprintf(w3, "(%s) (%s)", s, w2);
+	sprintf(w3, "(%s) (%s)\n", s, w2);
 	wlog("%s", w3);
 	// exit(1);
 }
@@ -711,7 +711,7 @@ void *search_server_routine(void *arg) {
 	wlog("search_endpoint 2 %s %s %s %zu\n", me_ip_str, me_port, me_fam, sizeof(*si_me));
 
 	int br = bind(search_sock_fd, (struct sockaddr*)si_me, SZ_SOCKADDR_IN6);
-	if ( br == -1 ) pfail("bind");
+	if ( br == -1 ) pfail("search bind");
 	wlog("search_endpoint 3 %d\n", br);
 
 	while (search_server_running) {
@@ -832,7 +832,7 @@ void *main_server_endpoint(void *arg) {
 	wlog("main_server_endpoint 2 %s %s %s %zu\n", me_ip_str, me_port, me_fam, sizeof(*si_me));
 
 	int br = bind(sock_fd, (struct sockaddr*)si_me, sizeof(*si_me));
-	if ( br == -1 ) pfail("bind");
+	if ( br == -1 ) pfail("main bind");
 	wlog("main_server_endpoint 3 %d\n", br);
 
 	while (main_server_running) {
@@ -1256,7 +1256,7 @@ void *chat_endpoint(void *msg) {
 	wlog("chat_endpoint 2 %s %s %s %zu\n", me_ip_str, me_port, me_fam, sizeof(*si_me));
 
 	int br = bind(chat_sock_fd, (struct sockaddr*)si_me, SZ_SOCKADDR_IN6);
-	if ( br == -1 ) pfail("bind");
+	if ( br == -1 ) pfail("chat bind");
 	wlog("chat_endpoint 3 (%d)(%d)(%lu)\n", chat_sock_fd, br, SZ_CH_BF);
 
 	while (chat_running) {
