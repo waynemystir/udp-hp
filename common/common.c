@@ -2,8 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdarg.h>
 
 #include "common.h"
+
+FILE *LF = NULL;
 
 sa_family_t sup_fam_to_sa_fam(SUP_FAMILY_T sf) {
 	switch (sf) {
@@ -28,6 +31,14 @@ static char server_ip_str[] = "142.105.56.124";
 
 void set_environment(ENVIRONMENT env) {
 	environment = env;
+	char log_file_name[256] = {0};
+	get_environment_as_str(log_file_name);
+	strcat(log_file_name, "_LOG.log");
+	LF = fopen(log_file_name, "w");
+	if (LF == NULL) {
+		wlog("Error opening file!\n");
+		exit(1);
+	}
 }
 
 ENVIRONMENT get_environment() {
@@ -479,4 +490,23 @@ int is_it_actually_ipv4(unsigned char *ip6) {
 		if (255 != ip6[j]) return 0;
 
 	return 1;
+}
+
+int wlog(const char *fmt, ...) {
+	int ret;
+
+	/* Declare a va_list type variable */
+	va_list myargs;
+
+	/* Initialise the va_list variable with the ... after fmt */
+	va_start(myargs, fmt);
+
+	/* Forward the '...' to vprintf */
+	ret = vfprintf(LF, fmt, myargs);
+
+	/* Clean up the va_list */
+	va_end(myargs);
+
+	fflush(LF);
+	return ret;
 }

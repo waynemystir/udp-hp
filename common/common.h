@@ -240,4 +240,6 @@ int starts_with(char *s, char *w);
 
 int is_it_actually_ipv4(unsigned char*);
 
+int wlog(const char *fmt, ...);
+
 #endif /* common_h */

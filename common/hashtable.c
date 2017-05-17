@@ -215,18 +215,18 @@ contact_t *add_contact_to_list(contact_list_t *contacts, char contactname[MAX_CH
 }
 
 contact_t *add_contact_to_hashtbl(hashtable_t *hashtbl, char username[MAX_CHARS_USERNAME], char contactname[MAX_CHARS_USERNAME]) {
-	printf("lets add contact %s to user %s\n", contactname, username);
+	wlog("lets add contact %s to user %s\n", contactname, username);
 	if (!hashtbl) return NULL;
 	hash_node_t *user = lookup_user(hashtbl, username);
 	if (!user) return NULL;
 	hash_node_t *contact_hn = lookup_user(hashtbl, contactname);
 	if (!contact_hn) return NULL;
 	if (strcmp(user->username, contact_hn->username) == 0) {
-		printf("Failed attempt to add contact %s to user %s\n", contact_hn->username, user->username);
+		wlog("Failed attempt to add contact %s to user %s\n", contact_hn->username, user->username);
 		return NULL;
 	}
 	if (hash_node_in_contacts_list(contact_hn, user->contacts)) {
-		printf("Not adding contact %s to contacts list. It already exists.\n", contact_hn->username);
+		wlog("Not adding contact %s to contacts list. It already exists.\n", contact_hn->username);
 		return NULL;
 	}
 
