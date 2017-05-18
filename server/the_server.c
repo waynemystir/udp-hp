@@ -1335,7 +1335,7 @@ int main(int argc, char **argv) {
 	}
 
 	char *arg_env = argv[1];
-	set_environment_from_str(arg_env);
+	set_environment_from_str_with_logging(arg_env, 1);
 	get_environment_as_str(environment_str);
 	wlog("the_server environment is (%s)\n", environment_str);
 	server_ip_str = get_server_ip_as_str();

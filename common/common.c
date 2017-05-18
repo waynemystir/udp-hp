@@ -28,22 +28,24 @@ SUP_FAMILY_T sa_fam_to_sup_fam(sa_family_t sf) {
 
 static ENVIRONMENT environment = ENV_PROD;
 
-void set_environment_from_str(char *env_str) {
+void set_environment_from_str_with_logging(char *env_str, int logging) {
 	if (strcmp(env_str, "dev") == 0)
-		return set_environment(ENV_DEV);
+		return set_environment_with_logging(ENV_DEV, logging);
 
 	if (strcmp(env_str, "stg") == 0)
-		return set_environment(ENV_STG);
+		return set_environment_with_logging(ENV_STG, logging);
 
 	if (strcmp(env_str, "prod") == 0)
-		return set_environment(ENV_PROD);
+		return set_environment_with_logging(ENV_PROD, logging);
 
 	printf("Invalid environment name given (%s)\n", env_str);
 	exit(1);
 }
 
-void set_environment(ENVIRONMENT env) {
+void set_environment_with_logging(ENVIRONMENT env, int logging) {
 	environment = env;
+	if (!logging) return;
+
 	char log_file_name[256] = {0};
 	get_environment_as_str(log_file_name);
 	strcat(log_file_name, "_LOG.log");
