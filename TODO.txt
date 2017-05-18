@@ -1,3 +1,6 @@
+
+stay-in-touch with peers (and self nodes?)
+
 fire chat_hole_punch from case: CHAT_STATUS_ATTEMPTING_HOLE_PUNCH...
 
 iOS: show if a user is online
@@ -26,8 +29,6 @@ make sure server is ALWAYS running
 FIX-ALL-BUGS
 ----------------------------------------------
 ************* UDP guarantee (i.e. packet loss check and resend) *************
-
-stay-in-touch with peers (and self nodes?)
 
 	second login (i.e. without cntrl-c'ing the-server) is broken
 		-after add/accept contact request
