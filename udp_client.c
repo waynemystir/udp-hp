@@ -444,24 +444,24 @@ void *authn_thread_routine(void *arg) {
 }
 
 void figure_out_connectivity() {
-	IF_ADDR_PREFFERED ifpref = IPV6_WIFI;
+	IF_ADDR_PREFFERED ifpref = IPV4_WIFI;
 	struct sockaddr *ret_addr = NULL;
 	size_t size_addr;
 	char ip_str[INET6_ADDRSTRLEN];
 
 	int ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
 	if (ifr > 0) {
-		sock_addr_family_to_use = AF_INET6;
+		sock_addr_family_to_use = AF_INET;
 		interface_preferred = ifpref;
 		if (connectivity_cb) connectivity_cb(ifpref, 1);
 		return;
 	}
 	if (connectivity_cb) connectivity_cb(ifpref, 0);
 
-	ifpref = IPV4_WIFI;
+	ifpref = IPV6_WIFI;
 	ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
 	if (ifr > 0) {
-		sock_addr_family_to_use = AF_INET;
+		sock_addr_family_to_use = AF_INET6;
 		interface_preferred = ifpref;
 		if (connectivity_cb) connectivity_cb(ifpref, 1);
 		return;
@@ -516,11 +516,11 @@ int authn(NODE_USER_STATUS user_stat,
 
 	figure_out_connectivity();
 
-	// get_server_hostname(server_hostname);
-//    sprintf(server_hostname, "2001:2:0:aab1:c6cd:ccb5:4a2f:3190");
-   sprintf(server_hostname, "2001:2::aab1:c6cd:ccb5:4a2f:3190");
-//    sprintf(server_hostname, "2001:2:0:aab1:753c:de9b:551e:44e6");
-//    sprintf(server_hostname, "fe80::887:9ece:f8e5:cd92");
+	get_server_hostname(server_hostname);
+	// sprintf(server_hostname, "2001:2:0:aab1:c6cd:ccb5:4a2f:3190");
+	// sprintf(server_hostname, "2001:2::aab1:c6cd:ccb5:4a2f:3190");
+	// sprintf(server_hostname, "2001:2:0:aab1:753c:de9b:551e:44e6");
+	// sprintf(server_hostname, "fe80::887:9ece:f8e5:cd92");
 	get_server_ip_as_str(server_ip_str);
 
 	memset(username, '\0', MAX_CHARS_USERNAME);
