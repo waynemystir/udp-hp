@@ -51,7 +51,7 @@ void set_environment_with_logging(ENVIRONMENT env, int logging) {
 	strcat(log_file_name, "_LOG.log");
 	LF = fopen(log_file_name, "w");
 	if (LF == NULL) {
-		wlog("Error opening file!\n");
+		printf("Error opening log file (%s)\n", log_file_name);
 		exit(1);
 	}
 }
