@@ -1,5 +1,6 @@
 *.a
 *.o
+*.log
 the_server
 server_sign_in
 server_chat

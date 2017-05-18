@@ -22,6 +22,7 @@
 #define SERVER_LOG_FILE_NAME "SERVER_LOG_FILE_NAME"
 
 char environment_str[64];
+char *server_ip_str;
 
 char *rsa_public_key_str;
 char *rsa_private_key_str;
@@ -428,7 +429,7 @@ void *authentication_server_endpoint(void *arg) {
 	// server cannot be behind a NAT.
 	char authn_port[10];
 	get_authentication_port_as_str(authn_port);
-	str_to_addr((struct sockaddr**)&si_me, NULL, authn_port, AF_INET6, SOCK_STREAM, AI_PASSIVE);
+	str_to_addr((struct sockaddr**)&si_me, server_ip_str, authn_port, AF_INET6, SOCK_STREAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
@@ -703,7 +704,7 @@ void *search_server_routine(void *arg) {
 	// server cannot be behind a NAT.
 	char search_port[10];
 	get_search_port_as_str(search_port);
-	str_to_addr((struct sockaddr**)&si_me, NULL, search_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
+	str_to_addr((struct sockaddr**)&si_me, server_ip_str, search_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
@@ -824,7 +825,7 @@ void *main_server_endpoint(void *arg) {
 	// server cannot be behind a NAT.
 	char wain_port[10];
 	get_wain_port_as_str(wain_port);
-	str_to_addr((struct sockaddr**)&si_me, "2001:2:0:aab1:c6cd:ccb5:4a2f:3190", wain_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
+	str_to_addr((struct sockaddr**)&si_me, server_ip_str, wain_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
@@ -1248,7 +1249,7 @@ void *chat_endpoint(void *msg) {
 	// server cannot be behind a NAT.
 	char chat_port[10];
 	get_chat_port_as_str(chat_port);
-	str_to_addr((struct sockaddr**)&si_me, "2001:2:0:aab1:c6cd:ccb5:4a2f:3190", chat_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
+	str_to_addr((struct sockaddr**)&si_me, server_ip_str, chat_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
@@ -1337,6 +1338,8 @@ int main(int argc, char **argv) {
 	set_environment_from_str(arg_env);
 	get_environment_as_str(environment_str);
 	wlog("the_server environment is (%s)\n", environment_str);
+	server_ip_str = get_server_ip_as_str();
+	wlog("the_server server_ip_str (%s)\n", server_ip_str);
 	printf("the_server is starting...\n");
 
 	wlog("the_server main 0 %zu %zu\n", sizeof(STATUS_TYPE), sizeof(struct node));

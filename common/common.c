@@ -27,7 +27,6 @@ SUP_FAMILY_T sa_fam_to_sup_fam(sa_family_t sf) {
 }
 
 static ENVIRONMENT environment = ENV_PROD;
-static char server_ip_str[] = "142.105.56.124";
 
 void set_environment_from_str(char *env_str) {
 	if (strcmp(env_str, "dev") == 0)
@@ -93,8 +92,19 @@ void get_server_hostname(char *shn) {
 	}
 }
 
-void get_server_ip_as_str(char *sip) {
-	sprintf(sip, "%s", server_ip_str);
+char *get_server_ip_as_str() {
+	switch (environment) {
+		case ENV_DEV: {
+			return NULL;
+		}
+		case ENV_STG: {
+			return "142.105.56.124";
+		}
+		case ENV_PROD: {
+			return "2600:1f18:2298:1a41:2ed6:9efd:4dfc:9138";
+		}
+	}
+	return NULL;
 }
 
 static unsigned short authentication_port() {
