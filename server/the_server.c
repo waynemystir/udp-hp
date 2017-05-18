@@ -429,7 +429,7 @@ void *authentication_server_endpoint(void *arg) {
 	// server cannot be behind a NAT.
 	char authn_port[10];
 	get_authentication_port_as_str(authn_port);
-	str_to_addr((struct sockaddr**)&si_me, server_ip_str, authn_port, AF_INET6, SOCK_STREAM, AI_PASSIVE);
+	str_to_addr((struct sockaddr**)&si_me, NULL, authn_port, AF_INET6, SOCK_STREAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
@@ -704,7 +704,7 @@ void *search_server_routine(void *arg) {
 	// server cannot be behind a NAT.
 	char search_port[10];
 	get_search_port_as_str(search_port);
-	str_to_addr((struct sockaddr**)&si_me, server_ip_str, search_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
+	str_to_addr((struct sockaddr**)&si_me, NULL, search_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
@@ -825,7 +825,7 @@ void *main_server_endpoint(void *arg) {
 	// server cannot be behind a NAT.
 	char wain_port[10];
 	get_wain_port_as_str(wain_port);
-	str_to_addr((struct sockaddr**)&si_me, server_ip_str, wain_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
+	str_to_addr((struct sockaddr**)&si_me, NULL, wain_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];
@@ -1249,7 +1249,7 @@ void *chat_endpoint(void *msg) {
 	// server cannot be behind a NAT.
 	char chat_port[10];
 	get_chat_port_as_str(chat_port);
-	str_to_addr((struct sockaddr**)&si_me, server_ip_str, chat_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
+	str_to_addr((struct sockaddr**)&si_me, NULL, chat_port, AF_INET6, SOCK_DGRAM, AI_PASSIVE);
 	char me_ip_str[256];
 	char me_port[20];
 	char me_fam[5];

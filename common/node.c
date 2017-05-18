@@ -379,7 +379,7 @@ void node_external_to_node_buf(node_t *node, node_buf_t **node_buf, char id[MAX_
 	new_node_buf->family = node->external_family;
 	new_node_buf->port = node->external_port;
 	new_node_buf->chat_port = node->external_chat_port;
-	printf("node_external_to_node_buf id(%s)(%s)(%d)\n", id, new_node_buf->id, new_node_buf->family);
+//	printf("node_external_to_node_buf id(%s)(%s)(%d)\n", id, new_node_buf->id, new_node_buf->family);
 	switch (node->external_family) {
 		case SUP_AF_INET_4: {
 			new_node_buf->ip4 = node->external_ip4;
