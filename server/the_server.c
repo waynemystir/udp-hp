@@ -447,13 +447,15 @@ void *authentication_server_endpoint(void *arg) {
 	memset(&authn_tbl, '\0', SZ_AUN_TBL);
 
 	while (authentication_server_running) {
-		// wlog("main -: 3\n");
+		wlog("AUTHNNNNNNNNNNNNNNNN 1111111\n");
 		int connecting_sock_fd = accept(authn_sock_fd, (struct sockaddr*)&sa_auth_other, &authn_slen);
+		wlog("AUTHNNNNNNNNNNNNNNNN 2222222\n");
 
 		if ( connecting_sock_fd < 0 ) pfail("authn accept");
 		wlog("authentication_server_endpoint 5: we've got a connection.\n");
 
 		while ((recvf_len = recv(connecting_sock_fd, &buf, SZ_AE_BUF, 0)) > 0) {
+			wlog("AUTHNNNNNNNNNNNNNNNN 3333333\n");
 
 			char ip_str[INET6_ADDRSTRLEN];
 			unsigned short port;
@@ -677,7 +679,9 @@ void *authentication_server_endpoint(void *arg) {
 					break;
 				}
 			}
+			wlog("AUTHNNNNNNNNNNNNNNNN 4444444\n");
 		}
+		wlog("AUTHNNNNNNNNNNNNNNNN 5555555\n");
 		close(connecting_sock_fd);
 		if ( recvf_len == -1) pfail("authn recv");
 	}
