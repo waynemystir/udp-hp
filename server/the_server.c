@@ -21,6 +21,11 @@
 #define AES_IV_FILEPATH "SUP_AES_IV"
 #define SERVER_LOG_FILE_NAME "SERVER_LOG_FILE_NAME"
 
+typedef struct authn_accept_thread_arg {
+	int accepted_sock_fd;
+	struct sockaddr_in6 *sa_auth_other;
+} authn_accept_thread_arg_t;
+
 char environment_str[64];
 char *server_ip_str;
 
@@ -409,13 +414,256 @@ void notify_contact_of_new_chat_port(contact_t *contact, void *arg1, void *arg2,
 	nodes_perform(contact->hn->nodes, notify_existing_peer_of_new_chat_port, arg1, contact->hn->username, arg2, arg3);
 }
 
+void *handle_authn_accept(void *arg) {
+
+	size_t recvf_len, sendto_len;
+	socklen_t authn_slen = SZ_SOCKADDR_IN6;
+	authn_buf_t buf;
+	authn_accept_thread_arg_t *authn_arg = arg;
+	int accepted_sock_fd = authn_arg->accepted_sock_fd;
+	struct sockaddr_in6 sa_auth_other = *(authn_arg->sa_auth_other);
+
+	while ((recvf_len = recv(accepted_sock_fd, &buf, SZ_AE_BUF, 0)) > 0) {
+		wlog("AUTHNNNNNNNNNNNNNNNN 3333333\n");
+
+		char ip_str[INET6_ADDRSTRLEN];
+		unsigned short port;
+		unsigned short family;
+		// void *addr = &(sa_auth_other.sin_addr);
+		// inet_ntop( AF_INET, &(sa_auth_other.sin_addr), ip_str, sizeof(ip_str) );
+		addr_to_str_short((struct sockaddr*)&sa_auth_other, ip_str, &port, &family);
+		wlog("AUTH received packet (%d):(%s) (%zu bytes) from %s port%d %d\n", buf.status,
+			authn_status_to_str(buf.status), recvf_len, ip_str, port, family);
+
+// start_switch:
+		switch (buf.status) {
+			case AUTHN_STATUS_ENCRYPTED: {
+				wlog("AUTHN_STATUS_ENCRYPTED started\n");
+				char *key = authn_addr_info_to_key(family, ip_str, port);
+				wlog("AUTHN_STATUS_ENCRYPTED The node's key (%s)\n", key);
+				authn_node_t *an = lookup_authn_node(&authn_tbl, key);
+				if (!an) {
+					wlog("AUTHN_STATUS_ENCRYPTED No node was found for key (%s)\n", key);
+					break;
+				}
+				wlog("And the node was found with key (%s)\n", an->key);
+				wlog("I have temporarily disabled encryption, so how can AUTHN_STATUS_ENCRYPTED possibly be called????\n");
+				break;
+
+				// authn_buf_encrypted_t *be = (authn_buf_encrypted_t*)&buf;
+
+				// unsigned char decrypted_buf[SZ_AUN_BF + AES_PADDING];
+				// memset(decrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
+				// wlog("Lets AES descrypt with (%s)(%s)(%s)\n", be ? "GOD" : "BAD",
+				// 	an->aes_key ? "GOD" : "BAD", an->aes_iv ? "GOD" : "BAD");
+				// int dl = aes_decrypt(be->encrypted_buf, be->encrypted_len, an->aes_key, an->aes_iv, decrypted_buf);
+				// wlog("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
+				// memset(&buf, '\0', sizeof(buf));
+				// memcpy(&buf, decrypted_buf, dl);
+				// wlog("aes_decrypt copied (%s)\n", buf.id);
+				// goto start_switch;
+			}
+			case AUTHN_STATUS_RSA_SWAP: {
+				char *key = authn_addr_info_to_key(family, ip_str, port);
+				wlog("The node's key (%s)\n", key);
+				authn_node_t *new_authn_node = add_authn_node(&authn_tbl, AUTHN_STATUS_RSA_SWAP_RESPONSE, key);
+				wlog("And the node was added with key (%s)\n", new_authn_node->key);
+				memset(new_authn_node->rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
+				memcpy(new_authn_node->rsa_pub_key, buf.rsa_pub_key, strlen((char*)buf.rsa_pub_key));
+				// wlog("The node's RSA pub key (%s)\n", new_authn_node->rsa_pub_key);
+
+				memset(&buf, '\0', SZ_AUN_BF);
+				buf.status = AUTHN_STATUS_RSA_SWAP_RESPONSE;
+				memset(buf.rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
+				memcpy(buf.rsa_pub_key, rsa_public_key_str, RSA_PUBLIC_KEY_LEN);
+				// wlog("Sending RSA public key (%s) to node\n", buf.rsa_pub_key);
+
+				sendto_len = sendto(accepted_sock_fd, &buf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
+				if (sendto_len == -1) {
+					pfail("sendto");
+				}
+				wlog("AUTHN_STATUS_RSA_SWAP BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB (%s)\n", key);
+				break;
+			}
+			case AUTHN_STATUS_AES_SWAP: {
+				char *key = authn_addr_info_to_key(family, ip_str, port);
+				wlog("The node's key (%s)\n", key);
+				authn_node_t *an = lookup_authn_node(&authn_tbl, key);
+				if (!an) {
+					wlog("No node was found for key (%s)\n", key);
+					break;
+				}
+				wlog("And the node was found with key (%s)\n", an->key);
+
+				RSA *rsa_priv_key;
+				unsigned char rsa_decrypted_aes_key[256];
+				memset(rsa_decrypted_aes_key, '\0', 256);
+				int result_len = 0;
+				load_private_key_from_str(&rsa_priv_key, rsa_private_key_str);
+				// wlog("Lets rsa decrypt with (%lu)(%lu)(%s)\n", sizeof(buf.aes_key),
+				// 	sizeof(rsa_decrypted_aes_key), rsa_private_key_str);
+				rsa_decrypt(rsa_priv_key, buf.aes_key, rsa_decrypted_aes_key, &result_len);
+				// wlog("rsa_decrypted:(%s)(%d)\n", rsa_decrypted_aes_key, result_len);
+
+				memset(an->aes_key, '\0', NUM_BYTES_AES_KEY);
+				memcpy(an->aes_key, rsa_decrypted_aes_key, result_len);
+				// I guess the initialization vector doesn't need to be encrypted
+				// http://stackoverflow.com/questions/8804574/aes-encryption-how-to-transport-iv
+				memset(an->aes_iv, '\0', NUM_BYTES_AES_IV);
+				memcpy(an->aes_iv, buf.aes_iv, NUM_BYTES_AES_IV);
+				// wlog("The node's AES key (%s)\n", an->aes_key);
+				// wlog("The node's AES iv (%s)\n", an->aes_iv);
+				wlog("AUTHN_STATUS_AES_SWAP GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG (%s)\n", key);
+
+				memset(&buf, '\0', SZ_AUN_BF);
+				buf.status = AUTHN_STATUS_AES_SWAP_RESPONSE;
+				// There is no need to send the server's AES key
+				// to the node... in fact, we may not need a server
+				// AES key at all
+				// memset(buf.aes_key, '\0', NUM_BYTES_AES_KEY);
+				// memcpy(buf.aes_key, aes_key, NUM_BYTES_AES_KEY);
+				// memset(buf.aes_iv, '\0', NUM_BYTES_AES_IV);
+				// memcpy(buf.aes_iv, aes_iv, NUM_BYTES_AES_IV);
+				sendto_len = sendto(accepted_sock_fd, &buf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
+				if (sendto_len == -1) {
+					pfail("sendto");
+				}
+				wlog("AUTHN_STATUS_AES_SWAP HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH (%s)\n", key);
+				break;
+			}
+			case AUTHN_STATUS_NEW_USER: {
+				char *key = authn_addr_info_to_key(family, ip_str, port);
+				wlog("AUTHN_STATUS_NEW_USER The node's key (%s)\n", key);
+				authn_node_t *an = lookup_authn_node(&authn_tbl, key);
+				if (!an) {
+					wlog("AUTHN_STATUS_NEW_USER No node was found for key (%s)\n", key);
+					break;
+				}
+				wlog("AUTHN_STATUS_NEW_USER And the node was found with key (%s)\n", an->key);
+
+				AUTHN_CREDS_CHECK_RESULT cr = -1;
+				hash_node_t *hn = lookup_user(&hashtbl, buf.id);
+				if (hn) cr = AUTHN_CREDS_CHECK_RESULT_USERNAME_ALREADY_EXISTS;
+				else cr = AUTHN_CREDS_CHECK_RESULT_GOOD;
+
+				add_user(&hashtbl, buf.id, buf.pw);
+				wlog("New user added (%s)(%s)\n", buf.id, buf.pw);
+
+				memset(&buf, '\0', sizeof(buf));
+				buf.status = AUTHN_STATUS_CREDS_CHECK_RESULT;
+				buf.authn_result = cr;
+
+				if (cr == AUTHN_CREDS_CHECK_RESULT_GOOD) {
+					unsigned char authentication_token[AUTHEN_TOKEN_LEN];
+					memset(authentication_token, '\0', AUTHEN_TOKEN_LEN);
+					if (!RAND_bytes(authentication_token, sizeof(authentication_token))) {
+						wlog("RAND_bytes failed for authentication_token\n");
+						ERR_print_errors_fp(stdout);
+						break;
+					}
+					memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+					add_token_node(&token_tbl, authentication_token);
+					remove_authn_node(&authn_tbl, key);
+				}
+
+				sendto_len = sendto(accepted_sock_fd, &buf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
+				if (sendto_len == -1) {
+					pfail("sendto");
+				}
+				break;
+			}
+			case AUTHN_STATUS_EXISTING_USER: {
+				wlog("AUTHN_STATUS_EXISTING_USER username (%s)(%s)\n", buf.id, buf.pw);
+				char *key = authn_addr_info_to_key(family, ip_str, port);
+				authn_node_t *an = lookup_authn_node(&authn_tbl, key);
+				if (!an) {
+					wlog("AUTHN_STATUS_EXISTING_USER: No node was found for key (%s)\n", key);
+					break;
+				}
+
+				AUTHN_CREDS_CHECK_RESULT cr = -1;
+				hash_node_t *hn = lookup_user(&hashtbl, buf.id);
+				if (!hn) cr = AUTHN_CREDS_CHECK_RESULT_USER_NOT_FOUND;
+				else if (strcmp(hn->password, buf.pw) != 0) cr = AUTHN_CREDS_CHECK_RESULT_WRONG_PASSWORD;
+				else cr = AUTHN_CREDS_CHECK_RESULT_GOOD;
+
+				wlog("AUTHN_STATUS_EXISTING_USER (%s)(%s)(%s)\n", creds_check_result_to_str(cr), buf.id, buf.pw);
+
+				memset(&buf, '\0', sizeof(buf));
+				buf.status = AUTHN_STATUS_CREDS_CHECK_RESULT;
+				buf.authn_result = cr;
+
+				if (cr == AUTHN_CREDS_CHECK_RESULT_GOOD) {
+					unsigned char authentication_token[AUTHEN_TOKEN_LEN];
+					memset(authentication_token, '\0', AUTHEN_TOKEN_LEN);
+
+					wlog("AUTHN_STATUS_EXISTING_USER about to RAND_bytes (%s)(%s)(%s)\n",
+						creds_check_result_to_str(cr), buf.id, buf.pw);
+
+					if (!RAND_bytes(authentication_token, sizeof(authentication_token))) {
+						wlog("RAND_bytes failed for authentication_token\n");
+						ERR_print_errors_fp(stdout);
+						break;
+					}
+
+					wlog("AUTHN_STATUS_EXISTING_USER RAND_bytes done (%s)(%s)(%s)\n",
+						creds_check_result_to_str(cr), buf.id, buf.pw);
+
+					memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+
+					wlog("AUTHN_STATUS_EXISTING_USER memcpy authn_token done (%s)(%s)(%s)\n",
+						creds_check_result_to_str(cr), buf.id, buf.pw);
+
+					add_token_node(&token_tbl, authentication_token);
+					remove_authn_node(&authn_tbl, key);
+
+					wlog("AUTHN_STATUS_EXISTING_USER done adding token node (%s)(%s)(%s)\n",
+						creds_check_result_to_str(cr), buf.id, buf.pw);
+				}
+
+				wlog("AUTHN_STATUS_EXISTING_USER about to sendto (%s)(%s)(%s)\n",
+					creds_check_result_to_str(cr), buf.id, buf.pw);
+
+				sendto_len = sendto(accepted_sock_fd, &buf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
+				if (sendto_len == -1) {
+					pfail("sendto");
+				}
+
+				wlog("AUTHN_STATUS_EXISTING_USER sendto DONE (%s)(%s)(%s)\n",
+					creds_check_result_to_str(cr), buf.id, buf.pw);
+
+				// TODO if cr == AUTHN_CREDS_CHECK_RESULT_GOOD, remove record from authn_tbl?
+				break;
+			}
+			case AUTHN_STATUS_SIGN_OUT: {
+				// TODO
+				break;
+			}
+			case AUTHN_STATUS_RSA_SWAP_RESPONSE:
+			case AUTHN_STATUS_AES_SWAP_RESPONSE:
+			case AUTHN_STATUS_NEW_USER_RESPONSE:
+			case AUTHN_STATUS_EXISTING_USER_RESPONSE:
+			case AUTHN_STATUS_CREDS_CHECK_RESULT: {
+				wlog("THIS SHOULDN'T HAPPEN!!!! (%s)\n", authn_status_to_str(buf.status));
+				break;
+			}
+		}
+		wlog("AUTHNNNNNNNNNNNNNNNN 4444444\n");
+	}
+	wlog("AUTHNNNNNNNNNNNNNNNN 5555555\n");
+	free(authn_arg->sa_auth_other);
+	free(authn_arg);
+	close(accepted_sock_fd);
+	if ( recvf_len == -1) pfail("authn recv");
+
+	pthread_exit("handle_authn_accept exited normally");
+}
+
 void *authentication_server_endpoint(void *arg) {
 	wlog("authentication_server_endpoint thread started (%d)(%d)(%d)(%d)\n",
 		NUM_BITS_AES_KEY, NUM_BYTES_AES_KEY, NUM_BITS_IV_KEY, NUM_BYTES_AES_IV);
 
-	size_t recvf_len, sendto_len;
 	struct sockaddr_in6 *si_me;
-	authn_buf_t buf;
 	struct sockaddr_in6 sa_auth_other;
 	socklen_t authn_slen = SZ_SOCKADDR_IN6;
 
@@ -448,242 +696,34 @@ void *authentication_server_endpoint(void *arg) {
 
 	while (authentication_server_running) {
 		wlog("AUTHNNNNNNNNNNNNNNNN 1111111\n");
-		int connecting_sock_fd = accept(authn_sock_fd, (struct sockaddr*)&sa_auth_other, &authn_slen);
+		int accepted_sock_fd = accept(authn_sock_fd, (struct sockaddr*)&sa_auth_other, &authn_slen);
 		wlog("AUTHNNNNNNNNNNNNNNNN 2222222\n");
 
-		if ( connecting_sock_fd < 0 ) pfail("authn accept");
+		if ( accepted_sock_fd < 0 ) {
+			pfail("authn accept");
+			continue;
+		}
+
 		wlog("authentication_server_endpoint 5: we've got a connection.\n");
 
-		while ((recvf_len = recv(connecting_sock_fd, &buf, SZ_AE_BUF, 0)) > 0) {
-			wlog("AUTHNNNNNNNNNNNNNNNN 3333333\n");
+		pthread_attr_t attr;
+		pthread_attr_init(&attr);
+		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+		pthread_t tt;
 
-			char ip_str[INET6_ADDRSTRLEN];
-			unsigned short port;
-			unsigned short family;
-			// void *addr = &(sa_auth_other.sin_addr);
-			// inet_ntop( AF_INET, &(sa_auth_other.sin_addr), ip_str, sizeof(ip_str) );
-			addr_to_str_short((struct sockaddr*)&sa_auth_other, ip_str, &port, &family);
-			wlog("AUTH received packet (%d):(%s) (%zu bytes) from %s port%d %d\n", buf.status,
-				authn_status_to_str(buf.status), recvf_len, ip_str, port, family);
+		authn_accept_thread_arg_t *arg = malloc(sizeof(authn_accept_thread_arg_t));
+		memset(arg, '\0', sizeof(authn_accept_thread_arg_t));
+		arg->accepted_sock_fd = accepted_sock_fd;
+		struct sockaddr_in6 *ta = malloc(sizeof(struct sockaddr_in6));
+		memset(ta, '\0', sizeof(struct sockaddr_in6));
+		memcpy(ta, &sa_auth_other, sizeof(struct sockaddr_in6));
+		arg->sa_auth_other = ta;
 
-// start_switch:
-			switch (buf.status) {
-				case AUTHN_STATUS_ENCRYPTED: {
-					wlog("AUTHN_STATUS_ENCRYPTED started\n");
-					char *key = authn_addr_info_to_key(family, ip_str, port);
-					wlog("AUTHN_STATUS_ENCRYPTED The node's key (%s)\n", key);
-					authn_node_t *an = lookup_authn_node(&authn_tbl, key);
-					if (!an) {
-						wlog("AUTHN_STATUS_ENCRYPTED No node was found for key (%s)\n", key);
-						break;
-					}
-					wlog("And the node was found with key (%s)\n", an->key);
-					wlog("I have temporarily disabled encryption, so how can AUTHN_STATUS_ENCRYPTED possibly be called????\n");
-					break;
-
-					// authn_buf_encrypted_t *be = (authn_buf_encrypted_t*)&buf;
-
-					// unsigned char decrypted_buf[SZ_AUN_BF + AES_PADDING];
-					// memset(decrypted_buf, '\0', SZ_AUN_BF + AES_PADDING);
-					// wlog("Lets AES descrypt with (%s)(%s)(%s)\n", be ? "GOD" : "BAD",
-					// 	an->aes_key ? "GOD" : "BAD", an->aes_iv ? "GOD" : "BAD");
-					// int dl = aes_decrypt(be->encrypted_buf, be->encrypted_len, an->aes_key, an->aes_iv, decrypted_buf);
-					// wlog("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
-					// memset(&buf, '\0', sizeof(buf));
-					// memcpy(&buf, decrypted_buf, dl);
-					// wlog("aes_decrypt copied (%s)\n", buf.id);
-					// goto start_switch;
-				}
-				case AUTHN_STATUS_RSA_SWAP: {
-					char *key = authn_addr_info_to_key(family, ip_str, port);
-					wlog("The node's key (%s)\n", key);
-					authn_node_t *new_authn_node = add_authn_node(&authn_tbl, AUTHN_STATUS_RSA_SWAP_RESPONSE, key);
-					wlog("And the node was added with key (%s)\n", new_authn_node->key);
-					memset(new_authn_node->rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
-					memcpy(new_authn_node->rsa_pub_key, buf.rsa_pub_key, strlen((char*)buf.rsa_pub_key));
-					// wlog("The node's RSA pub key (%s)\n", new_authn_node->rsa_pub_key);
-
-					memset(&buf, '\0', SZ_AUN_BF);
-					buf.status = AUTHN_STATUS_RSA_SWAP_RESPONSE;
-					memset(buf.rsa_pub_key, '\0', RSA_PUBLIC_KEY_LEN);
-					memcpy(buf.rsa_pub_key, rsa_public_key_str, RSA_PUBLIC_KEY_LEN);
-					// wlog("Sending RSA public key (%s) to node\n", buf.rsa_pub_key);
-
-					sendto_len = sendto(connecting_sock_fd, &buf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
-					if (sendto_len == -1) {
-						pfail("sendto");
-					}
-					wlog("AUTHN_STATUS_RSA_SWAP BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB (%s)\n", key);
-					break;
-				}
-				case AUTHN_STATUS_AES_SWAP: {
-					char *key = authn_addr_info_to_key(family, ip_str, port);
-					wlog("The node's key (%s)\n", key);
-					authn_node_t *an = lookup_authn_node(&authn_tbl, key);
-					if (!an) {
-						wlog("No node was found for key (%s)\n", key);
-						break;
-					}
-					wlog("And the node was found with key (%s)\n", an->key);
-
-					RSA *rsa_priv_key;
-					unsigned char rsa_decrypted_aes_key[256];
-					memset(rsa_decrypted_aes_key, '\0', 256);
-					int result_len = 0;
-					load_private_key_from_str(&rsa_priv_key, rsa_private_key_str);
-					// wlog("Lets rsa decrypt with (%lu)(%lu)(%s)\n", sizeof(buf.aes_key),
-					// 	sizeof(rsa_decrypted_aes_key), rsa_private_key_str);
-					rsa_decrypt(rsa_priv_key, buf.aes_key, rsa_decrypted_aes_key, &result_len);
-					// wlog("rsa_decrypted:(%s)(%d)\n", rsa_decrypted_aes_key, result_len);
-
-					memset(an->aes_key, '\0', NUM_BYTES_AES_KEY);
-					memcpy(an->aes_key, rsa_decrypted_aes_key, result_len);
-					// I guess the initialization vector doesn't need to be encrypted
-					// http://stackoverflow.com/questions/8804574/aes-encryption-how-to-transport-iv
-					memset(an->aes_iv, '\0', NUM_BYTES_AES_IV);
-					memcpy(an->aes_iv, buf.aes_iv, NUM_BYTES_AES_IV);
-					// wlog("The node's AES key (%s)\n", an->aes_key);
-					// wlog("The node's AES iv (%s)\n", an->aes_iv);
-					wlog("AUTHN_STATUS_AES_SWAP GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG (%s)\n", key);
-
-					memset(&buf, '\0', SZ_AUN_BF);
-					buf.status = AUTHN_STATUS_AES_SWAP_RESPONSE;
-					// There is no need to send the server's AES key
-					// to the node... in fact, we may not need a server
-					// AES key at all
-					// memset(buf.aes_key, '\0', NUM_BYTES_AES_KEY);
-					// memcpy(buf.aes_key, aes_key, NUM_BYTES_AES_KEY);
-					// memset(buf.aes_iv, '\0', NUM_BYTES_AES_IV);
-					// memcpy(buf.aes_iv, aes_iv, NUM_BYTES_AES_IV);
-					sendto_len = sendto(connecting_sock_fd, &buf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
-					if (sendto_len == -1) {
-						pfail("sendto");
-					}
-					wlog("AUTHN_STATUS_AES_SWAP HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH (%s)\n", key);
-					break;
-				}
-				case AUTHN_STATUS_NEW_USER: {
-					char *key = authn_addr_info_to_key(family, ip_str, port);
-					wlog("AUTHN_STATUS_NEW_USER The node's key (%s)\n", key);
-					authn_node_t *an = lookup_authn_node(&authn_tbl, key);
-					if (!an) {
-						wlog("AUTHN_STATUS_NEW_USER No node was found for key (%s)\n", key);
-						break;
-					}
-					wlog("AUTHN_STATUS_NEW_USER And the node was found with key (%s)\n", an->key);
-
-					AUTHN_CREDS_CHECK_RESULT cr = -1;
-					hash_node_t *hn = lookup_user(&hashtbl, buf.id);
-					if (hn) cr = AUTHN_CREDS_CHECK_RESULT_USERNAME_ALREADY_EXISTS;
-					else cr = AUTHN_CREDS_CHECK_RESULT_GOOD;
-
-					add_user(&hashtbl, buf.id, buf.pw);
-					wlog("New user added (%s)(%s)\n", buf.id, buf.pw);
-
-					memset(&buf, '\0', sizeof(buf));
-					buf.status = AUTHN_STATUS_CREDS_CHECK_RESULT;
-					buf.authn_result = cr;
-
-					if (cr == AUTHN_CREDS_CHECK_RESULT_GOOD) {
-						unsigned char authentication_token[AUTHEN_TOKEN_LEN];
-						memset(authentication_token, '\0', AUTHEN_TOKEN_LEN);
-						if (!RAND_bytes(authentication_token, sizeof(authentication_token))) {
-							wlog("RAND_bytes failed for authentication_token\n");
-							ERR_print_errors_fp(stdout);
-							break;
-						}
-						memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
-						add_token_node(&token_tbl, authentication_token);
-						remove_authn_node(&authn_tbl, key);
-					}
-
-					sendto_len = sendto(connecting_sock_fd, &buf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
-					if (sendto_len == -1) {
-						pfail("sendto");
-					}
-					break;
-				}
-				case AUTHN_STATUS_EXISTING_USER: {
-					wlog("AUTHN_STATUS_EXISTING_USER username (%s)(%s)\n", buf.id, buf.pw);
-					char *key = authn_addr_info_to_key(family, ip_str, port);
-					authn_node_t *an = lookup_authn_node(&authn_tbl, key);
-					if (!an) {
-						wlog("AUTHN_STATUS_EXISTING_USER: No node was found for key (%s)\n", key);
-						break;
-					}
-
-					AUTHN_CREDS_CHECK_RESULT cr = -1;
-					hash_node_t *hn = lookup_user(&hashtbl, buf.id);
-					if (!hn) cr = AUTHN_CREDS_CHECK_RESULT_USER_NOT_FOUND;
-					else if (strcmp(hn->password, buf.pw) != 0) cr = AUTHN_CREDS_CHECK_RESULT_WRONG_PASSWORD;
-					else cr = AUTHN_CREDS_CHECK_RESULT_GOOD;
-
-					wlog("AUTHN_STATUS_EXISTING_USER (%s)(%s)(%s)\n", creds_check_result_to_str(cr), buf.id, buf.pw);
-
-					memset(&buf, '\0', sizeof(buf));
-					buf.status = AUTHN_STATUS_CREDS_CHECK_RESULT;
-					buf.authn_result = cr;
-
-					if (cr == AUTHN_CREDS_CHECK_RESULT_GOOD) {
-						unsigned char authentication_token[AUTHEN_TOKEN_LEN];
-						memset(authentication_token, '\0', AUTHEN_TOKEN_LEN);
-
-						wlog("AUTHN_STATUS_EXISTING_USER about to RAND_bytes (%s)(%s)(%s)\n",
-							creds_check_result_to_str(cr), buf.id, buf.pw);
-
-						if (!RAND_bytes(authentication_token, sizeof(authentication_token))) {
-							wlog("RAND_bytes failed for authentication_token\n");
-							ERR_print_errors_fp(stdout);
-							break;
-						}
-
-						wlog("AUTHN_STATUS_EXISTING_USER RAND_bytes done (%s)(%s)(%s)\n",
-							creds_check_result_to_str(cr), buf.id, buf.pw);
-
-						memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
-
-						wlog("AUTHN_STATUS_EXISTING_USER memcpy authn_token done (%s)(%s)(%s)\n",
-							creds_check_result_to_str(cr), buf.id, buf.pw);
-
-						add_token_node(&token_tbl, authentication_token);
-						remove_authn_node(&authn_tbl, key);
-
-						wlog("AUTHN_STATUS_EXISTING_USER done adding token node (%s)(%s)(%s)\n",
-							creds_check_result_to_str(cr), buf.id, buf.pw);
-					}
-
-					wlog("AUTHN_STATUS_EXISTING_USER about to sendto (%s)(%s)(%s)\n",
-						creds_check_result_to_str(cr), buf.id, buf.pw);
-
-					sendto_len = sendto(connecting_sock_fd, &buf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
-					if (sendto_len == -1) {
-						pfail("sendto");
-					}
-
-					wlog("AUTHN_STATUS_EXISTING_USER sendto DONE (%s)(%s)(%s)\n",
-						creds_check_result_to_str(cr), buf.id, buf.pw);
-
-					// TODO if cr == AUTHN_CREDS_CHECK_RESULT_GOOD, remove record from authn_tbl?
-					break;
-				}
-				case AUTHN_STATUS_SIGN_OUT: {
-					// TODO
-					break;
-				}
-				case AUTHN_STATUS_RSA_SWAP_RESPONSE:
-				case AUTHN_STATUS_AES_SWAP_RESPONSE:
-				case AUTHN_STATUS_NEW_USER_RESPONSE:
-				case AUTHN_STATUS_EXISTING_USER_RESPONSE:
-				case AUTHN_STATUS_CREDS_CHECK_RESULT: {
-					wlog("THIS SHOULDN'T HAPPEN!!!! (%s)\n", authn_status_to_str(buf.status));
-					break;
-				}
-			}
-			wlog("AUTHNNNNNNNNNNNNNNNN 4444444\n");
+		int pc = pthread_create(&tt, &attr, handle_authn_accept, arg);
+		if (pc) {
+			printf("A PROBLEM OCCURRED CREATING handle_authn_accept THREAD\n");
 		}
-		wlog("AUTHNNNNNNNNNNNNNNNN 5555555\n");
-		close(connecting_sock_fd);
-		if ( recvf_len == -1) pfail("authn recv");
+		wlog("authentication_server_endpoint 6: and proceed to next connection...\n");
 	}
 
 	pthread_exit("authentication_server_thread exited normally");
