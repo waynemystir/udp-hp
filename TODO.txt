@@ -1,4 +1,5 @@
 
+remove stale nodes (**** see PEER REPORTING OF OTHER PEERS THAT APPEAR OFFLINE below)
 stay-in-touch with peers (and self nodes?)
 
 fire chat_hole_punch from case: CHAT_STATUS_ATTEMPTING_HOLE_PUNCH...
