@@ -420,8 +420,13 @@ void *handle_authn_accept(void *arg) {
 	socklen_t authn_slen = SZ_SOCKADDR_IN6;
 	authn_buf_t buf;
 	authn_accept_thread_arg_t *authn_arg = arg;
+	if (!authn_arg) {
+		wlog("handle_authn_accept problem: null argument given\n");
+		pthread_exit("handle_authn_accept thread exiting: null argument given");
+	}
 	int accepted_sock_fd = authn_arg->accepted_sock_fd;
-	struct sockaddr_in6 sa_auth_other = *(authn_arg->sa_auth_other);
+	struct sockaddr_in6 sa_auth_other = {0};
+	sa_auth_other = *(authn_arg->sa_auth_other);
 
 	while ((recvf_len = recv(accepted_sock_fd, &buf, SZ_AE_BUF, 0)) > 0) {
 		wlog("AUTHNNNNNNNNNNNNNNNN 3333333\n");
@@ -714,9 +719,9 @@ void *authentication_server_endpoint(void *arg) {
 		authn_accept_thread_arg_t *arg = malloc(sizeof(authn_accept_thread_arg_t));
 		memset(arg, '\0', sizeof(authn_accept_thread_arg_t));
 		arg->accepted_sock_fd = accepted_sock_fd;
-		struct sockaddr_in6 *ta = malloc(sizeof(struct sockaddr_in6));
-		memset(ta, '\0', sizeof(struct sockaddr_in6));
-		memcpy(ta, &sa_auth_other, sizeof(struct sockaddr_in6));
+		struct sockaddr_in6 *ta = malloc(SZ_SOCKADDR_IN6);
+		memset(ta, '\0', SZ_SOCKADDR_IN6);
+		memcpy(ta, &sa_auth_other, SZ_SOCKADDR_IN6);
 		arg->sa_auth_other = ta;
 
 		int pc = pthread_create(&tt, &attr, handle_authn_accept, arg);
