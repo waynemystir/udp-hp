@@ -468,7 +468,7 @@ void figure_out_connectivity() {
 	}
 	if (connectivity_cb) connectivity_cb(ifpref, 0);
 
-	// We are skipping IPV6_CELLULAR for now because
+	// We are doing IPV6_CELLULAR last for now because
 	// hole punching doesn't work on that...
 	// But it does work on IPv4 cellular
 
@@ -476,6 +476,16 @@ void figure_out_connectivity() {
 	ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
 	if (ifr > 0) {
 		sock_addr_family_to_use = AF_INET;
+		interface_preferred = ifpref;
+		if (connectivity_cb) connectivity_cb(ifpref, 1);
+		return;
+	}
+	if (connectivity_cb) connectivity_cb(ifpref, 0);
+
+	ifpref = IPV6_CELLULAR;
+	ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
+	if (ifr > 0) {
+		sock_addr_family_to_use = AF_INET6;
 		interface_preferred = ifpref;
 		if (connectivity_cb) connectivity_cb(ifpref, 1);
 		return;
