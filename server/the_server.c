@@ -823,8 +823,10 @@ void *search_server_routine(void *arg) {
 				wlog("SEARCH_STATUS_USERNAME-WWW-111 (%s)(%d)(%d)\n", wa, wp, wf);
 				addr_to_str_short((struct sockaddr*)&si_search_other, wa, &wp, &wf);
 				wlog("SEARCH_STATUS_USERNAME-WWW-222 (%s)(%d)(%d)\n", wa, wp, wf);
+				node_logit = 1;
 				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)si_search_other_copy, SERVER_SEARCH);
 				free(si_search_other_copy);
+				node_logit = 0;
 				if (!n) {
 					wlog("SEARCH_STATUS_USERNAME No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);

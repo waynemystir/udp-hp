@@ -217,6 +217,8 @@ struct node *find_node(LinkedList_t *list, node_t *node) {
 	return NULL;
 }
 
+int node_logit = 0;
+
 int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr, SERVER_TYPE st) {
 	if (!node || !addr) return 0;
 	SUP_FAMILY_T sup_fam = node->int_or_ext == INTERNAL_ADDR ? node->internal_family : node->external_family;
@@ -264,6 +266,15 @@ int node_and_sockaddr_equal(node_t *node, struct sockaddr *addr, SERVER_TYPE st)
 			struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)addr;
 			unsigned char ip6[IP6_ADDR_LEN] = {0};
 			memcpy(ip6, node->int_or_ext == INTERNAL_ADDR ? node->internal_ip6 : node->external_ip6, IP6_ADDR_LEN);
+			if (node_logit) {
+				wlog("UUUUUUUUUUUUUUUUUUUUUUU lets compare IPv6's\n");
+				for (int i = 0; i < 16; i++) {
+					wlog("ip6(%u) sa6(%u) hey(%s)\n", ip6[i], sa6->sin6_addr.s6_addr[i]
+						, ip6[i] == sa6->sin6_addr.s6_addr[i] ? "EQUALS" : "NOT");
+				}
+				int ae = memcmp(ip6, sa6->sin6_addr.s6_addr, IP6_ADDR_LEN);
+				wlog("IIE a(%d) p(%d)(%d)(%d)\n", ae, aport == sa6->sin6_port, ntohs(aport), ntohs(sa6->sin6_port));
+			}
 			return memcmp(ip6, sa6->sin6_addr.s6_addr, IP6_ADDR_LEN) == 0 &&
 				aport == sa6->sin6_port;
 		}
