@@ -20,6 +20,9 @@ int sock_addr_family_to_use;
 
 NODE_USER_STATUS node_user_status;
 char username[MAX_CHARS_USERNAME] = {0};
+char apple_review_username[MAX_CHARS_USERNAME] = {0};
+char ipv6_test_user_01_username[MAX_CHARS_USERNAME] = {0};
+char ipv6_test_user_02_username[MAX_CHARS_USERNAME] = {0};
 char password[MAX_CHARS_PASSWORD] = {0};
 unsigned char authentication_token[AUTHEN_TOKEN_LEN];
 
@@ -146,6 +149,26 @@ void pfail(char *w) {
 	char w3[512];
 	sprintf(w3, "(%s) (%s)", w, w2);
 	if (pfail_cb) pfail_cb(w3);
+}
+
+int preferred_interface() {
+	if (strcmp(username, apple_review_username) == 0
+		|| strcmp(username, ipv6_test_user_01_username) == 0
+		|| strcmp(username, ipv6_test_user_02_username) == 0) {
+		return IPV6_WIFI;
+	}
+
+	return interface_preferred;
+}
+
+int socket_address_family() {
+	if (strcmp(username, apple_review_username) == 0
+		|| strcmp(username, ipv6_test_user_01_username) == 0
+		|| strcmp(username, ipv6_test_user_02_username) == 0) {
+		return AF_INET6;
+	}
+
+	return sock_addr_family_to_use;
 }
 
 void create_aes_iv() {
@@ -307,7 +330,7 @@ void *authn_thread_routine(void *arg) {
 	socklen_t authn_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 	char wayne[256];
 
-	authn_sock_fd = socket(sock_addr_family_to_use, SOCK_STREAM, IPPROTO_TCP);
+	authn_sock_fd = socket(socket_address_family(), SOCK_STREAM, IPPROTO_TCP);
 	if (authn_sock_fd == -1) {
 		printf("There was a problem creating the authn socket\n");
 	}
@@ -315,7 +338,7 @@ void *authn_thread_routine(void *arg) {
 	// Setup server
 	char auth_port[10];
 	get_authentication_port_as_str(auth_port);
-	str_to_addr(&sa_authn_server, server_hostname, auth_port, sock_addr_family_to_use, SOCK_STREAM, 0);
+	str_to_addr(&sa_authn_server, server_hostname, auth_port, socket_address_family(), SOCK_STREAM, 0);
 	authn_server_socklen = sa_authn_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_authn_server, authn_server_ip, authn_server_port, authn_server_family);
 	sprintf(wes, "The authn server %s port%s %s %u",
@@ -523,6 +546,10 @@ int authn(NODE_USER_STATUS user_stat,
 	server_connection_failure_cb = server_connection_failure;
 	general_cb = general;
 	node_user_status = user_stat;
+
+	strcpy(apple_review_username, "apple_review");
+	strcpy(ipv6_test_user_01_username, "ipv6_test_user_01");
+	strcpy(ipv6_test_user_02_username, "ipv6_test_user_02");
 
 	figure_out_connectivity();
 
@@ -762,7 +789,7 @@ void *wain_thread_routine(void *arg) {
 	sa_self_internal = NULL;
 	self_internal = NULL;
 
-	get_if_addr_iOS_OSX(interface_preferred, &sa_self_internal, &sz_sa_self_internal, me_internal_ip);
+	get_if_addr_iOS_OSX(preferred_interface(), &sa_self_internal, &sz_sa_self_internal, me_internal_ip);
 
 	if (sa_self_internal) {
 		addr_to_str_short(sa_self_internal, me_internal_ip, &me_internal_port, &me_internal_family);
@@ -772,7 +799,7 @@ void *wain_thread_routine(void *arg) {
 		addr_to_node_buf(sa_self_internal, &self_internal, STATUS_INIT_NODE, 0, username);
 		memcpy(self_internal->authn_token, authentication_token, AUTHEN_TOKEN_LEN);
 	} else {
-		sa_self_internal = sock_addr_family_to_use == AF_INET6 ? (struct sockaddr*)&si_me6 : (struct sockaddr*)&si_me4;
+		sa_self_internal = socket_address_family() == AF_INET6 ? (struct sockaddr*)&si_me6 : (struct sockaddr*)&si_me4;
 		addr_to_str_short(sa_self_internal, me_internal_ip, &me_internal_port, &me_internal_family);
 		sprintf(sprintf, "PRE-000-Moi (%s)(%d)(%d)", me_internal_ip, me_internal_port, me_internal_family);
 		if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
@@ -791,7 +818,7 @@ void *wain_thread_routine(void *arg) {
 	// Setup server
 	char wain_port[10];
 	get_wain_port_as_str(wain_port);
-	str_to_addr(&sa_server, server_hostname, wain_port, sock_addr_family_to_use, SOCK_DGRAM, 0);
+	str_to_addr(&sa_server, server_hostname, wain_port, socket_address_family(), SOCK_DGRAM, 0);
 	server_socklen = sa_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(sprintf, "The server %s port%s %s %u",
@@ -801,7 +828,7 @@ void *wain_thread_routine(void *arg) {
 		server_socklen);
 	if (server_info_cb) server_info_cb(SERVER_MAIN, sprintf);
 
-	sock_fd = socket(sock_addr_family_to_use, SOCK_DGRAM, IPPROTO_UDP);
+	sock_fd = socket(socket_address_family(), SOCK_DGRAM, IPPROTO_UDP);
 	if (sock_fd == -1) {
 		printf("There was a problem creating the socket\n");
 	} else if (socket_created_cb) socket_created_cb(sock_fd);
@@ -820,7 +847,7 @@ void *wain_thread_routine(void *arg) {
 	sprintf(sprintf, "Moi INTERNAL (%s)(%s)(%d)(%d)", username, me_internal_ip, me_internal_port, me_internal_family);
 	if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
 
-	self_internal->port = sock_addr_family_to_use == AF_INET6 ? si_me6.sin6_port : si_me4.sin_port;
+	self_internal->port = socket_address_family() == AF_INET6 ? si_me6.sin6_port : si_me4.sin_port;
 
 	sendto_len = sendto(sock_fd, self_internal, SZ_NODE_BF, 0, sa_server, server_socklen);
 	if (sendto_len == -1) {
@@ -1147,7 +1174,7 @@ void *chat_hp_server(void *w) {
 	// Setup chat server
 	char chat_port[10];
 	get_chat_port_as_str(chat_port);
-	str_to_addr(&sa_chat_server, server_hostname, chat_port, sock_addr_family_to_use, SOCK_DGRAM, 0);
+	str_to_addr(&sa_chat_server, server_hostname, chat_port, socket_address_family(), SOCK_DGRAM, 0);
 	chat_server_socklen = sa_chat_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_chat_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(sprintf, "The chat server %s port%s %s chat_server_socklen(%u)",
@@ -1164,7 +1191,7 @@ void *chat_hp_server(void *w) {
 	char chat_other_family[20];
 	socklen_t chat_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
-	chat_sock_fd = socket(sock_addr_family_to_use, SOCK_DGRAM, IPPROTO_UDP);
+	chat_sock_fd = socket(socket_address_family(), SOCK_DGRAM, IPPROTO_UDP);
 	if (chat_sock_fd == -1) {
 		pfail("There was a problem creating the socket");
         exit(-1);
@@ -1407,7 +1434,7 @@ void *search_thread_routine(void *arg) {
 	// Setup search server
 	char search_port[10];
 	get_search_port_as_str(search_port);
-	str_to_addr(&sa_search_server, server_hostname, search_port, sock_addr_family_to_use, SOCK_DGRAM, 0);
+	str_to_addr(&sa_search_server, server_hostname, search_port, socket_address_family(), SOCK_DGRAM, 0);
 	search_server_socklen = sa_search_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_search_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(wayne, "The search server %s port%s %s %u",
@@ -1424,7 +1451,7 @@ void *search_thread_routine(void *arg) {
 	char search_other_family[20];
 	socklen_t search_other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
-	search_sock_fd = socket(sock_addr_family_to_use, SOCK_DGRAM, IPPROTO_UDP);
+	search_sock_fd = socket(socket_address_family(), SOCK_DGRAM, IPPROTO_UDP);
 	if (search_sock_fd == -1) {
 		printf("There was a problem creating the socket\n");
 	} else if (socket_created_cb) socket_created_cb(search_sock_fd);
