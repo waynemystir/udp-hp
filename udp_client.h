@@ -13,6 +13,10 @@
 #include "hashtable.h"
 #include "network_utils.h"
 
+void init(void (*pfail_cb)(char *),
+	void (*connectivity)(IF_ADDR_PREFFERED, int),
+	void (*general)(char*, LOG_LEVEL));
+
 int authn(NODE_USER_STATUS user_stat,
 	const char *usernm,
 	const char *passwd,
@@ -20,8 +24,6 @@ int authn(NODE_USER_STATUS user_stat,
 	const char *rsa_pub_key,
 	const char *rsa_pri_key,
 	unsigned char *aes_key,
-	void (*pfail_cb)(char *),
-	void (*connectivity)(IF_ADDR_PREFFERED, int),
 	void (*rsakeypair_generated)(const char *rsa_pub_key, const char *rsa_pri_key),
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
 	void (*rsa_response)(char *server_rsa_pub_key),
@@ -29,8 +31,7 @@ int authn(NODE_USER_STATUS user_stat,
 	void (*aes_response)(NODE_USER_STATUS),
 	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, char *username,
 		char *password, unsigned char[AUTHEN_TOKEN_LEN]),
-	void (*server_connection_failure)(SERVER_TYPE, char*),
-	void (*general)(char*, LOG_LEVEL));
+	void (*server_connection_failure)(SERVER_TYPE, char*));
 
 int send_user(NODE_USER_STATUS nus, char *usernm, char *pw);
 

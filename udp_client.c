@@ -15,8 +15,8 @@
 
 #define DEFAULT_OTHER_ADDR_LEN SZ_SOCKADDR_IN6
 
-IF_ADDR_PREFFERED interface_preferred;
-int sock_addr_family_to_use;
+IF_ADDR_PREFFERED interface_preferred = IPV6_WIFI;
+int sock_addr_family_to_use = AF_INET6;
 
 NODE_USER_STATUS node_user_status;
 char username[MAX_CHARS_USERNAME] = {0};
@@ -63,7 +63,8 @@ char me_chat_family[20];
 
 // The server
 char server_ip_str[256];
-char server_hostname[256];
+// char server_hostname[256];
+char server_hostname_test[256];
 struct sockaddr *sa_server;
 char server_internal_ip[INET6_ADDRSTRLEN];
 char server_internal_port[20];
@@ -182,6 +183,104 @@ int socket_address_family() {
 	return sock_addr_family_to_use;
 }
 
+char *the_server_hostname(char *s) {
+	int f = socket_address_family();
+	char *w = get_server_ip_as_str(f);
+	char e[256] = {0};
+	sprintf(e, "***********************\nTHE_server_hostname(%s)(%d)(%s)", w, f, s);
+	if (general_cb) general_cb(e, SEVERE_LOG);
+	return w;
+}
+
+void figure_out_connectivity() {
+	IF_ADDR_PREFFERED ifpref = IPV4_WIFI;
+	struct sockaddr *ret_addr = NULL;
+	size_t size_addr;
+	char ip_str[INET6_ADDRSTRLEN];
+
+	int ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
+	if (ifr > 0) {
+		sock_addr_family_to_use = AF_INET;
+		interface_preferred = ifpref;
+		if (connectivity_cb) connectivity_cb(ifpref, 1);
+		return;
+	}
+	if (connectivity_cb) connectivity_cb(ifpref, 0);
+
+	ifpref = IPV6_WIFI;
+	ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
+	if (ifr > 0) {
+		sock_addr_family_to_use = AF_INET6;
+		interface_preferred = ifpref;
+		if (connectivity_cb) connectivity_cb(ifpref, 1);
+		return;
+	}
+	if (connectivity_cb) connectivity_cb(ifpref, 0);
+
+	// We are doing IPV6_CELLULAR last for now because
+	// hole punching doesn't work on that...
+	// But it does work on IPv4 cellular
+
+	ifpref = IPV4_CELLULAR;
+	ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
+	if (ifr > 0) {
+		sock_addr_family_to_use = AF_INET;
+		interface_preferred = ifpref;
+		if (connectivity_cb) connectivity_cb(ifpref, 1);
+		return;
+	}
+	if (connectivity_cb) connectivity_cb(ifpref, 0);
+
+	ifpref = IPV6_CELLULAR;
+	ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
+	if (ifr > 0) {
+		sock_addr_family_to_use = AF_INET6;
+		interface_preferred = ifpref;
+		if (connectivity_cb) connectivity_cb(ifpref, 1);
+		return;
+	}
+	if (connectivity_cb) connectivity_cb(ifpref, 0);
+}
+
+void init(void (*pfail_cb)(char *),
+	void (*connectivity)(IF_ADDR_PREFFERED, int),
+	void (*general)(char*, LOG_LEVEL)) {
+
+	pfail_cb = pfail;
+	connectivity_cb = connectivity;
+	general_cb = general;
+
+	get_server_hostname(server_hostname_test);
+
+	strcpy(apple_review_username, "apple_review");
+	strcpy(tu_01_username, "tu01");
+	strcpy(tu_02_username, "tu02");
+	strcpy(test_user_01_username, "test_user_01");
+	strcpy(test_user_02_username, "test_user_02");
+	strcpy(ipv6_test_user_01_username, "ipv6_test_user_01");
+	strcpy(ipv6_test_user_02_username, "ipv6_test_user_02");
+
+	figure_out_connectivity();
+
+	char wes[1024] = {0};
+	char wip[256] = {0};
+	unsigned short wpt;
+	unsigned short wfm;
+	char auth_port[10];
+	get_authentication_port_as_str(auth_port);
+	struct sockaddr_storage *wa = NULL;
+
+	str_to_addr((struct sockaddr**)&wa, server_hostname_test, auth_port, AF_INET6, SOCK_STREAM, 0);
+	addr_to_str_short((struct sockaddr*)wa, wip, &wpt, &wfm);
+	sprintf(wes, "server_hostname(%s)IPv6(%s)(%d)(%d)", server_hostname_test, wip, wpt, wfm);
+	if (general_cb) general_cb(wes, SEVERE_LOG);
+
+	str_to_addr((struct sockaddr**)&wa, server_hostname_test, auth_port, AF_INET, SOCK_STREAM, 0);
+	addr_to_str_short((struct sockaddr*)wa, wip, &wpt, &wfm);
+	sprintf(wes, "server_hostname(%s)IPv4(%s)(%d)(%d)", server_hostname_test, wip, wpt, wfm);
+	if (general_cb) general_cb(wes, SEVERE_LOG);
+}
+
 void create_aes_iv() {
 	unsigned char iv[NUM_BYTES_AES_IV];
 	memset(iv, '\0', NUM_BYTES_AES_IV);
@@ -264,16 +363,13 @@ int send_user(NODE_USER_STATUS nus, char *usernm, char *pw) {
 		authn_running = 1;
 		wain_running = 1;
 		authn(nus, usernm, pw, buf.status, rsa_public_key, rsa_private_key, aes_key,
-			pfail_cb,
-			connectivity_cb,
 			rsakeypair_generated_cb,
 			recd_cb,
 			rsa_response_cb,
 			aes_key_created_cb,
 			aes_response_cb,
 			creds_check_result_cb,
-			server_connection_failure_cb,
-			general_cb);
+			server_connection_failure_cb);
 
 		int authn_retries = 0;
 		while (!authn_thread_has_started || !wain_thread_has_started) {
@@ -349,7 +445,7 @@ void *authn_thread_routine(void *arg) {
 	// Setup server
 	char auth_port[10];
 	get_authentication_port_as_str(auth_port);
-	str_to_addr(&sa_authn_server, server_hostname, auth_port, socket_address_family(), SOCK_STREAM, 0);
+	str_to_addr(&sa_authn_server, the_server_hostname("auth"), auth_port, socket_address_family(), SOCK_STREAM, 0);
 	authn_server_socklen = sa_authn_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_authn_server, authn_server_ip, authn_server_port, authn_server_family);
 	sprintf(wes, "The authn server %s port%s %s %u",
@@ -477,56 +573,6 @@ void *authn_thread_routine(void *arg) {
 	pthread_exit("authn_thread exited normally");
 }
 
-void figure_out_connectivity() {
-	IF_ADDR_PREFFERED ifpref = IPV4_WIFI;
-	struct sockaddr *ret_addr = NULL;
-	size_t size_addr;
-	char ip_str[INET6_ADDRSTRLEN];
-
-	int ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
-	if (ifr > 0) {
-		sock_addr_family_to_use = AF_INET;
-		interface_preferred = ifpref;
-		if (connectivity_cb) connectivity_cb(ifpref, 1);
-		return;
-	}
-	if (connectivity_cb) connectivity_cb(ifpref, 0);
-
-	ifpref = IPV6_WIFI;
-	ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
-	if (ifr > 0) {
-		sock_addr_family_to_use = AF_INET6;
-		interface_preferred = ifpref;
-		if (connectivity_cb) connectivity_cb(ifpref, 1);
-		return;
-	}
-	if (connectivity_cb) connectivity_cb(ifpref, 0);
-
-	// We are doing IPV6_CELLULAR last for now because
-	// hole punching doesn't work on that...
-	// But it does work on IPv4 cellular
-
-	ifpref = IPV4_CELLULAR;
-	ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
-	if (ifr > 0) {
-		sock_addr_family_to_use = AF_INET;
-		interface_preferred = ifpref;
-		if (connectivity_cb) connectivity_cb(ifpref, 1);
-		return;
-	}
-	if (connectivity_cb) connectivity_cb(ifpref, 0);
-
-	ifpref = IPV6_CELLULAR;
-	ifr = get_if_addr_iOS_OSX(ifpref, &ret_addr, &size_addr, ip_str);
-	if (ifr > 0) {
-		sock_addr_family_to_use = AF_INET6;
-		interface_preferred = ifpref;
-		if (connectivity_cb) connectivity_cb(ifpref, 1);
-		return;
-	}
-	if (connectivity_cb) connectivity_cb(ifpref, 0);
-}
-
 int authn(NODE_USER_STATUS user_stat,
 	const char *usernm,
 	const char *passwd,
@@ -534,8 +580,6 @@ int authn(NODE_USER_STATUS user_stat,
 	const char *rsa_pub_key,
 	const char *rsa_pri_key,
 	unsigned char *aes_k,
-	void (*pfail)(char *),
-	void (*connectivity)(IF_ADDR_PREFFERED, int),
 	void (*rsakeypair_generated)(const char *rsa_pub_key, const char *rsa_pri_key),
 	void (*recd)(SERVER_TYPE, size_t, socklen_t, char *),
 	void (*rsa_response)(char *server_rsa_pub_key),
@@ -543,11 +587,8 @@ int authn(NODE_USER_STATUS user_stat,
 	void (*aes_response)(NODE_USER_STATUS),
 	void (*creds_check_result)(AUTHN_CREDS_CHECK_RESULT, char *username,
 		char *password, unsigned char[AUTHEN_TOKEN_LEN]),
-	void (*server_connection_failure)(SERVER_TYPE, char*),
-	void (*general)(char*, LOG_LEVEL)) {
+	void (*server_connection_failure)(SERVER_TYPE, char*)) {
 
-	pfail_cb = pfail;
-	connectivity_cb = connectivity;
 	rsakeypair_generated_cb = rsakeypair_generated;
 	recd_cb = recd;
 	rsa_response_cb = rsa_response;
@@ -555,25 +596,7 @@ int authn(NODE_USER_STATUS user_stat,
 	aes_response_cb = aes_response;
 	creds_check_result_cb = creds_check_result;
 	server_connection_failure_cb = server_connection_failure;
-	general_cb = general;
 	node_user_status = user_stat;
-
-	strcpy(apple_review_username, "apple_review");
-	strcpy(tu_01_username, "tu01");
-	strcpy(tu_02_username, "tu02");
-	strcpy(test_user_01_username, "test_user_01");
-	strcpy(test_user_02_username, "test_user_02");
-	strcpy(ipv6_test_user_01_username, "ipv6_test_user_01");
-	strcpy(ipv6_test_user_02_username, "ipv6_test_user_02");
-
-	figure_out_connectivity();
-
-	get_server_hostname(server_hostname);
-	// sprintf(server_hostname, "2001:2:0:aab1:c6cd:ccb5:4a2f:3190");
-	// sprintf(server_hostname, "2001:2::aab1:c6cd:ccb5:4a2f:3190");
-	// sprintf(server_hostname, "2001:2:0:aab1:753c:de9b:551e:44e6");
-	// sprintf(server_hostname, "fe80::887:9ece:f8e5:cd92");
-	get_server_ip_as_str(server_ip_str);
 
 	memset(username, '\0', MAX_CHARS_USERNAME);
 	if (usernm) {
@@ -833,7 +856,7 @@ void *wain_thread_routine(void *arg) {
 	// Setup server
 	char wain_port[10];
 	get_wain_port_as_str(wain_port);
-	str_to_addr(&sa_server, server_hostname, wain_port, socket_address_family(), SOCK_DGRAM, 0);
+	str_to_addr(&sa_server, the_server_hostname("main"), wain_port, socket_address_family(), SOCK_DGRAM, 0);
 	server_socklen = sa_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(sprintf, "The server %s port%s %s %u",
@@ -1189,7 +1212,7 @@ void *chat_hp_server(void *w) {
 	// Setup chat server
 	char chat_port[10];
 	get_chat_port_as_str(chat_port);
-	str_to_addr(&sa_chat_server, server_hostname, chat_port, socket_address_family(), SOCK_DGRAM, 0);
+	str_to_addr(&sa_chat_server, the_server_hostname("chat"), chat_port, socket_address_family(), SOCK_DGRAM, 0);
 	chat_server_socklen = sa_chat_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_chat_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(sprintf, "The chat server %s port%s %s chat_server_socklen(%u)",
@@ -1449,7 +1472,7 @@ void *search_thread_routine(void *arg) {
 	// Setup search server
 	char search_port[10];
 	get_search_port_as_str(search_port);
-	str_to_addr(&sa_search_server, server_hostname, search_port, socket_address_family(), SOCK_DGRAM, 0);
+	str_to_addr(&sa_search_server, the_server_hostname("search"), search_port, socket_address_family(), SOCK_DGRAM, 0);
 	search_server_socklen = sa_search_server->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN;
 	addr_to_str(sa_search_server, server_internal_ip, server_internal_port, server_internal_family);
 	sprintf(wayne, "The search server %s port%s %s %u",

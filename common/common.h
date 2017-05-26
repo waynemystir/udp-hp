@@ -175,7 +175,7 @@ void set_environment_with_logging(ENVIRONMENT env, int logging);
 ENVIRONMENT get_environment();
 void get_environment_as_str(char *);
 void get_server_hostname(char *);
-char *get_server_ip_as_str();
+char *get_server_ip_as_str(int af);
 unsigned short get_authentication_port();
 void get_authentication_port_as_str(char *);
 unsigned short get_wain_port();

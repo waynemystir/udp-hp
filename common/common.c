@@ -80,7 +80,7 @@ void get_environment_as_str(char *es) {
 void get_server_hostname(char *shn) {
 	switch (environment) {
 		case ENV_DEV: {
-			sprintf(shn, "supproto-aws.dynv6.net");
+			sprintf(shn, "supproto41.dynv6.net");
 			break;
 		}
 		case ENV_STG: {
@@ -94,15 +94,16 @@ void get_server_hostname(char *shn) {
 	}
 }
 
-char *get_server_ip_as_str() {
+char *get_server_ip_as_str(int af) {
 	switch (environment) {
 		case ENV_DEV: {
 			return NULL;
 		}
 		case ENV_STG: {
-			return "142.105.56.124";
+			return NULL;
 		}
 		case ENV_PROD: {
+			if (af == AF_INET) return "54.152.240.134";
 			return "2600:1f18:2298:1a41:2ed6:9efd:4dfc:9138";
 		}
 	}
