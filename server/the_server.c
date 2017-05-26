@@ -1397,7 +1397,7 @@ int main(int argc, char **argv) {
 	set_environment_from_str_with_logging(arg_env, 1);
 	get_environment_as_str(environment_str);
 	wlog("the_server environment is (%s)\n", environment_str);
-	server_ip_str = get_server_ip_as_str();
+	server_ip_str = get_server_ip_as_str(AF_INET6);
 	wlog("the_server server_ip_str (%s)\n", server_ip_str);
 	printf("the_server is starting...\n");
 
