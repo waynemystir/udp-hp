@@ -812,17 +812,19 @@ void *search_server_routine(void *arg) {
 				// 		goto start_switch;
 				// 	}
 				// }
-				struct sockaddr_in6 si_search_other_copy = {0};
-				memcpy(&si_search_other_copy, &si_search_other, SZ_SOCKADDR_IN6);
-				si_search_other_copy.sin6_port = buf.main_port;
+				struct sockaddr_in6 *si_search_other_copy = malloc(SZ_SOCKADDR_IN6);
+				memset(si_search_other_copy, '\0', SZ_SOCKADDR_IN6);
+				memcpy(si_search_other_copy, &si_search_other, SZ_SOCKADDR_IN6);
+				si_search_other_copy->sin6_port = buf.main_port;
 				char wa[256] = {0};
 				unsigned short wp;
 				unsigned short wf;
-				addr_to_str_short((struct sockaddr*)&si_search_other_copy, wa, &wp, &wf);
+				addr_to_str_short((struct sockaddr*)si_search_other_copy, wa, &wp, &wf);
 				wlog("SEARCH_STATUS_USERNAME-WWW-111 (%s)(%d)(%d)\n", wa, wp, wf);
 				addr_to_str_short((struct sockaddr*)&si_search_other, wa, &wp, &wf);
 				wlog("SEARCH_STATUS_USERNAME-WWW-222 (%s)(%d)(%d)\n", wa, wp, wf);
-				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)&si_search_other_copy, SERVER_SEARCH);
+				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)si_search_other_copy, SERVER_SEARCH);
+				free(si_search_other_copy);
 				if (!n) {
 					wlog("SEARCH_STATUS_USERNAME No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
