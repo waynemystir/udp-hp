@@ -21,6 +21,10 @@ int sock_addr_family_to_use;
 NODE_USER_STATUS node_user_status;
 char username[MAX_CHARS_USERNAME] = {0};
 char apple_review_username[MAX_CHARS_USERNAME] = {0};
+char tu_01_username[MAX_CHARS_USERNAME] = {0};
+char tu_02_username[MAX_CHARS_USERNAME] = {0};
+char test_user_01_username[MAX_CHARS_USERNAME] = {0};
+char test_user_02_username[MAX_CHARS_USERNAME] = {0};
 char ipv6_test_user_01_username[MAX_CHARS_USERNAME] = {0};
 char ipv6_test_user_02_username[MAX_CHARS_USERNAME] = {0};
 char password[MAX_CHARS_PASSWORD] = {0};
@@ -151,10 +155,19 @@ void pfail(char *w) {
 	if (pfail_cb) pfail_cb(w3);
 }
 
-int preferred_interface() {
-	if (strcmp(username, apple_review_username) == 0
+int is_this_a_test_user() {
+	int r = strcmp(username, apple_review_username) == 0
+		|| strcmp(username, tu_01_username) == 0
+		|| strcmp(username, tu_02_username) == 0
+		|| strcmp(username, test_user_01_username) == 0
+		|| strcmp(username, test_user_02_username) == 0
 		|| strcmp(username, ipv6_test_user_01_username) == 0
-		|| strcmp(username, ipv6_test_user_02_username) == 0) {
+		|| strcmp(username, ipv6_test_user_02_username) == 0;
+	return r;
+}
+
+int preferred_interface() {
+	if (is_this_a_test_user()) {
 		return IPV6_WIFI;
 	}
 
@@ -162,9 +175,7 @@ int preferred_interface() {
 }
 
 int socket_address_family() {
-	if (strcmp(username, apple_review_username) == 0
-		|| strcmp(username, ipv6_test_user_01_username) == 0
-		|| strcmp(username, ipv6_test_user_02_username) == 0) {
+	if (is_this_a_test_user()) {
 		return AF_INET6;
 	}
 
@@ -548,6 +559,10 @@ int authn(NODE_USER_STATUS user_stat,
 	node_user_status = user_stat;
 
 	strcpy(apple_review_username, "apple_review");
+	strcpy(tu_01_username, "tu01");
+	strcpy(tu_02_username, "tu02");
+	strcpy(test_user_01_username, "test_user_01");
+	strcpy(test_user_02_username, "test_user_02");
 	strcpy(ipv6_test_user_01_username, "ipv6_test_user_01");
 	strcpy(ipv6_test_user_02_username, "ipv6_test_user_02");
 
