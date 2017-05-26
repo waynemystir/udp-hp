@@ -148,6 +148,10 @@ void load_hashtbl_from_db() {
 	add_user(&hashtbl, "alan_turing", "at");
 	add_user(&hashtbl, "w", "w");
 	add_user(&hashtbl, "apple_review", "password_apple");
+	add_user(&hashtbl, "tu01", "i");
+	add_user(&hashtbl, "tu02", "i");
+	add_user(&hashtbl, "test_user_01", "i");
+	add_user(&hashtbl, "test_user_02", "i");
 	add_user(&hashtbl, "ipv6_test_user_01", "i");
 	add_user(&hashtbl, "ipv6_test_user_02", "i");
 
