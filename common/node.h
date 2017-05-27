@@ -111,6 +111,7 @@ extern const unsigned short EXTERNAL_ADDR;
 #define SZ_SOCKADDR sizeof(struct sockaddr)
 #define SZ_SOCKADDR_IN sizeof(struct sockaddr_in)
 #define SZ_SOCKADDR_IN6 sizeof(struct sockaddr_in6)
+#define SZ_SOCKADDR_STG sizeof(struct sockaddr_storage)
 
 char *status_to_str(STATUS_TYPE st);
 char *search_status_to_str(SEARCH_STATUS st);

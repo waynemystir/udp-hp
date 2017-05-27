@@ -242,12 +242,49 @@ void figure_out_connectivity() {
 	if (connectivity_cb) connectivity_cb(ifpref, 0);
 }
 
+void setup_self() {
+	char wes[512] = {0};
+	struct sockaddr_in6 si_me6;
+	memset(&si_me6, '\0', SZ_SOCKADDR_IN6);
+	si_me6.sin6_family = AF_INET6;
+	si_me6.sin6_port = htons(0);
+	si_me6.sin6_addr = in6addr_any;
+
+	struct sockaddr_in si_me4;
+	memset(&si_me4, '\0', SZ_SOCKADDR_IN);
+	si_me4.sin_family = AF_INET;
+	si_me4.sin_port = htons(0);
+	si_me4.sin_addr.s_addr = INADDR_ANY;
+
+	sa_self_internal = NULL;
+	self_internal = NULL;
+
+	get_if_addr_iOS_OSX(preferred_interface(), &sa_self_internal, &sz_sa_self_internal, me_internal_ip);
+
+	if (sa_self_internal) {
+		addr_to_str_short(sa_self_internal, me_internal_ip, &me_internal_port, &me_internal_family);
+		sprintf(wes, "PRE-Moi (%s)(%d)(%d)", me_internal_ip, me_internal_port, me_internal_family);
+		if (self_info_cb) self_info_cb(wes, me_internal_port, -1, me_internal_family);
+
+		addr_to_node_buf(sa_self_internal, &self_internal, STATUS_INIT_NODE, 0, username);
+	} else {
+		sa_self_internal = socket_address_family() == AF_INET6 ? (struct sockaddr*)&si_me6 : (struct sockaddr*)&si_me4;
+		addr_to_str_short(sa_self_internal, me_internal_ip, &me_internal_port, &me_internal_family);
+		sprintf(wes, "PRE-000-Moi (%s)(%d)(%d)", me_internal_ip, me_internal_port, me_internal_family);
+		if (self_info_cb) self_info_cb(wes, me_internal_port, -1, me_internal_family);
+
+		addr_to_node_buf(sa_self_internal, &self_internal, STATUS_INIT_NODE, 0, username);
+	}
+}
+
 void init(void (*pfail_cb)(char *),
 	void (*connectivity)(IF_ADDR_PREFFERED, int),
+	void (*self_info)(char *, unsigned short, unsigned short, unsigned short),
 	void (*general)(char*, LOG_LEVEL)) {
 
 	pfail_cb = pfail;
 	connectivity_cb = connectivity;
+	self_info_cb = self_info;
 	general_cb = general;
 
 	get_server_hostname(server_hostname_test);
@@ -442,6 +479,22 @@ void *authn_thread_routine(void *arg) {
 		printf("There was a problem creating the authn socket\n");
 	}
 
+	struct sockaddr_storage sa_authn_self;
+	memset(&sa_authn_self, '\0', SZ_SOCKADDR_STG);
+	memcpy(&sa_authn_self, sa_self_internal, SZ_SOCKADDR_STG);
+
+	if (sa_self_internal->sa_family == AF_INET6) {
+		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)&sa_authn_self;
+		sa6->sin6_port = htons(0);
+	} else {
+		struct sockaddr_in *sa4 = (struct sockaddr_in*)&sa_authn_self;
+		sa4->sin_port = htons(0);
+	}
+
+	int br = bind(authn_sock_fd, (struct sockaddr*)&sa_authn_self, sa_self_internal->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN);
+	if ( br == -1 ) pfail("authn bind");
+	if (socket_bound_cb) socket_bound_cb();
+
 	// Setup server
 	char auth_port[10];
 	get_authentication_port_as_str(auth_port);
@@ -551,6 +604,7 @@ void *authn_thread_routine(void *arg) {
 			case AUTHN_STATUS_CREDS_CHECK_RESULT: {
 				if (buf.authn_result == AUTHN_CREDS_CHECK_RESULT_GOOD) {
 					memcpy(authentication_token, buf.authn_token, AUTHEN_TOKEN_LEN);
+					if (self_internal) memcpy(self_internal->authn_token, authentication_token, AUTHEN_TOKEN_LEN);
 					authn_running = 0;
 					close(authn_sock_fd);
 				}
@@ -607,6 +661,8 @@ int authn(NODE_USER_STATUS user_stat,
 	if (passwd) {
 		strcpy(password, passwd);
 	}
+
+	setup_self();
 
 	if (aes_k) {
 		aes_key = malloc(NUM_BYTES_AES_KEY);
@@ -811,41 +867,6 @@ void *wain_thread_routine(void *arg) {
 	char other_family[20];
 	socklen_t other_socklen = DEFAULT_OTHER_ADDR_LEN;
 
-	// Self
-	struct sockaddr_in6 si_me6;
-	memset(&si_me6, '\0', SZ_SOCKADDR_IN6);
-	si_me6.sin6_family = AF_INET6;
-	si_me6.sin6_port = htons(0);
-	si_me6.sin6_addr = in6addr_any;
-
-	struct sockaddr_in si_me4;
-	memset(&si_me4, '\0', SZ_SOCKADDR_IN);
-	si_me4.sin_family = AF_INET;
-	si_me4.sin_port = htons(0);
-	si_me4.sin_addr.s_addr = INADDR_ANY;
-
-	sa_self_internal = NULL;
-	self_internal = NULL;
-
-	get_if_addr_iOS_OSX(preferred_interface(), &sa_self_internal, &sz_sa_self_internal, me_internal_ip);
-
-	if (sa_self_internal) {
-		addr_to_str_short(sa_self_internal, me_internal_ip, &me_internal_port, &me_internal_family);
-		sprintf(sprintf, "PRE-Moi (%s)(%d)(%d)", me_internal_ip, me_internal_port, me_internal_family);
-		if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
-
-		addr_to_node_buf(sa_self_internal, &self_internal, STATUS_INIT_NODE, 0, username);
-		memcpy(self_internal->authn_token, authentication_token, AUTHEN_TOKEN_LEN);
-	} else {
-		sa_self_internal = socket_address_family() == AF_INET6 ? (struct sockaddr*)&si_me6 : (struct sockaddr*)&si_me4;
-		addr_to_str_short(sa_self_internal, me_internal_ip, &me_internal_port, &me_internal_family);
-		sprintf(sprintf, "PRE-000-Moi (%s)(%d)(%d)", me_internal_ip, me_internal_port, me_internal_family);
-		if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
-
-		addr_to_node_buf(sa_self_internal, &self_internal, STATUS_INIT_NODE, 0, username);
-		memcpy(self_internal->authn_token, authentication_token, AUTHEN_TOKEN_LEN);
-	}
-
 	// Buffer
 	node_buf_t buf;
 	char buf_ip[INET6_ADDRSTRLEN];
@@ -871,9 +892,19 @@ void *wain_thread_routine(void *arg) {
 		printf("There was a problem creating the socket\n");
 	} else if (socket_created_cb) socket_created_cb(sock_fd);
 
-	struct sockaddr_in6 *sa_self_6 = (struct sockaddr_in6 *)sa_self_internal;
-	sa_self_6->sin6_port = htons(0);
-	int br = bind(sock_fd, sa_self_internal, sa_self_internal->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN);
+	struct sockaddr_storage sa_wain_self;
+	memset(&sa_wain_self, '\0', SZ_SOCKADDR_STG);
+	memcpy(&sa_wain_self, sa_self_internal, SZ_SOCKADDR_STG);
+
+	if (sa_self_internal->sa_family == AF_INET6) {
+		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)&sa_wain_self;
+		sa6->sin6_port = htons(0);
+	} else {
+		struct sockaddr_in *sa4 = (struct sockaddr_in*)&sa_wain_self;
+		sa4->sin_port = htons(0);
+	}
+
+	int br = bind(sock_fd, (struct sockaddr*)&sa_wain_self, sa_self_internal->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN);
 	if ( br == -1 ) pfail("bind");
 	if (socket_bound_cb) socket_bound_cb();
 
@@ -885,7 +916,7 @@ void *wain_thread_routine(void *arg) {
 	sprintf(sprintf, "Moi INTERNAL (%s)(%s)(%d)(%d)", username, me_internal_ip, me_internal_port, me_internal_family);
 	if (self_info_cb) self_info_cb(sprintf, me_internal_port, -1, me_internal_family);
 
-	self_internal->port = socket_address_family() == AF_INET6 ? si_me6.sin6_port : si_me4.sin_port;
+	self_internal->port = htons(me_internal_port);
 
 	sendto_len = sendto(sock_fd, self_internal, SZ_NODE_BF, 0, sa_server, server_socklen);
 	if (sendto_len == -1) {
@@ -1128,8 +1159,7 @@ void *wain_thread_routine(void *arg) {
 	pthread_exit("wain_thread exited normally");
 }
 
-int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned short),
-	void (*server_info)(SERVER_TYPE, char *),
+int wain(void (*server_info)(SERVER_TYPE, char *),
 	void (*socket_created)(int),
 	void (*socket_bound)(void),
 	void (*sendto_succeeded)(size_t),
@@ -1152,7 +1182,6 @@ int wain(void (*self_info)(char *, unsigned short, unsigned short, unsigned shor
 	void (*unhandled_response_from_server)(int)) {
 
 	printf("main 0 %lu\n", DEFAULT_OTHER_ADDR_LEN);
-	self_info_cb = self_info;
 	server_info_cb = server_info;
 	socket_created_cb = socket_created;
 	socket_bound_cb = socket_bound;
@@ -1196,19 +1225,6 @@ void *chat_hp_server(void *w) {
 	printf("chat_hp_server %s\n", (char *)w);
 	char sprintf[256];
 
-	// Setup self
-	struct sockaddr_in6 si_me6;
-	memset(&si_me6, '\0', SZ_SOCKADDR_IN6);
-	si_me6.sin6_family = AF_INET6;
-	si_me6.sin6_port = htons(0);
-	si_me6.sin6_addr = in6addr_any;
-
-	struct sockaddr_in si_me4;
-	memset(&si_me4, '\0', SZ_SOCKADDR_IN);
-	si_me4.sin_family = AF_INET;
-	si_me4.sin_port = htons(0);
-	si_me4.sin_addr.s_addr = INADDR_ANY;
-
 	// Setup chat server
 	char chat_port[10];
 	get_chat_port_as_str(chat_port);
@@ -1235,12 +1251,21 @@ void *chat_hp_server(void *w) {
         exit(-1);
 	} else if (socket_created_cb) socket_created_cb(chat_sock_fd);
 
-	// int br = bind(chat_sock_fd, (struct sockaddr*)sa_me_chat, SZ_SOCKADDR_IN6);
-	// if ( br == -1 ) {
-	// 	pfail("bind");
-	// 	exit(-1);
-	// }
-	// if (socket_bound_cb) socket_bound_cb();
+	struct sockaddr_storage sa_chat_self;
+	memset(&sa_chat_self, '\0', SZ_SOCKADDR_STG);
+	memcpy(&sa_chat_self, sa_self_internal, SZ_SOCKADDR_STG);
+
+	if (sa_self_internal->sa_family == AF_INET6) {
+		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)&sa_chat_self;
+		sa6->sin6_port = htons(0);
+	} else {
+		struct sockaddr_in *sa4 = (struct sockaddr_in*)&sa_chat_self;
+		sa4->sin_port = htons(0);
+	}
+
+	int br = bind(chat_sock_fd, (struct sockaddr*)&sa_chat_self, sa_self_internal->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN);
+	if ( br == -1 ) pfail("chat bind");
+	if (socket_bound_cb) socket_bound_cb();
 
 	chat_buf_t buf;
 	memset(&buf, '\0', SZ_CH_BF);
@@ -1462,13 +1487,6 @@ void *search_thread_routine(void *arg) {
 	printf("search_thread_routine %s\n", (char *)arg);
 	char wayne[256];
 
-	// Setup self
-	struct sockaddr_in si_me;
-	memset((char *) &si_me, 0, SZ_SOCKADDR_IN);
-	si_me.sin_family = AF_INET;
-	si_me.sin_port = htons(0);
-	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-
 	// Setup search server
 	char search_port[10];
 	get_search_port_as_str(search_port);
@@ -1493,6 +1511,22 @@ void *search_thread_routine(void *arg) {
 	if (search_sock_fd == -1) {
 		printf("There was a problem creating the socket\n");
 	} else if (socket_created_cb) socket_created_cb(search_sock_fd);
+
+	struct sockaddr_storage sa_search_self;
+	memset(&sa_search_self, '\0', SZ_SOCKADDR_STG);
+	memcpy(&sa_search_self, sa_self_internal, SZ_SOCKADDR_STG);
+
+	if (sa_self_internal->sa_family == AF_INET6) {
+		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)&sa_search_self;
+		sa6->sin6_port = htons(0);
+	} else {
+		struct sockaddr_in *sa4 = (struct sockaddr_in*)&sa_search_self;
+		sa4->sin_port = htons(0);
+	}
+
+	int br = bind(search_sock_fd, (struct sockaddr*)&sa_search_self, sa_self_internal->sa_family == AF_INET6 ? SZ_SOCKADDR_IN6 : SZ_SOCKADDR_IN);
+	if ( br == -1 ) pfail("search bind");
+	if (socket_bound_cb) socket_bound_cb();
 
 	search_buf_t buf;
 	memset(&buf, '\0', SZ_SRCH_BF);
