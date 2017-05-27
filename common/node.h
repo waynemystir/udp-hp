@@ -16,8 +16,6 @@
 #define ID_LEN 20
 #define IP6_ADDR_LEN 16
 
-extern int node_logit;
-
 typedef enum STATUS_TYPE {
 	STATUS_INIT_NODE = 0,
 	STATUS_NEW_NODE = 1,

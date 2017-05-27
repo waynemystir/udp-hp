@@ -600,9 +600,10 @@ void *handle_authn_accept(void *arg) {
 
 				wlog("AUTHN_STATUS_EXISTING_USER (%s)(%s)(%s)\n", creds_check_result_to_str(cr), buf.id, buf.pw);
 
-				memset(&buf, '\0', sizeof(buf));
-				buf.status = AUTHN_STATUS_CREDS_CHECK_RESULT;
-				buf.authn_result = cr;
+				authn_buf_t rbuf;
+				memset(&rbuf, '\0', SZ_AUN_BF);
+				rbuf.status = AUTHN_STATUS_CREDS_CHECK_RESULT;
+				rbuf.authn_result = cr;
 
 				if (cr == AUTHN_CREDS_CHECK_RESULT_GOOD) {
 					unsigned char authentication_token[AUTHEN_TOKEN_LEN];
@@ -620,7 +621,7 @@ void *handle_authn_accept(void *arg) {
 					wlog("AUTHN_STATUS_EXISTING_USER RAND_bytes done (%s)(%s)(%s)\n",
 						creds_check_result_to_str(cr), buf.id, buf.pw);
 
-					memcpy(buf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
+					memcpy(rbuf.authn_token, authentication_token, AUTHEN_TOKEN_LEN);
 
 					wlog("AUTHN_STATUS_EXISTING_USER memcpy authn_token done (%s)(%s)(%s)\n",
 						creds_check_result_to_str(cr), buf.id, buf.pw);
@@ -635,7 +636,7 @@ void *handle_authn_accept(void *arg) {
 				wlog("AUTHN_STATUS_EXISTING_USER about to sendto (%s)(%s)(%s)\n",
 					creds_check_result_to_str(cr), buf.id, buf.pw);
 
-				sendto_len = sendto(accepted_sock_fd, &buf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
+				sendto_len = sendto(accepted_sock_fd, &rbuf, SZ_AUN_BF, 0, (struct sockaddr*)&sa_auth_other, authn_slen);
 				if (sendto_len == -1) {
 					pfail("sendto");
 				}
@@ -823,10 +824,8 @@ void *search_server_routine(void *arg) {
 				wlog("SEARCH_STATUS_USERNAME-WWW-111 (%s)(%d)(%d)\n", wa, wp, wf);
 				addr_to_str_short((struct sockaddr*)&si_search_other, wa, &wp, &wf);
 				wlog("SEARCH_STATUS_USERNAME-WWW-222 (%s)(%d)(%d)\n", wa, wp, wf);
-				node_logit = 1;
 				node_t *n = find_node_from_sockaddr(hn->nodes, (struct sockaddr*)si_search_other_copy, SERVER_SEARCH);
 				free(si_search_other_copy);
-				node_logit = 0;
 				if (!n) {
 					wlog("SEARCH_STATUS_USERNAME No node found for addr %s %s port%d %d\n",
 						buf.id, ip_str, port, family);
