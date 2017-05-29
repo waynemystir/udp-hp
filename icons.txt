@@ -1,0 +1,9 @@
+https://stackoverflow.com/questions/12499728/create-png-jpg-file-with-commandline-on-mac
+brew install imagemagick
+
+convert -size 1024x1024 -gravity center -background white -fill black -pointsize 293 label:"Sup" sup1024.png
+
+convert -size 167x167 -gravity center -background white -fill black -pointsize 48 label:"Sup" sup167.png
+convert -size 152x152 -gravity center -background white -fill black -pointsize 44 label:"Sup" sup152.png
+convert -size 120x120 -gravity center -background white -fill black -pointsize 35 label:"Sup" sup120.png
+convert -size 76x76 -gravity center -background white -fill black -pointsize 22 label:"Sup" sup76.png

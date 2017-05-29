@@ -63,8 +63,8 @@ char me_chat_family[20];
 
 // The server
 char server_ip_str[256];
-// char server_hostname[256];
-char server_hostname_test[256];
+char server_hostname[256] = {0};
+// char server_hostname_test[256];
 struct sockaddr *sa_server;
 char server_internal_ip[INET6_ADDRSTRLEN];
 char server_internal_port[20];
@@ -184,12 +184,12 @@ int socket_address_family() {
 }
 
 char *the_server_hostname(char *s) {
+	get_server_hostname(server_hostname);
 	int f = socket_address_family();
-	char *w = get_server_ip_as_str(f);
 	char e[256] = {0};
-	sprintf(e, "***********************\nTHE_server_hostname(%s)(%d)(%s)", w, f, s);
+	sprintf(e, "***********************\nTHE_server_hostname(%s)(%d)(%s)", server_hostname, f, s);
 	if (general_cb) general_cb(e, SEVERE_LOG);
-	return w;
+	return server_hostname;
 }
 
 void figure_out_connectivity() {
@@ -287,7 +287,7 @@ void init(void (*pfail_cb)(char *),
 	self_info_cb = self_info;
 	general_cb = general;
 
-	get_server_hostname(server_hostname_test);
+	get_server_hostname(server_hostname);
 
 	strcpy(apple_review_username, "apple_review");
 	strcpy(tu_01_username, "tu01");
@@ -307,14 +307,14 @@ void init(void (*pfail_cb)(char *),
 	get_authentication_port_as_str(auth_port);
 	struct sockaddr_storage *wa = NULL;
 
-	str_to_addr((struct sockaddr**)&wa, server_hostname_test, auth_port, AF_INET6, SOCK_STREAM, 0);
+	str_to_addr((struct sockaddr**)&wa, server_hostname, auth_port, AF_INET6, SOCK_STREAM, 0);
 	addr_to_str_short((struct sockaddr*)wa, wip, &wpt, &wfm);
-	sprintf(wes, "server_hostname(%s)IPv6(%s)(%d)(%d)", server_hostname_test, wip, wpt, wfm);
+	sprintf(wes, "server_hostname(%s)IPv6(%s)(%d)(%d)", server_hostname, wip, wpt, wfm);
 	if (general_cb) general_cb(wes, SEVERE_LOG);
 
-	str_to_addr((struct sockaddr**)&wa, server_hostname_test, auth_port, AF_INET, SOCK_STREAM, 0);
+	str_to_addr((struct sockaddr**)&wa, server_hostname, auth_port, AF_INET, SOCK_STREAM, 0);
 	addr_to_str_short((struct sockaddr*)wa, wip, &wpt, &wfm);
-	sprintf(wes, "server_hostname(%s)IPv4(%s)(%d)(%d)", server_hostname_test, wip, wpt, wfm);
+	sprintf(wes, "server_hostname(%s)IPv4(%s)(%d)(%d)", server_hostname, wip, wpt, wfm);
 	if (general_cb) general_cb(wes, SEVERE_LOG);
 }
 
