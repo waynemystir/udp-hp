@@ -15,6 +15,7 @@
 
 #define ID_LEN 20
 #define IP6_ADDR_LEN 16
+#define QAD_AP_IPLEN 256
 
 typedef enum STATUS_TYPE {
 	STATUS_INIT_NODE = 0,
@@ -115,6 +116,9 @@ extern const unsigned short EXTERNAL_ADDR;
 
 char *status_to_str(STATUS_TYPE st);
 char *search_status_to_str(SEARCH_STATUS st);
+
+void qad_nap(node_t *n, SUP_FAMILY_T *sf, char *ipstr, unsigned short *port, unsigned short *chatport);
+void qad_nbap(node_buf_t *n, SUP_FAMILY_T *sf, char *ipstr, unsigned short *port, unsigned short *chatport);
 
 // node_buf_t functions
 

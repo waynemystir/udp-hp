@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 
 #include "node.h"
 
@@ -35,6 +36,75 @@ char *search_status_to_str(SEARCH_STATUS st) {
 		case SEARCH_STATUS_USERNAME: return "SEARCH_STATUS_USERNAME";
 		case SEARCH_STATUS_USERNAME_RESPONSE: return "SEARCH_STATUS_USERNAME_RESPONSE";
 		default: return "SEARCH_STATUS_UNKNOWN";
+	}
+}
+
+void qad_nap(node_t *n, SUP_FAMILY_T *sf, char *ipstr, unsigned short *port, unsigned short *chatport) {
+	if (!n) {
+		sprintf(ipstr, "QAD_NAP: node is NULL");
+		*sf = SUP_UNKNOWN;
+		*port = USHRT_MAX;
+		*chatport = USHRT_MAX;
+		return;
+	}
+
+	char blank[MAX_CHARS_USERNAME] = {0};
+	strcpy(blank, "blank");
+	node_buf_t *nb = NULL;
+	if (n->int_or_ext == INTERNAL_ADDR) {
+		node_internal_to_node_buf(n, &nb, blank);
+	} else {
+		node_external_to_node_buf(n, &nb, blank);
+	}
+
+	return qad_nbap(nb, sf, ipstr, port, chatport);
+}
+
+void qad_nbap(node_buf_t *nb, SUP_FAMILY_T *sf, char *ipstr, unsigned short *port, unsigned short *chatport) {
+	if (!nb) {
+		sprintf(ipstr, "QAD_NBAP: node_buf is NULL");
+		*sf = SUP_UNKNOWN;
+		*port = USHRT_MAX;
+		*chatport = USHRT_MAX;
+		return;
+	}
+
+	switch (nb->family) {
+		case SUP_UNKNOWN: {
+			sprintf(ipstr, "QAD_NBAP: nb->family == SUP_UNKNOWN");
+			*sf = SUP_UNKNOWN;
+			*port = USHRT_MAX;
+			*chatport = USHRT_MAX;
+			break;
+		}
+		case SUP_AF_INET_4: {
+			inet_ntop(AF_INET, &(nb->ip4), ipstr, QAD_AP_IPLEN);
+			*sf = nb->family;
+			*port = nb->port;
+			*chatport = nb->chat_port;
+			break;
+		}
+		case SUP_AF_4_via_6: {
+			inet_ntop(AF_INET6, &(nb->ip6), ipstr, QAD_AP_IPLEN);
+			*sf = nb->family;
+			*port = nb->port;
+			*chatport = nb->chat_port;
+			break;
+		}
+		case SUP_AF_INET_6: {
+			inet_ntop(AF_INET6, &(nb->ip6), ipstr, QAD_AP_IPLEN);
+			*sf = nb->family;
+			*port = nb->port;
+			*chatport = nb->chat_port;
+			break;
+		}
+		default: {
+			sprintf(ipstr, "QAD_NBAP: nb->family == (%d)", nb->family);
+			*sf = SUP_UNKNOWN;
+			*port = USHRT_MAX;
+			*chatport = USHRT_MAX;
+			break;
+		}
 	}
 }
 
@@ -398,6 +468,7 @@ void node_buf_to_node(node_buf_t *nb, node_t **n) {
 	if (!nb || !n) return;
 
 	node_t *new_node = malloc(SZ_NODE);
+	memset(new_node, '\0', SZ_NODE);
 	*n = new_node;
 	new_node->status = nb->status;
 	new_node->int_or_ext = nb->int_or_ext;

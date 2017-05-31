@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <signal.h>
+#include <arpa/inet.h>
 
 #include <openssl/rand.h>
 #include <openssl/err.h>
@@ -132,6 +133,8 @@ void (*coll_buf_cb)(char *) = NULL;
 void (*new_client_cb)(SERVER_TYPE, char *) = NULL;
 void (*confirmed_client_cb)(void) = NULL;
 void (*proceed_chat_hp_cb)(char *) = NULL;
+void (*hole_punch_thrd_cb)(char *) = NULL;
+void (*hole_punch_sent_p1_cb)(char *, int) = NULL;
 void (*hole_punch_sent_cb)(char *, int) = NULL;
 void (*contact_deinit_node_cb)(char *) = NULL;
 void (*add_contact_request_cb)(char *) = NULL;
@@ -700,6 +703,17 @@ int authn(NODE_USER_STATUS user_stat,
 
 void *hole_punch_thread(void *peer_to_hole_punch) {
 	node_t *peer = (node_t *)peer_to_hole_punch;
+
+	char wes[256] = {0};
+	SUP_FAMILY_T sf;
+	char ipstr[QAD_AP_IPLEN] = {0};
+	unsigned short port;
+	unsigned short chatport;
+	qad_nap(peer, &sf, ipstr, &port, &chatport);
+	sprintf(wes, "hole_punch_ttttttttttttttttttttttttttttthread\n(%d)(%s)(%d)(%d)",
+		sf, ipstr, ntohs(port), ntohs(chatport));
+	if (hole_punch_thrd_cb) hole_punch_thrd_cb(wes);
+
 	for (int j = 0; j < MAX_HOLE_PUNCH_RETRY_ATTEMPTS; j++) {
 		// Send (HOLE_PUNCH_RETRY_ATTEMPTS) datagrams, or until the peer
 		// is confirmed, whichever occurs first.
@@ -740,37 +754,61 @@ void send_hole_punch(node_t *peer) {
 	if (!peer) return;
 	// TODO set peer->status = STATUS_NEW_PEER?
 	// and then set back to previous status?
+
 	static int hpc = 0;
-	struct sockaddr *peer_addr;
+	char wes[256] = {0};
+	SUP_FAMILY_T sf;
+	char ipstr[QAD_AP_IPLEN] = {0};
+	unsigned short port;
+	unsigned short chatport;
+	qad_nap(peer, &sf, ipstr, &port, &chatport);
+	sprintf(wes, "send_hole_punch-1111111111111111111111111111\n (%d)(%s)(%d)(%d)",
+		sf, ipstr, ntohs(port), ntohs(chatport));
+	if (hole_punch_sent_p1_cb) hole_punch_sent_p1_cb(wes, hpc);
+	sf = SUP_UNKNOWN;
+	port = USHRT_MAX;
+	chatport = USHRT_MAX;
+	memset(ipstr, '\0', QAD_AP_IPLEN);
+
+	struct sockaddr_in sa4;
+	struct sockaddr_in6 sa6;
+	memset(&sa4, '\0', SZ_SOCKADDR_IN);
+	memset(&sa6, '\0', SZ_SOCKADDR_IN6);
+	struct sockaddr_storage *peer_addr;
 	socklen_t peer_socklen = 0;
 	SUP_FAMILY_T fam = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_family : peer->external_family;
 	switch (fam) {
 		case SUP_AF_INET_4: {
-			struct sockaddr_in sa4;
 			sa4.sin_family = AF_INET;
 			sa4.sin_addr.s_addr = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip4 : peer->external_ip4;
 			sa4.sin_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_port : peer->external_port;
 			peer_socklen = SZ_SOCKADDR_IN;
-			peer_addr = (struct sockaddr*)&sa4;
+			peer_addr = (struct sockaddr_storage*)&sa4;
+			inet_ntop(AF_INET, &(((struct sockaddr_in*)peer_addr)->sin_addr), ipstr, QAD_AP_IPLEN);
+			sprintf(wes, "send_hole_punch-2222222222222222222222222222222\n (%d)(%s)(%d)",
+				fam, ipstr, ntohs(sa4.sin_port));
+			if (hole_punch_sent_p1_cb) hole_punch_sent_p1_cb(wes, hpc);
 			break;
 		}
 		case SUP_AF_INET_6: {
 			unsigned char tip[16] = {0};
 			memcpy(tip, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6, 16);
 
-			struct sockaddr_in6 sa6;
 			sa6.sin6_family = AF_INET6;
 			memcpy(sa6.sin6_addr.s6_addr, tip, 16);
 			sa6.sin6_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_port : peer->external_port;
 			peer_socklen = SZ_SOCKADDR_IN6;
-			peer_addr = (struct sockaddr*)&sa6;
+			peer_addr = (struct sockaddr_storage*)&sa6;
+			inet_ntop(AF_INET6, &(((struct sockaddr_in6*)peer_addr)->sin6_addr), ipstr, QAD_AP_IPLEN);
+			sprintf(wes, "send_hole_punch-2222222222222222222222222222222\n (%d)(%s)(%d)",
+				fam, ipstr, ntohs(sa6.sin6_port));
+			if (hole_punch_sent_p1_cb) hole_punch_sent_p1_cb(wes, hpc);
 			break;
 		}
 		case SUP_AF_4_via_6: {
 			unsigned char tip[16] = {0};
 			memcpy(tip, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6, 16);
 
-			struct sockaddr_in sa4;
 			void *wayne = malloc(4);
 			memset(wayne, '\0', 4);
 			memcpy(wayne, &(tip[12]), 4);
@@ -779,22 +817,35 @@ void send_hole_punch(node_t *peer) {
 			sa4.sin_addr.s_addr = *(in_addr_t*)wayne;
 			sa4.sin_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_port : peer->external_port;
 			peer_socklen = SZ_SOCKADDR_IN;
-			peer_addr = (struct sockaddr*)&sa4;
+			peer_addr = (struct sockaddr_storage*)&sa4;
+			inet_ntop(AF_INET, &(((struct sockaddr_in*)peer_addr)->sin_addr), ipstr, QAD_AP_IPLEN);
+			sprintf(wes, "send_hole_punch-2222222222222222222222222222222\n (%d)(%s)(%d)",
+				fam, ipstr, ntohs(sa4.sin_port));
+			if (hole_punch_sent_p1_cb) hole_punch_sent_p1_cb(wes, hpc);
 			break;
 		}
 		default: {
 			printf("send_hole_punch, peer->family not well defined\n");
+			sa4.sin_family = AF_INET;
+			sa4.sin_addr.s_addr = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip4 : peer->external_ip4;
+			sa4.sin_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_port : peer->external_port;
+			peer_socklen = SZ_SOCKADDR_IN;
+			peer_addr = (struct sockaddr_storage*)&sa4;
+			inet_ntop(AF_INET, &(((struct sockaddr_in*)peer_addr)->sin_addr), ipstr, QAD_AP_IPLEN);
+			sprintf(wes, "send_hole_punch-2222222222222222222222222222222-BADDD\n (%d)(%s)(%d)",
+				fam, ipstr, ntohs(sa4.sin_port));
+			if (hole_punch_sent_p1_cb) hole_punch_sent_p1_cb(wes, hpc);
 			return;
 		}
 	}
 	node_buf_t *hp_buf = peer->int_or_ext == INTERNAL_ADDR ? self_internal : self_external;
-	if (sendto(sock_fd, hp_buf, SZ_NODE_BF, 0, peer_addr, peer_socklen) == -1)
+	if (sendto(sock_fd, hp_buf, SZ_NODE_BF, 0, (struct sockaddr*)peer_addr, peer_socklen) == -1)
 		pfail("send_hole_punch sendto");
 	char spf[256];
 	char pi[INET6_ADDRSTRLEN];
 	char pp[20];
 	char pf[20];
-	addr_to_str(peer_addr, pi, pp, pf);
+	addr_to_str((struct sockaddr*)peer_addr, pi, pp, pf);
 	sprintf(spf, "send_hole_punch %s %s %s\n", pi, pp, pf);
 	if (hole_punch_sent_cb) hole_punch_sent_cb(spf, ++hpc);
 }
@@ -1031,15 +1082,18 @@ void *wain_thread_routine(void *arg) {
 					node_t *new_peer_node;
 					add_node_to_contacts(&self, &buf, &new_peer_node);
 
+					SUP_FAMILY_T sf;
+					char ipstr[QAD_AP_IPLEN] = {0};
+					unsigned short port;
+					unsigned short chatport;
+					qad_nap(new_peer_node, &sf, ipstr, &port, &chatport);
 					if (new_peer_node) {
-						sprintf(sprintf, "STATUS_NEW_PEER %s p:%u added\nNow we have %d peers",
-							buf_ip,
-							ntohs(buf.port),
+						sprintf(sprintf, "STATUS_NEW_PEER(%d)(%s)(%d)(%d) added\nNow we have %d peers",
+							sf, ipstr, ntohs(port), ntohs(chatport),
 							self.contacts->count);
 					} else {
-						sprintf(sprintf, "STATUS_NEW_PEER %s p:%u already exist\nNow we have %d peers",
-							buf_ip,
-							ntohs(buf.port),
+						sprintf(sprintf, "STATUS_NEW_PEER(%d)(%s)(%d)(%d) already exist\nNow we have %d peers",
+							sf, ipstr, ntohs(port), ntohs(chatport),
 							self.contacts->count);
 					}
 					if (new_peer_cb) new_peer_cb(sprintf);
@@ -1062,11 +1116,21 @@ void *wain_thread_routine(void *arg) {
                     
 				}
 				case STATUS_PROCEED_CHAT_HP: {
-					sprintf(sprintf, "STATUS_PROCEED_CHAT_HP (%d)(%s)(%d)\nZZZZZZZZZZZZZZZZZZZZZZ",
+					sprintf(sprintf, "STATUS_PROCEED_CHAT_HP-1 (%d)(%s)(%d)\nZZZZZZZZZZZZZZZZZZZZZZ",
 						ntohs(buf.chat_port), buf.id, ntohs(buf.port));
 					if (proceed_chat_hp_cb) proceed_chat_hp_cb(sprintf);
 					node_t *cn;
 					lookup_contact_and_node_from_node_buf(self.contacts, &buf, &cn);
+
+					SUP_FAMILY_T sf;
+					char ipstr[QAD_AP_IPLEN] = {0};
+					unsigned short port;
+					unsigned short chatport;
+					qad_nap(cn, &sf, ipstr, &port, &chatport);
+					sprintf(sprintf, "STATUS_PROCEED_CHAT_HP-2 (%d)(%s)(%d)(%d)",
+						sf, ipstr, ntohs(port), ntohs(chatport));
+					if (proceed_chat_hp_cb) proceed_chat_hp_cb(sprintf);
+
 					if (cn) {
 						// TODO handle ext or int chat_port
 						cn->external_chat_port = buf.chat_port;
@@ -1174,6 +1238,8 @@ int wain(void (*server_info)(SERVER_TYPE, char *),
 	void (*contact_request_declined)(char *),
 	void (*new_peer)(char *),
 	void (*proceed_chat_hp)(char *),
+	void (*hole_punch_thrd)(char *),
+	void (*hole_punch_sent_p1)(char *, int),
 	void (*hole_punch_sent)(char *, int),
 	void (*confirmed_peer_while_punching)(SERVER_TYPE),
 	void (*from_peer)(SERVER_TYPE, char *),
@@ -1192,6 +1258,8 @@ int wain(void (*server_info)(SERVER_TYPE, char *),
 	new_client_cb = new_client;
 	confirmed_client_cb = confirmed_client;
 	proceed_chat_hp_cb = proceed_chat_hp;
+	hole_punch_thrd_cb = hole_punch_thrd;
+	hole_punch_sent_p1_cb = hole_punch_sent_p1;
 	hole_punch_sent_cb = hole_punch_sent;
 	contact_deinit_node_cb = contact_deinit_node;
 	add_contact_request_cb = add_contact_request;
@@ -1420,36 +1488,59 @@ void send_chat_hole_punch(node_t *peer) {
 	// TODO set peer->status = STATUS_NEW_PEER?
 	// and then set back to previous status?
 	static int chpc = 0;
-	struct sockaddr *peer_addr;
+	char wes[256] = {0};
+	SUP_FAMILY_T sf;
+	char ipstr[QAD_AP_IPLEN] = {0};
+	unsigned short port;
+	unsigned short chatport;
+	qad_nap(peer, &sf, ipstr, &port, &chatport);
+	sprintf(wes, "send_chat_hole_punch-1111111111111111111111111111\n (%d)(%s)(%d)(%d)",
+		sf, ipstr, ntohs(port), ntohs(chatport));
+	if (hole_punch_sent_p1_cb) hole_punch_sent_p1_cb(wes, chpc);
+	sf = SUP_UNKNOWN;
+	port = USHRT_MAX;
+	chatport = USHRT_MAX;
+	memset(ipstr, '\0', QAD_AP_IPLEN);
+
+	struct sockaddr_in sa4;
+	struct sockaddr_in6 sa6;
+	memset(&sa4, '\0', SZ_SOCKADDR_IN);
+	memset(&sa6, '\0', SZ_SOCKADDR_IN6);
+	struct sockaddr_storage *peer_addr;
 	socklen_t peer_socklen = 0;
 	SUP_FAMILY_T fam = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_family : peer->external_family;
 	switch (fam) {
 		case SUP_AF_INET_4: {
-			struct sockaddr_in sa4;
 			sa4.sin_family = AF_INET;
 			sa4.sin_addr.s_addr = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip4 : peer->external_ip4;
 			sa4.sin_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_chat_port : peer->external_chat_port;
 			peer_socklen = SZ_SOCKADDR_IN;
-			peer_addr = (struct sockaddr*)&sa4;
+			peer_addr = (struct sockaddr_storage*)&sa4;
+			inet_ntop(AF_INET, &(((struct sockaddr_in*)peer_addr)->sin_addr), ipstr, QAD_AP_IPLEN);
+			sprintf(wes, "send_chat_hole_punch-2222222222222222222222222222222\n (%d)(%s)(%d)",
+				fam, ipstr, ntohs(sa4.sin_port));
+			if (hole_punch_sent_p1_cb) hole_punch_sent_p1_cb(wes, chpc);
 			break;
 		}
 		case SUP_AF_INET_6: {
 			unsigned char tip[16] = {0};
 			memcpy(tip, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6, 16);
 
-			struct sockaddr_in6 sa6;
 			sa6.sin6_family = AF_INET6;
 			memcpy(sa6.sin6_addr.s6_addr, tip, 16);
 			sa6.sin6_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_chat_port : peer->external_chat_port;
 			peer_socklen = SZ_SOCKADDR_IN6;
-			peer_addr = (struct sockaddr*)&sa6;
+			peer_addr = (struct sockaddr_storage*)&sa6;
+			inet_ntop(AF_INET, &(((struct sockaddr_in6*)peer_addr)->sin6_addr), ipstr, QAD_AP_IPLEN);
+			sprintf(wes, "send_chat_hole_punch-2222222222222222222222222222222\n (%d)(%s)(%d)",
+				fam, ipstr, ntohs(sa6.sin6_port));
+			if (hole_punch_sent_p1_cb) hole_punch_sent_p1_cb(wes, chpc);
 			break;
 		}
 		case SUP_AF_4_via_6: {
 			unsigned char tip[16] = {0};
 			memcpy(tip, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6, 16);
 
-			struct sockaddr_in sa4;
 			void *wayne = malloc(4);
 			memset(wayne, '\0', 4);
 			memcpy(wayne, &(tip[12]), 4);
@@ -1458,27 +1549,40 @@ void send_chat_hole_punch(node_t *peer) {
 			sa4.sin_addr.s_addr = *(in_addr_t*)wayne;
 			sa4.sin_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_chat_port : peer->external_chat_port;
 			peer_socklen = SZ_SOCKADDR_IN;
-			peer_addr = (struct sockaddr*)&sa4;
+			peer_addr = (struct sockaddr_storage*)&sa4;
+			inet_ntop(AF_INET, &(((struct sockaddr_in*)peer_addr)->sin_addr), ipstr, QAD_AP_IPLEN);
+			sprintf(wes, "send_chat_hole_punch-2222222222222222222222222222222\n (%d)(%s)(%d)",
+				fam, ipstr, ntohs(sa4.sin_port));
+			if (hole_punch_sent_p1_cb) hole_punch_sent_p1_cb(wes, chpc);
 			break;
 		}
 		default: {
 			printf("send_chat_hole_punch, peer->family not well defined\n");
+			sa4.sin_family = AF_INET;
+			sa4.sin_addr.s_addr = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip4 : peer->external_ip4;
+			sa4.sin_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_port : peer->external_port;
+			peer_socklen = SZ_SOCKADDR_IN;
+			peer_addr = (struct sockaddr_storage*)&sa4;
+			inet_ntop(AF_INET, &(((struct sockaddr_in*)peer_addr)->sin_addr), ipstr, QAD_AP_IPLEN);
+			sprintf(wes, "send_chat_hole_punch-2222222222222222222222222222222-BADDD\n (%d)(%s)(%d)",
+				fam, ipstr, ntohs(sa4.sin_port));
+			if (hole_punch_sent_p1_cb) hole_punch_sent_p1_cb(wes, chpc);
 			return;
 		}
 	}
 	chat_buf_t wcb;
 	wcb.status = CHAT_STATUS_ATTEMPTING_HOLE_PUNCH;
 	wcb.family = self_external->family;
-    wcb.port = peer->int_or_ext == INTERNAL_ADDR ? self_internal->chat_port : self_external->chat_port;
+	wcb.port = peer->int_or_ext == INTERNAL_ADDR ? self_internal->chat_port : self_external->chat_port;
 	wcb.ip4 = self_external->ip4;
 
-	if (sendto(chat_sock_fd, &wcb, SZ_CH_BF, 0, peer_addr, peer_socklen) == -1)
+	if (sendto(chat_sock_fd, &wcb, SZ_CH_BF, 0, (struct sockaddr*)peer_addr, peer_socklen) == -1)
 		pfail("send_chat_hole_punch sendto");
 	char spf[256];
 	char pi[INET6_ADDRSTRLEN];
 	char pp[20];
 	char pf[20];
-	addr_to_str(peer_addr, pi, pp, pf);
+	addr_to_str((struct sockaddr*)peer_addr, pi, pp, pf);
 	sprintf(spf, "send_chat_hole_punch %s %s %s\n", pi, pp, pf);
 	if (hole_punch_sent_cb) hole_punch_sent_cb(spf, ++chpc);
 }
@@ -1648,12 +1752,15 @@ void *send_message_to_node_routine(void *arg) {
 	node_t *peer = sm->n;
 	if (!peer) pthread_exit("");
 	CHAT_STATUS cs = sm->status;
+	struct sockaddr_in sa4;
+	struct sockaddr_in6 sa6;
+	memset(&sa4, '\0', SZ_SOCKADDR_IN);
+	memset(&sa6, '\0', SZ_SOCKADDR_IN6);
 	struct sockaddr *peer_addr;
 	socklen_t peer_socklen = 0;
 	SUP_FAMILY_T fam = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_family : peer->external_family;
 	switch (fam) {
 		case SUP_AF_INET_4: {
-			struct sockaddr_in sa4;
 			sa4.sin_family = AF_INET;
 			sa4.sin_addr.s_addr = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip4 : peer->external_ip4;
 			sa4.sin_port = peer->int_or_ext == INTERNAL_ADDR ? peer->internal_chat_port : peer->external_chat_port;
@@ -1665,7 +1772,6 @@ void *send_message_to_node_routine(void *arg) {
 			unsigned char tip[16] = {0};
 			memcpy(tip, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6, 16);
 
-			struct sockaddr_in sa4;
 			void *wayne = malloc(4);
 			memset(wayne, '\0', 4);
 			memcpy(wayne, &(tip[12]), 4);
@@ -1678,7 +1784,6 @@ void *send_message_to_node_routine(void *arg) {
 			break;
 		}
 		case SUP_AF_INET_6: {
-			struct sockaddr_in6 sa6;
 			sa6.sin6_family = AF_INET6;
 			memcpy(sa6.sin6_addr.s6_addr, peer->int_or_ext == INTERNAL_ADDR ? peer->internal_ip6 : peer->external_ip6,
 				sizeof(unsigned char[16]));
