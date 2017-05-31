@@ -147,6 +147,7 @@ void load_hashtbl_from_db() {
 	add_user(&hashtbl, "mike_schmidt", "ms");
 	add_user(&hashtbl, "alan_turing", "at");
 	add_user(&hashtbl, "w", "w");
+	add_user(&hashtbl, "x", "x");
 	add_user(&hashtbl, "apple_review", "password_apple");
 	add_user(&hashtbl, "tu01", "i");
 	add_user(&hashtbl, "tu02", "i");
@@ -154,9 +155,16 @@ void load_hashtbl_from_db() {
 	add_user(&hashtbl, "test_user_02", "i");
 	add_user(&hashtbl, "ipv6_test_user_01", "i");
 	add_user(&hashtbl, "ipv6_test_user_02", "i");
+	add_user(&hashtbl, "jess", "small");
+	add_user(&hashtbl, "vic", "vic");
+
+	add_contact_to_hashtbl(&hashtbl, "w", "x");
+	add_contact_to_hashtbl(&hashtbl, "x", "w");
 
 	add_contact_to_hashtbl(&hashtbl, "apple_review", "waynemystir");
 	add_contact_to_hashtbl(&hashtbl, "apple_review", "alan_turing");
+	add_contact_to_hashtbl(&hashtbl, "jess", "waynemystir");
+	add_contact_to_hashtbl(&hashtbl, "waynemystir", "jess");
 
 	add_contact_to_hashtbl(&hashtbl, "alan_turing", "waynemystir");
 	add_contact_to_hashtbl(&hashtbl, "alan_turing", "apple_review");
@@ -256,6 +264,30 @@ void notify_existing_peer_of_new_node(node_t *existing_peer,
 	get_approp_node_bufs(existing_peer, new_node, &exip_node_buf, &new_node_buf, (char*)arg2, id_nn);
 	exip_node_buf->status = STATUS_NEW_PEER;
 	new_node_buf->status = STATUS_NEW_PEER;
+
+//	char wes[256] = {0};
+//	switch (new_node_buf->family) {
+//		case SUP_AF_INET_4: {
+//			struct sockaddr_in sa4 = {0};
+//			sa4.sin_family = AF_INET;
+//			sa4.sin_addr.s_addr = new_node_buf->ip4;
+//			inet_ntop(AF_INET, &sa4.sin_addr, wes, 256);
+//			wlog("XXXXXXXXXXXXXXXXXXXXXXXXXXXXX-444-(%d)(%s)\n", new_node_buf->family, wes);
+//			break;
+//		}
+//		case SUP_AF_4_via_6:
+//		case SUP_AF_INET_6: {
+//			struct sockaddr_in6 sa6 = {0};
+//			sa6.sin6_family = AF_INET6;
+//			memcpy(sa6.sin6_addr.s6_addr, new_node_buf->ip6, 16);
+//			inet_ntop(AF_INET6, &sa6.sin6_addr, wes, 256);
+//			wlog("XXXXXXXXXXXXXXXXXXXXXXXXXXXXX-666-(%d)(%s)\n", new_node_buf->family, wes);
+//			break;
+//		}
+//		case SUP_UNKNOWN: {
+//			wlog("XXXXXXXXXXXXXXXXXXXXXXXXXXXXX-UNKNOWN\n");
+//		}
+//	}
 
 	// And now we notify existing peer of new tail
 	wlog("notify_existing_peer_of_new_node nn-id(%s)(%d)\n", new_node_buf->id, ntohs(new_node_buf->port));
