@@ -157,6 +157,7 @@ void load_hashtbl_from_db() {
 	add_user(&hashtbl, "ipv6_test_user_02", "i");
 	add_user(&hashtbl, "jess", "small");
 	add_user(&hashtbl, "vic", "vic");
+	add_user(&hashtbl, "mcs", "mcs");
 
 	add_contact_to_hashtbl(&hashtbl, "w", "x");
 	add_contact_to_hashtbl(&hashtbl, "x", "w");

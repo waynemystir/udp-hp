@@ -1,7 +1,15 @@
 
-save costs: take down support page and apache web server
-remove stale nodes (**** see PEER REPORTING OF OTHER PEERS THAT APPEAR OFFLINE below)
-stay-in-touch with peers (and self nodes?)
+1-save costs: take down support page and apache web server
+2-peer connectivity between IPv6 and IPv4
+3-remove stale nodes (**** see PEER REPORTING OF OTHER PEERS THAT APPEAR OFFLINE below)
+	-this requires new stuff: stay-in-touch with peers (and self nodes?)
+	-remove stay-in-touch with server? or use that as well to determine online/offline status?
+4-store contact requests until accepted or declined
+	-each time a node connects for a user with a stored contact request, resend that request
+	-and obviously show a list of pending contact requests on the client
+5-thread the UDP servers (main, chat, search)... authn server is already threaded
+
+
 
 fire chat_hole_punch from case: CHAT_STATUS_ATTEMPTING_HOLE_PUNCH...
 
@@ -18,8 +26,8 @@ change keys for RSA and AES on ios app, to see if other bugs come up for generat
 		- when peer A doesn't recv n number of stay-in-touch msgs from peer B, then peer A reports peer B to the server as offline
 		- on the server, add a status for reporting other peers offline
 		- on the server, you should implement logic for actually removing a node...
-			e.g. if all of its contacts' nodes report the same thing
-			or this might be better: if x% of its contacts' nodes report the same thing
+			e.g. if all of its contacts' nodes report that the node is offline
+			or this might be better: if x% of its contacts' nodes report the node is offline
 
 pretty ios POC app
 database
